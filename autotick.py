@@ -76,14 +76,21 @@ class autotick:
         stoploss = self.__set_stoploss(self.entry_price)
         wait_till_market_open()
         try:
+            global start_time, current_time
+            start_time = time.time()
             while is_market_open():
-                lg.info("running {}".format(self.name))
+                current_time = time.time()
+                print("running {} trade bot ...".format(self.name))
+                if (current_time - start_time) >= 300:
+                    lg.info("running {} trade bot ...".format(self.name))
+
                 ret = self.strategy()
                 cur_price = self.__get_cur_price()
                 
                 if self.trade == "BUY":
-                    lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
-                    send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
+                    if (current_time - start_time) >= 300:
+                        lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
+                        send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
 
                 if (self.trade == "NA") and (ret == "BUY"):
                     lg.info("\n*************** Entering Trade ********************\n")
@@ -165,9 +172,13 @@ class autotick:
                         remove_positions(self.ticker)
 
                 else:
-                    lg.info("Doing nothing")
+                    if (current_time - start_time) >= 300:
+                        lg.info("Doing nothing")
 
                 time.sleep(self.interval)
+                if (current_time - start_time) >= 300:
+                    start_time = current_time
+
         except KeyboardInterrupt:
             lg.error("bot stop request by user")
         except Exception as err:
@@ -177,12 +188,12 @@ class autotick:
             send_to_telegram(message)
 
     def strategy(self):
-        lg.info("running simple trading strategy")
         buy_p = 0.995
 
         cur_price = self.__get_cur_price()
-        lg.info("{} < {}".format(cur_price, (buy_p * self.prev_high)))
-        send_to_telegram("{} < {}".format(cur_price, (buy_p * self.prev_high)))
+        if (current_time - start_time) >= 300:
+            lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
+            send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):
             return "BUY"
         else:
