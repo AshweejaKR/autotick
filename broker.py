@@ -19,7 +19,8 @@ delay = 1.2
 
 class broker:
     def __init__(self):
-        lg.info("broker constructor called")
+        lg.info("broker class constructor called")
+        send_to_telegram("broker class constructor called")
         
         self._instance = SmartConnect(API_KEY)
         totp = TOTP(TOTP_TOKEN).now()
@@ -29,14 +30,17 @@ class broker:
         self.instrument_list = load_instrument_list()
         if data['status'] and data['message'] == 'SUCCESS':
             lg.info('Login success ... !')
+            send_to_telegram('Login success ... !')
     
     def __del__(self):
-        lg.info("broker destructor called")
+        lg.info("broker class destructor called")
+        send_to_telegram("broker class destructor called")
         
         time.sleep(delay)
         data = self._instance.terminateSession(CLIENT_ID)
         if data['status'] and data['message'] == 'SUCCESS':
             lg.info('Logout success ... !')
+            send_to_telegram('Logout success ... !')
     
     def __get_hist(self, ticker, interval, fromdate, todate, exchange):
         params = {
@@ -72,6 +76,7 @@ class broker:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            send_to_telegram(message)
 
         return orderid
 
@@ -153,5 +158,6 @@ class broker:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            send_to_telegram(message)
 
         return status

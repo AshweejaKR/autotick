@@ -11,8 +11,9 @@ from broker import *
 # from broker_stub import *
 
 class autotick:
-    def __init__(self, ticker, exchange="NSE"):
-        lg.info("autotick constructor called")
+    def __init__(self, ticker, exchange):
+        lg.info("autotick class constructor called")
+        send_to_telegram("autotick class constructor called")
         self.name = "autotick"
         self.interval = 1
         self.trade = "NA"
@@ -30,7 +31,8 @@ class autotick:
         ltp = 0.0
         while ltp <= 1.0:
             ltp = self.obj.get_current_price(self.ticker, self.exchange)
-        lg.info("prev high: {}, prev low: {}, LTP: {}".format(self.prev_high, self.prev_low, ltp))
+        lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
+        send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
         
         data = load_positions(self.ticker)
         if data is not None:
@@ -43,9 +45,11 @@ class autotick:
                 template = "An exception of type {0} occurred. error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("ERROR: {}".format(message))
+                send_to_telegram(message)
 
     def __del__(self):
-        lg.info("autotick destructor called")
+        lg.info("autotick class destructor called")
+        send_to_telegram("autotick class destructor called")
 
     def __set_stoploss(self, entryprice, trend="long"):
         stoploss = entryprice - (entryprice * self.stoploss_p)
@@ -79,6 +83,7 @@ class autotick:
                 
                 if self.trade == "BUY":
                     lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
+                    send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
 
                 if (self.trade == "NA") and (ret == "BUY"):
                     lg.info("\n*************** Entering Trade ********************\n")
@@ -89,7 +94,7 @@ class autotick:
                     lg.info("cash available: {} ".format(amt))
                     self.quantity = int(amt / cur_price)
                     lg.info("quantity: {} ".format(self.quantity))
-                    orderid = self.obj.place_buy_order(self.ticker, self.quantity)
+                    orderid = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
                     lg.info("orderid: {} ".format(orderid))
                     status = self.obj.get_oder_status(orderid)
                     lg.info("status: {} ".format(status))
@@ -99,17 +104,25 @@ class autotick:
                                                                                                self.ticker,
                                                                                                self.quantity,
                                                                                                cur_price))
+                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("BUY",
+                                                                                               self.ticker,
+                                                                                               self.quantity,
+                                                                                               cur_price))
                         save_positions(self.ticker, self.quantity, self.trade, self.entry_price)
 
                 elif (self.trade == "BUY") and (ret == "SELL"):
                     lg.info("\n*************** Exiting Trade ********************\n")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity)
+                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("orderid: {} ".format(orderid))
                     status = self.obj.get_oder_status(orderid)
                     lg.info("status: {} ".format(status))
                     self.trade = "NA"
                     if status == 'complete':
                         lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                               self.ticker,
+                                                                                               self.quantity,
+                                                                                               cur_price))
+                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                                self.ticker,
                                                                                                self.quantity,
                                                                                                cur_price))
@@ -117,7 +130,7 @@ class autotick:
 
                 elif (self.trade == "BUY") and (cur_price > takeprofit):
                     lg.info("\n*************** Exiting Trade ********************\n")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity)
+                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("orderid: {} ".format(orderid))
                     status = self.obj.get_oder_status(orderid)
                     lg.info("status: {} ".format(status))
@@ -127,17 +140,25 @@ class autotick:
                                                                                                self.ticker,
                                                                                                self.quantity,
                                                                                                cur_price))
+                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                               self.ticker,
+                                                                                               self.quantity,
+                                                                                               cur_price))
                         remove_positions(self.ticker)
 
                 elif (self.trade == "BUY") and (cur_price < stoploss):
                     lg.info("\n*************** Exiting Trade ********************\n")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity)
+                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("orderid: {} ".format(orderid))
                     status = self.obj.get_oder_status(orderid)
                     lg.info("status: {} ".format(status))
                     self.trade = "NA"
                     if status == 'complete':
                         lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                               self.ticker,
+                                                                                               self.quantity,
+                                                                                               cur_price))
+                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                                self.ticker,
                                                                                                self.quantity,
                                                                                                cur_price))
@@ -153,6 +174,7 @@ class autotick:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            send_to_telegram(message)
 
     def strategy(self):
         lg.info("running simple trading strategy")
@@ -160,6 +182,7 @@ class autotick:
 
         cur_price = self.__get_cur_price()
         lg.info("{} < {}".format(cur_price, (buy_p * self.prev_high)))
+        send_to_telegram("{} < {}".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):
             return "BUY"
         else:

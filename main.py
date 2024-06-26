@@ -13,6 +13,7 @@ def main():
     initialize_logger()
     
     lg.info("Trading Bot running ... ! \n")
+    send_to_telegram("Trading Bot running ... ! \n")
 
     ticker = "NIFTYBEES-EQ"
     exchange = "NSE"
@@ -30,7 +31,8 @@ def main():
 
     obj.run()
 
-    lg.info("Trading bot done ...")
+    lg.info("Trading Bot done ...")
+    send_to_telegram("Trading Bot done ...")
 
 if __name__ == '__main__':
     main()

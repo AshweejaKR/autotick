@@ -132,6 +132,7 @@ class broker:
         else:
             data = read_from_json(json_path)
         ltp = float(data['data']['ltp'])
+        ltp = float(input("Current ltp: {}, Enter Modified ltp:\n".format(ltp)))
         return ltp
 
     def hist_data_daily(self, ticker, duration, exchange):

@@ -11,14 +11,21 @@ import datetime as dt
 import pytz
 import requests
 
+TOKEN = ""
+chat_id = ""
+
+try:
+    tocken_key = open("../tocken_key.txt", "r").read().split()
+    TOKEN = tocken_key[0]
+    chat_id = tocken_key[1]
+except Exception as err:
+    print(err)
 
 def send_to_telegram(message):
-    TOKEN = ""
-    chat_id = ""
     try:
         message = str(message)
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
-        # requests.get(url).json() # this sends the message
+        requests.get(url).json() # this sends the message
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
