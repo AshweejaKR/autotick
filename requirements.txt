@@ -1,0 +1,16 @@
+certifi==2024.2.2
+charset-normalizer==3.3.2
+colorama==0.4.6
+idna==3.7
+logzero==1.7.0
+numpy==1.26.4
+pandas==2.2.2
+pyotp==2.8.0
+python-dateutil==2.9.0.post0
+pytz==2023.3
+requests==2.32.2
+six==1.16.0
+smartapi-python==1.4.8
+tzdata==2024.1
+urllib3==2.2.1
+websocket-client==1.6.0
