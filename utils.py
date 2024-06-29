@@ -19,6 +19,31 @@ startTime = dt.time(9, 15)
 endTime = dt.time(15, 15)
 sleepTime = 5
 
+def save_trade_in_csv(ticker, quantity, order_type, price):
+    datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
+    filename = ticker + "_trade_report.csv"
+    pos_path = './data/'
+    currentpos_path = pos_path + filename
+    try:
+        os.mkdir(pos_path)
+    except Exception as err:
+        pass
+
+    try:
+        with open(currentpos_path) as f:
+            data = f.read()
+    except Exception as err:
+        print(err)
+        data = "datetime,ticker,quantity,order_type,price\n"
+    
+    data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "\n"
+    try:
+        with open(currentpos_path, "w") as f:
+            f.write(data)
+            f.flush()
+    except Exception as err:
+        print(err)
+
 # Function to write data to a JSON file
 def write_to_json(data, filename):
     try:

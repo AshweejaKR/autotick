@@ -81,15 +81,13 @@ class autotick:
             while is_market_open():
                 current_time = time.time()
                 print("running {} trade bot ...".format(self.name))
-                if (current_time - start_time) >= 300:
-                    lg.info("running {} trade bot ...".format(self.name))
 
                 ret = self.strategy()
                 cur_price = self.__get_cur_price()
                 
                 if self.trade == "BUY":
+                    lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
                     if (current_time - start_time) >= 300:
-                        lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
                         send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
 
                 if (self.trade == "NA") and (ret == "BUY"):
@@ -116,6 +114,7 @@ class autotick:
                                                                                                self.quantity,
                                                                                                cur_price))
                         save_positions(self.ticker, self.quantity, self.trade, self.entry_price)
+                        save_trade_in_csv(self.ticker, self.quantity, "BUY", cur_price)
 
                 elif (self.trade == "BUY") and (ret == "SELL"):
                     lg.info("\n*************** Exiting Trade ********************\n")
@@ -134,6 +133,7 @@ class autotick:
                                                                                                self.quantity,
                                                                                                cur_price))
                         remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", cur_price)
 
                 elif (self.trade == "BUY") and (cur_price > takeprofit):
                     lg.info("\n*************** Exiting Trade ********************\n")
@@ -152,6 +152,7 @@ class autotick:
                                                                                                self.quantity,
                                                                                                cur_price))
                         remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", cur_price)
 
                 elif (self.trade == "BUY") and (cur_price < stoploss):
                     lg.info("\n*************** Exiting Trade ********************\n")
@@ -170,6 +171,7 @@ class autotick:
                                                                                                self.quantity,
                                                                                                cur_price))
                         remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", cur_price)
 
                 else:
                     if (current_time - start_time) >= 300:
@@ -191,8 +193,8 @@ class autotick:
         buy_p = 0.995
 
         cur_price = self.__get_cur_price()
+        lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
         if (current_time - start_time) >= 300:
-            lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
             send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):
             return "BUY"
