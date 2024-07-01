@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 instrument_list_file.json
 /config
+/data
