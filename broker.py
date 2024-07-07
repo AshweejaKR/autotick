@@ -22,25 +22,14 @@ class broker:
         lg.info("broker class constructor called")
         send_to_telegram("broker class constructor called")
         
-        self._instance = SmartConnect(API_KEY)
-        totp = TOTP(TOTP_TOKEN).now()
-        time.sleep(delay)
-        data = self._instance.generateSession(CLIENT_ID, PASSWORD, totp)
-        self.refreshToken = data['data']['refreshToken']
+        self._instance = None
+        self.__login()
         self.instrument_list = load_instrument_list()
-        if data['status'] and data['message'] == 'SUCCESS':
-            lg.info('Login success ... !')
-            send_to_telegram('Login success ... !')
     
     def __del__(self):
         lg.info("broker class destructor called")
         send_to_telegram("broker class destructor called")
-        
-        time.sleep(delay)
-        data = self._instance.terminateSession(CLIENT_ID)
-        if data['status'] and data['message'] == 'SUCCESS':
-            lg.info('Logout success ... !')
-            send_to_telegram('Logout success ... !')
+        self.__logout()
     
     def __get_hist(self, ticker, interval, fromdate, todate, exchange):
         params = {
@@ -50,7 +39,14 @@ class broker:
             "fromdate" : fromdate,
             "todate" : todate
                     }
-        hist_data = self._instance.getCandleData(params)
+        try:
+            hist_data = self._instance.getCandleData(params)
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            hist_data = self.__get_hist(ticker, interval, fromdate, todate, exchange)
         return hist_data
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
@@ -70,7 +66,14 @@ class broker:
             }
 
             time.sleep(delay)
-            orderid = self._instance.placeOrder(params)
+            try:
+                orderid = self._instance.placeOrder(params)
+            except Exception as err:
+                template = "An exception of type {0} occurred. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("{}".format(message))
+                time.sleep(1)
+                orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
             lg.info(orderid)
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -86,6 +89,59 @@ class broker:
             lg.info('Buy order is in open, waiting ... %d ' % count)
             count = count + 1
 
+    def __get_oder_status(self):
+        try:
+            order_history_response = self._instance.orderBook()
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            order_history_response = self.__get_oder_status()
+        return order_history_response
+
+    def __get_margin(self):
+        try:
+            res = self._instance.rmsLimit()
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            res = self.__get_margin()
+        return res
+    
+    def __login(self):
+        try:
+            self._instance = SmartConnect(API_KEY)
+            totp = TOTP(TOTP_TOKEN).now()
+            time.sleep(delay)
+            data = self._instance.generateSession(CLIENT_ID, PASSWORD, totp)
+            self.refreshToken = data['data']['refreshToken']
+            if data['status'] and data['message'] == 'SUCCESS':
+                lg.info('Login success ... !')
+                send_to_telegram('Login success ... !')
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(5)
+            self.__login()
+
+    def __logout(self):
+        try:
+            time.sleep(delay)
+            data = self._instance.terminateSession(CLIENT_ID)
+            if data['status'] and data['message'] == 'SUCCESS':
+                lg.info('Logout success ... !')
+                send_to_telegram('Logout success ... !')
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(5)
+            self.__logout()
+
 ###############################################################################
     def get_user_data(self):
         res = self._instance.getProfile(self.refreshToken)
@@ -93,7 +149,7 @@ class broker:
         return res
 
     def get_margin(self):
-        res = self._instance.rmsLimit()
+        res = self.__get_margin()
         lg.debug(res)
         margin = float(res['data']['net'])
         return margin
@@ -101,8 +157,15 @@ class broker:
     def get_current_price(self, ticker, exchange):
         time.sleep(delay)
         lg.debug("GETTING LTP DATA")
-        data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
-        ltp = float(data['data']['ltp'])
+        try:
+            data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
+            ltp = float(data['data']['ltp'])
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            ltp = self.get_current_price(ticker, exchange)
         lg.debug("GETTING LTP DATA: DONE")
         return ltp
 
@@ -146,7 +209,7 @@ class broker:
 
     def get_oder_status(self, orderid):
         time.sleep(delay)
-        order_history_response = self._instance.orderBook()
+        order_history_response = self.__get_oder_status()
         status = "NA"
 
         try:
