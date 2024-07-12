@@ -4,7 +4,6 @@ Created on Fri Jun 21 20:58:12 2024
 
 @author: ashwe
 """
-import time
 
 from autotick import *
 from test import *
@@ -27,7 +26,7 @@ def main():
     
     obj = autotick(ticker, exchange)
     obj.set_stoploss(5.00)
-    obj.set_takeprofit(10.00)
+    obj.set_takeprofit(1.20)
 
     obj.run()
 
