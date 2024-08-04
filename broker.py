@@ -142,6 +142,32 @@ class broker:
             time.sleep(5)
             self.__logout()
 
+    def __get_positions(self):
+        try:
+            time.sleep(1)
+            position = self._instance.position()
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            position = self.__get_positions()
+        
+        return position
+    
+    def __get_holdings(self):
+        try:
+            time.sleep(1)
+            holdings = self._instance.holding()
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            time.sleep(1)
+            holdings = self.__get_holdings()
+        
+        return holdings
+
 ###############################################################################
     def get_user_data(self):
         res = self._instance.getProfile(self.refreshToken)
@@ -224,3 +250,62 @@ class broker:
             send_to_telegram(message)
 
         return status
+
+    def verify_position(self, sym, qty, exit=False):
+        res_positions = self.__get_positions()
+        try:
+            print("res_positions type: ", type(res_positions))
+            if 'data' in res_positions:
+                print("TRUE")
+            else:
+                print("FALSE")
+
+            for i in res_positions['data']:
+                if exit:
+                    if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:
+                        return True
+                    else:
+                        return False
+                else:
+                    if i['tradingsymbol'] == sym and int(i['buyqty']) == qty:
+                        return True
+                    else:
+                        return False
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            return False
+
+    def verify_holding(self, sym, qty):
+        res_holdings = self.__get_holdings()
+        try:
+            for i in res_holdings['data']:    
+                if i['tradingsymbol'] == sym and int(i['quantity']) == qty:
+                    return True
+                else:
+                    return False
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            return False
+
+    def get_entry_exit_price(self, sym, exit=False):
+        res_positions = self.__get_positions()
+        price = 0.0
+        try:    
+            for i in res_positions['data']:
+                if i['tradingsymbol'] == sym:
+                    if exit:
+                        price = i['sellavgprice']
+                    else:
+                        price = i['buyavgprice']
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+        return price
