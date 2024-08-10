@@ -161,3 +161,4 @@ cython_debug/
 instrument_list_file.json
 /config
 /data
+/logs

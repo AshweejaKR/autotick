@@ -23,6 +23,10 @@ class broker:
         send_to_telegram("broker class constructor called")
         
         self._instance = None
+        date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
+        logfile = 'logs/broker_api_log_' + date_time + '.txt'
+        self.broker_api_log = open(logfile, 'w')
+        self.broker_api_log.write("log file init\n")
         self.__login()
         self.instrument_list = load_instrument_list()
     
@@ -30,6 +34,9 @@ class broker:
         lg.info("broker class destructor called")
         send_to_telegram("broker class destructor called")
         self.__logout()
+        self.broker_api_log.write("log file close\n")
+        self.broker_api_log.flush()
+        self.broker_api_log.close()
     
     def __get_hist(self, ticker, interval, fromdate, todate, exchange):
         params = {
@@ -40,7 +47,11 @@ class broker:
             "todate" : todate
                     }
         try:
+            self.__log_api_data(params)
+            lg.debug(str((params)))
             hist_data = self._instance.getCandleData(params)
+            self.__log_api_data(hist_data)
+            lg.debug(str((hist_data)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -67,7 +78,11 @@ class broker:
 
             time.sleep(delay)
             try:
+                self.__log_api_data(params)
+                lg.debug(str((params)))
                 orderid = self._instance.placeOrder(params)
+                self.__log_api_data(orderid)
+                lg.debug(str((orderid)))
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
@@ -92,6 +107,8 @@ class broker:
     def __get_oder_status(self):
         try:
             order_history_response = self._instance.orderBook()
+            self.__log_api_data(order_history_response)
+            lg.debug(str((order_history_response)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -103,6 +120,8 @@ class broker:
     def __get_margin(self):
         try:
             res = self._instance.rmsLimit()
+            self.__log_api_data(res)
+            lg.debug(str((res)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -117,6 +136,8 @@ class broker:
             totp = TOTP(TOTP_TOKEN).now()
             time.sleep(delay)
             data = self._instance.generateSession(CLIENT_ID, PASSWORD, totp)
+            self.__log_api_data(data)
+            lg.debug(str((data)))
             self.refreshToken = data['data']['refreshToken']
             if data['status'] and data['message'] == 'SUCCESS':
                 lg.info('Login success ... !')
@@ -132,6 +153,8 @@ class broker:
         try:
             time.sleep(delay)
             data = self._instance.terminateSession(CLIENT_ID)
+            self.__log_api_data(data)
+            lg.debug(str((data)))
             if data['status'] and data['message'] == 'SUCCESS':
                 lg.info('Logout success ... !')
                 send_to_telegram('Logout success ... !')
@@ -146,6 +169,8 @@ class broker:
         try:
             time.sleep(1)
             position = self._instance.position()
+            self.__log_api_data(position)
+            lg.debug(str((position)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -159,6 +184,8 @@ class broker:
         try:
             time.sleep(1)
             holdings = self._instance.holding()
+            self.__log_api_data(holdings)
+            lg.debug(str((holdings)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -168,10 +195,18 @@ class broker:
         
         return holdings
 
+    def __log_api_data(self, _msg):
+        try:
+            msg = str(_msg) + "\n"
+            self.broker_api_log.write(msg)
+        except Exception:
+            pass
+
 ###############################################################################
     def get_user_data(self):
         res = self._instance.getProfile(self.refreshToken)
-        lg.debug(res)
+        self.__log_api_data(res)
+        lg.debug(str((res)))
         return res
 
     def get_margin(self):
@@ -185,6 +220,8 @@ class broker:
         lg.debug("GETTING LTP DATA")
         try:
             data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
+            self.__log_api_data(data)
+            lg.debug(str((data)))
             ltp = float(data['data']['ltp'])
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
