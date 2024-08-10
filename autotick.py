@@ -74,14 +74,22 @@ class autotick:
 ###############################################################################
 
     def set_stoploss(self, sl_p):
-        self.stoploss_p = sl_p / 100.00
+        if sl_p < 1:
+            self.stoploss_p = sl_p
+        else:
+            self.stoploss_p = sl_p / 100.00
 
     def set_takeprofit(self, tp_p):
-        self.target_p = tp_p / 100.00
+        if tp_p < 1:
+            self.target_p = tp_p
+        else:
+            self.target_p = tp_p / 100.00
 
     def run(self):
         takeprofit = self.__set_takeprofit(self.entry_price)
         stoploss = self.__set_stoploss(self.entry_price)
+        lg.info("takeprofit : {} ".format(takeprofit))
+        lg.info("stoploss : {} ".format(stoploss))
         wait_till_market_open()
         try:
             global start_time, current_time
@@ -205,7 +213,7 @@ class autotick:
                     start_time = current_time
 
         except KeyboardInterrupt:
-            lg.error("bot stop request by user")
+            lg.error("Bot stop request by user")
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)

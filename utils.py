@@ -66,6 +66,11 @@ def read_from_json(filename):
         lg.error("{}".format(message))
     return data
 
+# Function to extract values from a specific column
+def extract_column_value(df, attrb_column_name):
+    value = df.loc[df['ATTRB'] == attrb_column_name, 'VALUE'].values
+    return value[0] if len(value) > 0 else None
+
 def load_instrument_list():
     filename = "instrument_list_file.json"
     _instrument_list = read_from_json(filename)
