@@ -88,6 +88,7 @@ class autotick:
     def run(self):
         takeprofit = self.__set_takeprofit(self.entry_price)
         stoploss = self.__set_stoploss(self.entry_price)
+        lg.info("entry_price : {} ".format(self.entry_price))
         lg.info("takeprofit : {} ".format(takeprofit))
         lg.info("stoploss : {} ".format(stoploss))
         wait_till_market_open()
