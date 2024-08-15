@@ -67,9 +67,21 @@ def read_from_json(filename):
     return data
 
 # Function to extract values from a specific column
-def extract_column_value(df, attrb_column_name):
-    value = df.loc[df['ATTRB'] == attrb_column_name, 'VALUE'].values
-    return value[0] if len(value) > 0 else None
+def extract_column_value(df, attrb_column_name, value_in_list=False):
+    values = df.loc[df['ATTRB'] == attrb_column_name, 'VALUE'].values
+    if value_in_list:
+        values = values.tolist()
+        return values
+    else:
+        return values[0] if len(values) > 0 else None
+
+def extract_cell_value(df, column_name, row_name, value_in_list=False):
+    values = df.loc[df['ATTRB'] == column_name, row_name].values
+    if value_in_list:
+        values = values.tolist()
+        return values
+    else:
+        return values[0] if len(values) > 0 else None
 
 def load_instrument_list():
     filename = "instrument_list_file.json"

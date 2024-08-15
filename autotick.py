@@ -6,6 +6,8 @@ Created on Fri Jun 21 20:52:24 2024
 """
 
 import time
+import importlib
+import shutil
 
 from broker import *
 # from broker_stub import *
@@ -15,7 +17,7 @@ class autotick:
         lg.info("autotick class constructor called")
         send_to_telegram("autotick class constructor called")
         self.name = "autotick"
-        self.interval = 1
+        self.interval = 0.01
         self.trade = "NA"
         self.quantity = 0
         self.entry_price = 0.0
@@ -27,14 +29,17 @@ class autotick:
         self.obj = broker()
         self.PosOn = False
         
-        stock_data = self.obj.hist_data_daily(ticker, 4, self.exchange)
-        self.prev_high = max(stock_data.iloc[-1]['high'], stock_data.iloc[-2]['high'])
-        self.prev_low = min(stock_data.iloc[-1]['low'], stock_data.iloc[-2]['low'])
+###################### Init fun ###############################################
+        # stock_data = self.obj.hist_data_daily(ticker, 4, self.exchange)
+        # self.prev_high = max(stock_data.iloc[-1]['high'], stock_data.iloc[-2]['high'])
+        # self.prev_low = min(stock_data.iloc[-1]['low'], stock_data.iloc[-2]['low'])
+###############################################################################
+
         ltp = 0.0
         while ltp <= 1.0:
             ltp = self.obj.get_current_price(self.ticker, self.exchange)
-        lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
-        send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
+        # lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
+        # send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
         
         data = load_positions(self.ticker)
         if data is not None:
@@ -72,6 +77,21 @@ class autotick:
         return c
 
 ###############################################################################
+    def set_config_data(self, import_file, init_fun, run_fun, interval):
+        self.init_fun = init_fun
+        self.run_fun = run_fun
+        self.interval = max((interval - 1.2), self.interval)
+        print("self.interval: ", self.interval)
+
+        self.module = importlib.import_module(import_file)
+
+        for i in self.init_fun:
+            str_to_convert = i
+            exec(f"self.x = self.module.{str_to_convert}")
+        
+        exec(f"self.y = self.module.{self.run_fun}")
+
+###############################################################################
 
     def set_stoploss(self, sl_p):
         if sl_p < 1:
@@ -91,14 +111,18 @@ class autotick:
         lg.info("entry_price : {} ".format(self.entry_price))
         lg.info("takeprofit : {} ".format(takeprofit))
         lg.info("stoploss : {} ".format(stoploss))
+
         wait_till_market_open()
+        self.x()
         try:
             global start_time, current_time
             start_time = time.time()
             while is_market_open():
                 current_time = time.time()
+                lg.info("Running Bot ... ")
 
-                ret = self.strategy(self.PosOn)
+                # ret = self.strategy(self.PosOn)
+                ret = self.y()
                 cur_price = self.__get_cur_price()
                 
                 if self.trade == "BUY":
@@ -108,7 +132,6 @@ class autotick:
 
                 if (self.trade == "NA") and (ret == "BUY"):
                     lg.info("\n*************** Entering Trade ********************\n")
-                    # self.entry_price = self.__get_cur_price()
                     takeprofit = self.__set_takeprofit(self.entry_price)
                     stoploss = self.__set_stoploss(self.entry_price)
                     amt = self.obj.get_margin()
@@ -207,7 +230,7 @@ class autotick:
 
                 else:
                     if (current_time - start_time) >= 300:
-                        lg.info("Doing nothing")
+                        lg.info("Doing Nothing")
 
                 time.sleep(self.interval)
                 if (current_time - start_time) >= 300:
@@ -221,17 +244,19 @@ class autotick:
             lg.error("{}".format(message))
             send_to_telegram(message)
 
-    def strategy(self, ison):
-        buy_p = 0.995
+########################### run fun ###########################################
+    # def strategy(self, ison):
+    #     buy_p = 0.995
 
-        if not ison:
-            cur_price = self.__get_cur_price()
-            lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-            if (current_time - start_time) >= 300:
-                send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-            if cur_price < (buy_p * self.prev_high):
-                return "BUY"
-            else:
-                return "NA"
-        else:
-            return "NA"
+    #     if not ison:
+    #         cur_price = self.__get_cur_price()
+    #         lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
+    #         if (current_time - start_time) >= 300:
+    #             send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
+    #         if cur_price < (buy_p * self.prev_high):
+    #             return "BUY"
+    #         else:
+    #             return "NA"
+    #     else:
+    #         return "NA"
+###############################################################################
