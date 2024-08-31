@@ -25,6 +25,7 @@ class broker:
         self._instance = None
         date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
         logfile = 'logs/broker_api_log_' + date_time + '.txt'
+        # logfile = 'logs/broker_api_log_' + '.txt'
         self.broker_api_log = open(logfile, 'w')
         self.broker_api_log.write("log file init\n")
         self.__login()
@@ -82,14 +83,13 @@ class broker:
                 lg.debug(str((params)))
                 orderid = self._instance.placeOrder(params)
                 self.__log_api_data(orderid)
-                lg.debug(str((orderid)))
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 time.sleep(1)
                 orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
-            lg.info(orderid)
+            lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -333,7 +333,7 @@ class broker:
     def get_entry_exit_price(self, sym, exit=False):
         res_positions = self.__get_positions()
         price = 0.0
-        try:    
+        try:
             for i in res_positions['data']:
                 if i['tradingsymbol'] == sym:
                     if exit:

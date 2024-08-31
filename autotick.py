@@ -25,18 +25,27 @@ class autotick:
         self.ticker = ticker
         self.exchange = exchange
         self.obj = broker()
-        self.PosOn = False
+        self.PosOn = True
+        self.Pos_count = 0
+        self.Pos_max_count = 2 # set through config file
+        self.capital_per_trade = 5000.00 # set through config file
         
+        ############## Init call ######################################################
         stock_data = self.obj.hist_data_daily(ticker, 4, self.exchange)
         self.prev_high = max(stock_data.iloc[-1]['high'], stock_data.iloc[-2]['high'])
         self.prev_low = min(stock_data.iloc[-1]['low'], stock_data.iloc[-2]['low'])
+        ###############################################################################
+
         ltp = 0.0
         while ltp <= 1.0:
             ltp = self.obj.get_current_price(self.ticker, self.exchange)
         lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
         send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
         
-        data = load_positions(self.ticker)
+        self.Pos_count = load_trade_itr(self.ticker)
+        lg.info("Trade Count: {}".format(self.Pos_count))
+        load_ticker = self.ticker + "_" + str(self.Pos_count)
+        data = load_positions(load_ticker)
         if data is not None:
             try:
                 if ticker == data['ticker']:
@@ -47,7 +56,6 @@ class autotick:
                     if res:
                         self.trade = data['order_type']
                         self.entry_price = data['entryprice']
-                        self.PosOn = True
 
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
@@ -96,9 +104,11 @@ class autotick:
             global start_time, current_time
             start_time = time.time()
             while is_market_open():
+                lg.info("Running Trade For {}, {}".format(self.ticker, self.Pos_count))
                 current_time = time.time()
 
-                ret = self.strategy(self.PosOn)
+                if self.PosOn:
+                    ret = self.strategy()
                 cur_price = self.__get_cur_price()
                 
                 if self.trade == "BUY":
@@ -106,14 +116,13 @@ class autotick:
                     if (current_time - start_time) >= 300:
                         send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
 
-                if (self.trade == "NA") and (ret == "BUY"):
+                if self.PosOn and (ret == "BUY"):
                     lg.info("\n*************** Entering Trade ********************\n")
-                    # self.entry_price = self.__get_cur_price()
-                    takeprofit = self.__set_takeprofit(self.entry_price)
-                    stoploss = self.__set_stoploss(self.entry_price)
                     amt = self.obj.get_margin()
                     lg.info("cash available: {} ".format(amt))
-                    self.quantity = int(amt / cur_price)
+                    amt_for_trade = min(amt, self.capital_per_trade)
+                    lg.info("cash using for trade: {} ".format(amt_for_trade))
+                    self.quantity = int(amt_for_trade / cur_price)
                     lg.info("quantity: {} ".format(self.quantity))
                     orderid = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
                     lg.info("orderid: {} ".format(orderid))
@@ -130,10 +139,14 @@ class autotick:
                                                                                                cur_price))
                         res = self.obj.verify_position(self.ticker, self.quantity)
                         self.entry_price = self.obj.get_entry_exit_price(self.ticker)
+                        takeprofit = self.__set_takeprofit(self.entry_price)
+                        stoploss = self.__set_stoploss(self.entry_price)
                         lg.debug("verify_position: {} ".format(str(res)))
                         self.trade = "BUY"
-                        self.PosOn = True
-                        save_positions(self.ticker, self.quantity, self.trade, self.entry_price)
+                        self.Pos_count = self.Pos_count + 1
+                        save_ticker = self.ticker + "_" + str(self.Pos_count)
+                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price)
+                        save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
 
                 elif (self.trade == "BUY") and (ret == "SELL"):
@@ -154,9 +167,11 @@ class autotick:
                         res = self.obj.verify_position(self.ticker, self.quantity)
                         self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         lg.debug("verify_position: {} ".format(str(res)))
-                        self.trade = "NA"
-                        self.PosOn = False
-                        remove_positions(self.ticker)
+                        # self.trade = "NA"
+                        save_ticker = self.ticker + "_" + str(self.Pos_count)
+                        remove_positions(save_ticker)
+                        self.Pos_count = self.Pos_count - 1
+                        save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
 
                 elif (self.trade == "BUY") and (cur_price > takeprofit):
@@ -177,9 +192,11 @@ class autotick:
                         res = self.obj.verify_position(self.ticker, self.quantity)
                         self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         lg.debug("verify_position: {} ".format(str(res)))
-                        self.trade = "NA"
-                        self.PosOn = False
+                        # self.trade = "NA"
+                        save_ticker = self.ticker + "_" + str(self.Pos_count)
                         remove_positions(self.ticker)
+                        self.Pos_count = self.Pos_count - 1
+                        save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
 
                 elif (self.trade == "BUY") and (cur_price < stoploss):
@@ -201,8 +218,10 @@ class autotick:
                         self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         lg.debug("verify_position: {} ".format(str(res)))
                         self.trade = "NA"
-                        self.PosOn = False
+                        save_ticker = self.ticker + "_" + str(self.Pos_count)
                         remove_positions(self.ticker)
+                        self.Pos_count = self.Pos_count - 1
+                        save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
 
                 else:
@@ -213,6 +232,16 @@ class autotick:
                 if (current_time - start_time) >= 300:
                     start_time = current_time
 
+                if self.Pos_count > self.Pos_max_count:
+                    self.PosOn = False
+                else:
+                    self.PosOn = True
+
+                if self.Pos_count > 0:
+                    self.trade = "BUY"
+                else:
+                    self.trade = "NA"
+
         except KeyboardInterrupt:
             lg.error("Bot stop request by user")
         except Exception as err:
@@ -221,17 +250,14 @@ class autotick:
             lg.error("{}".format(message))
             send_to_telegram(message)
 
-    def strategy(self, ison):
+    def strategy(self):
         buy_p = 0.995
 
-        if not ison:
-            cur_price = self.__get_cur_price()
-            lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-            if (current_time - start_time) >= 300:
-                send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-            if cur_price < (buy_p * self.prev_high):
-                return "BUY"
-            else:
-                return "NA"
+        cur_price = self.__get_cur_price()
+        lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
+        if (current_time - start_time) >= 300:
+            send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
+        if cur_price < (buy_p * self.prev_high):
+            return "BUY"
         else:
             return "NA"
