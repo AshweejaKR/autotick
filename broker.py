@@ -337,9 +337,9 @@ class broker:
             for i in res_positions['data']:
                 if i['tradingsymbol'] == sym:
                     if exit:
-                        price = i['sellavgprice']
+                        price = float(i['sellavgprice'])
                     else:
-                        price = i['buyavgprice']
+                        price = float(i['buyavgprice'])
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
