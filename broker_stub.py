@@ -36,6 +36,8 @@ class broker:
         self.broker_api_log.write("log file init\n")
         self.__login()
         self.instrument_list = load_instrument_list()
+        self.__i = 0
+        self.__ltp = 0.0
     
     def __del__(self):
         lg.info("broker class destructor called")
@@ -258,6 +260,19 @@ class broker:
         except Exception:
             pass
 
+    def read_dummy_ltp(self):
+        try:
+            with open("../ltp.txt") as file:
+                data = file.readlines()
+                if self.__i > len(data) - 1:
+                    self.__i = 0
+                self.__ltp = float(data[self.__i])
+                self.__i = self.__i + 1
+        except Exception as err:
+            print(err)
+        return self.__ltp
+
+
 ###############################################################################
     def get_user_data(self):
         json_path = data_path + "getProfile.json"
@@ -288,6 +303,8 @@ class broker:
                 write_to_json(data, json_path)
             else:
                 data = read_from_json(json_path)
+                new_ltp = self.read_dummy_ltp()
+                data['data']['ltp'] = new_ltp
             self.__log_api_data(data)
             lg.debug(str((data)))
             ltp = float(data['data']['ltp'])

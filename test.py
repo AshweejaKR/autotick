@@ -19,7 +19,7 @@ def ltp_test(ticker, exchange):
             print("Current price: ", x)
             c = c + 1
 
-            if c > 2:
+            if c > 20:
                 print("THE END ...")
                 del obj
                 res = "PASS"
