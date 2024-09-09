@@ -41,27 +41,8 @@ class autotick:
             ltp = self.obj.get_current_price(self.ticker, self.exchange)
         lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
         send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
-        
-        self.Pos_count = load_trade_itr(self.ticker)
-        lg.info("Trade Count: {}".format(self.Pos_count))
-        load_ticker = self.ticker + "_" + str(self.Pos_count)
-        data = load_positions(load_ticker)
-        if data is not None:
-            try:
-                if ticker == data['ticker']:
-                    self.quantity = data['quantity']
-                    res = self.obj.verify_holding(ticker, self.quantity)
-                    lg.debug("verify_holding: {} ".format(str(res)))
 
-                    if res:
-                        self.trade = data['order_type']
-                        self.entry_price = data['entryprice']
-
-            except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
-                message = template.format(type(err).__name__, err.args)
-                lg.error("ERROR: {}".format(message))
-                send_to_telegram(message)
+        self.__load_positions()
 
     def __del__(self):
         lg.info("autotick class destructor called")
@@ -78,6 +59,28 @@ class autotick:
     def __get_cur_price(self):
         c = self.obj.get_current_price(self.ticker, self.exchange)
         return c
+
+    def __load_positions(self):
+        self.Pos_count = load_trade_itr(self.ticker)
+        lg.info("Trade Count: {}".format(self.Pos_count))
+        load_ticker = self.ticker + "_" + str(self.Pos_count)
+        data = load_positions(load_ticker)
+        if data is not None:
+            try:
+                if self.ticker == data['ticker']:
+                    self.quantity = data['quantity']
+                    res = self.obj.verify_holding(self.ticker, self.quantity)
+                    lg.debug("verify_holding: {} ".format(str(res)))
+
+                    if res:
+                        self.trade = data['order_type']
+                        self.entry_price = data['entryprice']
+
+            except Exception as err:
+                template = "An exception of type {0} occurred. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("ERROR: {}".format(message))
+                send_to_telegram(message)
 
 ###############################################################################
 
@@ -107,6 +110,19 @@ class autotick:
                 lg.info("Running Trade For {}, {}".format(self.ticker, self.Pos_count))
                 current_time = time.time()
 
+                if self.Pos_count > self.Pos_max_count:
+                    self.PosOn = False
+                else:
+                    self.PosOn = True
+
+                if self.Pos_count > 0:
+                    self.trade = "BUY"
+                else:
+                    self.trade = "NA"
+
+                self.__load_positions()
+
+                ret = "NA"
                 if self.PosOn:
                     ret = self.strategy()
                 cur_price = self.__get_cur_price()
@@ -194,7 +210,7 @@ class autotick:
                         lg.debug("verify_position: {} ".format(str(res)))
                         # self.trade = "NA"
                         save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        remove_positions(self.ticker)
+                        remove_positions(save_ticker)
                         self.Pos_count = self.Pos_count - 1
                         save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
@@ -219,7 +235,7 @@ class autotick:
                         lg.debug("verify_position: {} ".format(str(res)))
                         self.trade = "NA"
                         save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        remove_positions(self.ticker)
+                        remove_positions(save_ticker)
                         self.Pos_count = self.Pos_count - 1
                         save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
@@ -231,16 +247,6 @@ class autotick:
                 time.sleep(self.interval)
                 if (current_time - start_time) >= 300:
                     start_time = current_time
-
-                if self.Pos_count > self.Pos_max_count:
-                    self.PosOn = False
-                else:
-                    self.PosOn = True
-
-                if self.Pos_count > 0:
-                    self.trade = "BUY"
-                else:
-                    self.trade = "NA"
 
         except KeyboardInterrupt:
             lg.error("Bot stop request by user")
@@ -258,6 +264,7 @@ class autotick:
         if (current_time - start_time) >= 300:
             send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):
+            self.prev_high = cur_price
             return "BUY"
         else:
             return "NA"
