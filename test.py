@@ -5,8 +5,9 @@ Created on Fri Jun 21 23:36:16 2024
 @author: ashwe
 """
 
-# from broker import *
-from broker_stub import *
+from broker import *
+if debug:
+    from broker_stub import *
 
 def ltp_test(ticker, exchange):
     c = 0
@@ -41,33 +42,34 @@ def run_test(ticker, exchange):
     try:
         print("running the test ...")
         obj = broker()
+        qty = 2
         
         x = obj.get_current_price(ticker, exchange)
         print("Current price: ", x)
-        print("----------------------------------\n")
-    
-        x = obj.get_entry_exit_price(ticker)
-        print("Entry price: ", x)
-        print("----------------------------------\n")
-
-        x = obj.get_entry_exit_price(ticker, True)
-        print("Exit price: ", x)
         print("----------------------------------\n")
 
         amt = obj.get_margin()
         print("Available Amount: ", amt)
         print("----------------------------------\n")
         
-        oid = obj.place_buy_order(ticker, 10, exchange)
+        oid = obj.place_buy_order(ticker, qty, exchange)
         print("Order ID: ", oid)
+        print("----------------------------------\n")
+    
+        x = obj.get_entry_exit_price(ticker)
+        print("Entry price: ", x)
         print("----------------------------------\n")
 
         stat = obj.get_oder_status(oid)
         print("Order ID status: ", stat)
         print("----------------------------------\n")
         
-        oid = obj.place_sell_order(ticker, 10, exchange)
+        oid = obj.place_sell_order(ticker, qty, exchange)
         print("Order ID: ", oid)
+        print("----------------------------------\n")
+
+        x = obj.get_entry_exit_price(ticker, True)
+        print("Exit price: ", x)
         print("----------------------------------\n")
 
         stat = obj.get_oder_status(oid)

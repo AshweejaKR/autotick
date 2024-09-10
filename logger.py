@@ -65,7 +65,10 @@ def initialize_logger():
     # renaming each log depending on time Creation
     date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
     log_name = 'logger_file_' + date_time + '.log'
-    # log_name = 'logger_file.log'
+
+    if len(sys.argv) > 1:
+        log_name = 'logger_file.log'
+    
     currentlog_path = logs_path + log_name
 
     # log parameter

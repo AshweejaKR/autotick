@@ -18,6 +18,14 @@ waitTime = dt.time(8, 59)
 startTime = dt.time(9, 15)
 endTime = dt.time(15, 15)
 sleepTime = 5
+debug = 0
+
+if len(sys.argv) > 1:
+    print("U0: First argument:", sys.argv[1].upper())
+    if sys.argv[1].upper() == 'DEBUG':
+        debug = 1
+    elif sys.argv[1].upper() == 'TEST':
+        debug = 2
 
 def save_trade_in_csv(ticker, quantity, order_type, price):
     datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -143,7 +151,7 @@ def remove_positions(ticker):
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+        lg.debug("{}".format(message))
     
 def wait_till_market_open():
     while True:
@@ -153,6 +161,9 @@ def wait_till_market_open():
             return
 
         if cur_time > startTime:
+            break
+
+        if debug:
             break
 
         lg.info("Market is NOT opened waiting ... !")
@@ -175,7 +186,7 @@ def save_trade_itr(ticker, count):
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+        lg.debug("{}".format(message))
 
 def load_trade_itr(ticker):
     pos_path = './data/'
@@ -197,11 +208,14 @@ def load_trade_itr(ticker):
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+        lg.debug("{}".format(message))
     
     return count
 
 def is_market_open(mode='None'):
+    if debug:
+        return True
+
     cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
     if startTime <= cur_time <= endTime:
         return True

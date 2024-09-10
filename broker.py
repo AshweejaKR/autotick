@@ -25,7 +25,6 @@ class broker:
         self._instance = None
         date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
         logfile = 'logs/broker_api_log_' + date_time + '.txt'
-        # logfile = 'logs/broker_api_log_' + '.txt'
         self.broker_api_log = open(logfile, 'w')
         self.broker_api_log.write("log file init\n")
         self.__login()

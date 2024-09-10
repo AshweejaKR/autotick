@@ -8,7 +8,8 @@ Created on Fri Jun 21 20:52:24 2024
 import time
 
 from broker import *
-# from broker_stub import *
+if debug:
+    from broker_stub import *
 
 class autotick:
     def __init__(self, ticker, exchange):
