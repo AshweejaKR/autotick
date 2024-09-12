@@ -1,0 +1,33 @@
+{
+    "status": true,
+    "message": "SUCCESS",
+    "errorcode": "",
+    "data": {
+        "clientcode": "A123456",
+        "name": "TEST ANY NAME",
+        "email": "",
+        "mobileno": "",
+        "exchanges": [
+            "nse_fo",
+            "nse_cm",
+            "cde_fo",
+            "ncx_fo",
+            "bse_fo",
+            "bse_cm",
+            "mcx_fo"
+        ],
+        "products": [
+            "MARGIN",
+            "MIS",
+            "NRML",
+            "CNC",
+            "CO",
+            "BO"
+        ],
+        "lastlogintime": "",
+        "broker": "",
+        "jwtToken": "Bearer eyJhbGciOiJIUzUxMiJ9.eyJ1c2VybmFtZSI6IkE0OTYyMDkiLCJyb2xlcyI6MCwidXNlcnR5cGUiOiJVU0VSIiwidG9rZW4iOiJleUpoYkdjaU9pSlNVekkxTmlJc0luUjVjQ0k2SWtwWFZDSjkuZXlKMWMyVnlYM1I1Y0dVaU9pSmpiR2xsYm5RaUxDSjBiMnRsYmw5MGVYQmxJam9pZEhKaFpHVmZZV05qWlhOelgzUnZhMlZ1SWl3aVoyMWZhV1FpT2pFekxDSnpiM1Z5WTJVaU9pSXpJaXdpWkdWMmFXTmxYMmxrSWpvaU5qQTJORFkwTWpndE5tUmtNaTB6TkdVMUxUZzBaREl0WmpNeU16WTFORFkyTVdKaUlpd2lhMmxrSWpvaWRISmhaR1ZmYTJWNVgzWXhJaXdpYjIxdVpXMWhibUZuWlhKcFpDSTZNVE1zSW5CeWIyUjFZM1J6SWpwN0ltUmxiV0YwSWpwN0luTjBZWFIxY3lJNkltRmpkR2wyWlNKOWZTd2lhWE56SWpvaWRISmhaR1ZmYkc5bmFXNWZjMlZ5ZG1salpTSXNJbk4xWWlJNklrRTBPVFl5TURraUxDSmxlSEFpT2pFM01qWXdORGN3T0Rjc0ltNWlaaUk2TVRjeU5UazBOelExTVN3aWFXRjBJam94TnpJMU9UUTNORFV4TENKcWRHa2lPaUl3TkRRd05EZG1aQzA0TXpJNExUUTRNell0T0dNNU5TMDNaRFUxT0RGaU5tVmtZbVFpZlEuaXFJMTNuVVpxOC1XbWM5UUI0XzhDdi1iOEFtWVpUYWFQVVRpUUpXT01MQXM2VlNCUHd1cS12WmxDeXUzajk1RnJodHlkVjh2aWdPY1diUDAzalI0cE02V3pGV2VnZ19ueHBacXpLdDRzd1pRRmR1ZzQ5bnotdlZuM3RKSnhtRDhTdGFCOTFjWGxoUmdrdDJvMkZHS1prb3pqYk95SXRJRHR3OWh6NzNjcXhNIiwiQVBJLUtFWSI6IjF0dmZaZGkwIiwiaWF0IjoxNzI1OTQ3NTExLCJleHAiOjE3MjYwNDcwODd9.2cPPx2N2M7WYLK_n6zkg1672Y69N83jFz8W3iFjup6ufb4--a1mx3L20Z3pvycFRPLv-iHftdU1knTDaphik8Q",
+        "refreshToken": "eyJhbGciOiJIUzUxMiJ9.eyJ0b2tlbiI6IlJFRlJFU0gtVE9LRU4iLCJSRUZSRVNILVRPS0VOIjoiZXlKaGJHY2lPaUpTVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SjFjMlZ5WDNSNWNHVWlPaUpqYkdsbGJuUWlMQ0owYjJ0bGJsOTBlWEJsSWpvaWRISmhaR1ZmY21WbWNtVnphRjkwYjJ0bGJpSXNJbWR0WDJsa0lqb3dMQ0prWlhacFkyVmZhV1FpT2lJMk1EWTBOalF5T0MwMlpHUXlMVE0wWlRVdE9EUmtNaTFtTXpJek5qVTBOall4WW1JaUxDSnJhV1FpT2lKMGNtRmtaVjlyWlhsZmRqRWlMQ0p2Ylc1bGJXRnVZV2RsY21sa0lqb3dMQ0pwYzNNaU9pSnNiMmRwYmw5elpYSjJhV05sSWl3aWMzVmlJam9pUVRRNU5qSXdPU0lzSW1WNGNDSTZNVGN5TmpFeU1ETXhNU3dpYm1KbUlqb3hOekkxT1RRM05EVXhMQ0pwWVhRaU9qRTNNalU1TkRjME5URXNJbXAwYVNJNklqVTNOMkppWlRobExURXdaakF0TkdNME5DMWhaalkzTFROak9UTXhORGxoWkRFeU15SjkuWjFZdjU3ZEstd2ZOOXRPOFpUVGRRS1htRFVIdHNQU3N0YmlNQXpmQzk0VkJHc2VveFpOLWdLSEhLMHlxSUF1ZHM2RW1fSXh1c3ZRQUpmVEdXNlJqZ0UzVnVCcnBnemwxOHVuNEVnZmhnNzRTQUVOTndZcTdVU29tcEstOHNoUHV5eWx6Ri0yblEwc0lsa0JVeXZCVjFnanF5b3dRWlRPNjdSckRYTkhvaFN3IiwiaWF0IjoxNzI1OTQ3NTExfQ.W7nSg0feNCvpeptnmT5nKiL4wZl0l1x3cmC7qBjCTfDFpyJPBDebfs91jpigHthN1Br8XkmDA9ItEUPo-7ftNA",
+        "feedToken": "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VybmFtZSI6IkE0OTYyMDkiLCJpYXQiOjE3MjU5NDc1MTEsImV4cCI6MTcyNjAzMzkxMX0.hpy0M-NKgAfygLEIYaJHOpzPTM3DxuYuSq7AqGiCraeC1z1qC1mrOJ7k9gx8_8HJxgTFHTosB6QG20qmEdoyWg"
+    }
+}

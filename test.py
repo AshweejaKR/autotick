@@ -112,7 +112,105 @@ def run_test(ticker, exchange):
 
     print("test result: {}".format(res))
 
-# ticker = "NIFTYBEES-EQ"
-# exchange = "NSE"
+def VERIFY(actual, expected):
+    return (actual == expected)
+
+def stub_test(ticker, exchange):
+    print("Running the test for {}, {} ... \n".format(ticker, exchange))
+
+    res = True
+    test_done = False
+    try:
+        obj = broker()
+        qty = 2
+        
+        x = obj.get_current_price(ticker, exchange)
+        print("Current price: ", x)
+        print("----------------------------------\n")
+        res = res and VERIFY(x, 100.55)
+        print("RESULT: {} \n".format(res))
+
+        amt = obj.get_margin()
+        print("Available Amount: ", amt)
+        print("----------------------------------\n")
+        res = res and VERIFY(amt, 5001.50)
+        print("RESULT: {} \n".format(res))
+        
+        oid = obj.place_buy_order(ticker, qty, exchange)
+        print("Order ID: ", oid)
+        print("----------------------------------\n")
+        res = res and VERIFY(oid, "12345")
+        print("RESULT: {} \n".format(res))
+    
+        x = obj.get_entry_exit_price(ticker)
+        print("Entry price: ", x)
+        print("----------------------------------\n")
+        res = res and VERIFY(x, 250)
+        print("RESULT: {} \n".format(res))
+
+        stat = obj.get_oder_status(oid)
+        print("Order ID status: ", stat)
+        print("----------------------------------\n")
+        res = res and VERIFY(stat, "DONE")
+        print("RESULT: {} \n".format(res))
+        
+        oid = obj.place_sell_order(ticker, qty, exchange)
+        print("Order ID: ", oid)
+        print("----------------------------------\n")
+        res = res and VERIFY(oid, "54321")
+        print("RESULT: {} \n".format(res))
+
+        x = obj.get_entry_exit_price(ticker, True)
+        print("Exit price: ", x)
+        print("----------------------------------\n")
+        res = res and VERIFY(x, 500)
+        print("RESULT: {} \n".format(res))
+
+        stat = obj.get_oder_status(oid)
+        print("Order ID status: ", stat)
+        print("----------------------------------\n")
+        res = res and VERIFY(stat, "DONE")
+        print("RESULT: {} \n".format(res))
+        
+        # data = obj.get_user_data()
+        # print("User data: ", data)
+        # print("----------------------------------\n")
+        # res = res and VERIFY(actual, expected)
+        
+        qty = 10
+        data = obj.verify_holding(ticker, qty)
+        print("verify holding: ", data)
+        print("----------------------------------\n")
+        res = res and VERIFY(data, True)
+        print("RESULT: {} \n".format(res))
+
+        data = obj.verify_position(ticker, 2)
+        print("verify entry position: ", data)
+        print("----------------------------------\n")
+        res = res and VERIFY(data, True)
+        print("RESULT: {} \n".format(res))
+        
+        data = obj.verify_position(ticker, 2, True)
+        print("verify exit position: ", data)
+        print("----------------------------------\n")
+        res = res and VERIFY(data, True)
+        print("RESULT: {} \n".format(res))
+
+        # res = "PASS"
+        test_done = True
+    except Exception as err:
+        print(err)
+        res = "FAIL"
+
+    if (test_done):
+        print("TEST EXECUTED SUCCESFULLY & TEST RESULT: {} \n".format(res))
+    
+    else:
+        print("TEST DOES NOT EXECUTED, FAILED \n")
+
+ticker = "NIFTYBEES-EQ"
+exchange = "NSE"
 # run_test(ticker, exchange)
 # ltp_test(ticker, exchange)
+
+actual_test(ticker, exchange)

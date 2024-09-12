@@ -290,12 +290,6 @@ class broker:
     def verify_position(self, sym, qty, exit=False):
         res_positions = self.__get_positions()
         try:
-            print("res_positions type: ", type(res_positions))
-            if 'data' in res_positions:
-                print("TRUE")
-            else:
-                print("FALSE")
-
             for i in res_positions['data']:
                 if exit:
                     if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:

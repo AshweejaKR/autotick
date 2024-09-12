@@ -101,6 +101,21 @@ class broker:
                     write_to_json(orderid, json_path)
                 else:
                     orderid = read_from_json(json_path)
+                    if debug == 2:
+                        # stub buy orderID
+                        if buy_sell == "BUY":
+                            stub_file = "place_buy_order.txt"
+                            data = read_stub_data(stub_file)
+                            if data is not None:
+                                orderid = data[0]
+
+                        # stub sell orderID
+                        elif buy_sell == "SELL":
+                            stub_file = "place_sell_order.txt"
+                            data = read_stub_data(stub_file)
+                            if data is not None:
+                                orderid = data[0]
+
                 self.__log_api_data(orderid)
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
@@ -133,6 +148,36 @@ class broker:
                 write_to_json(order_history_response, json_path)
             else:
                 order_history_response = read_from_json(json_path)
+                if debug == 2:
+                    # stub order status
+                    stub_file = "get_oder_status.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in order_history_response['data']:
+                            # for buy
+                            if i['transactiontype'] == "BUY":
+                                i['status'] = data[0]
+
+                            # for sell
+                            elif i['transactiontype'] == "SELL":
+                                i['status'] = data[0]
+
+                    # stub buy orderID
+                    stub_file = "place_buy_order.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in order_history_response['data']:
+                            if i['transactiontype'] == "BUY":
+                                i['orderid'] = data[0]
+
+                    # stub sell orderID
+                    stub_file = "place_sell_order.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in order_history_response['data']:
+                            if i['transactiontype'] == "SELL":
+                                i['orderid'] = data[0]
+
             self.__log_api_data(order_history_response)
             lg.debug(str((order_history_response)))
         except Exception as err:
@@ -152,6 +197,13 @@ class broker:
                 write_to_json(res, json_path)
             else:
                 res = read_from_json(json_path)
+                if debug == 2:
+                    # stub net amt
+                    stub_file = "get_margin.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        res['data']['net'] = data[0]
+
             self.__log_api_data(res)
             lg.debug(str((res)))
         except Exception as err:
@@ -219,6 +271,28 @@ class broker:
                 write_to_json(position, json_path)
             else:
                 position = read_from_json(json_path)
+                if debug == 2:
+                    stub_file = "get_entry_exit_price.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in position['data']:
+                            # stub entry price
+                            i['buyavgprice'] = data[0]
+                            # stub exit price
+                            i['sellavgprice'] = data[1]
+                            # break
+        
+                    stub_file = "verify_position.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in position['data']:
+                            # stub symbol
+                            i['tradingsymbol'] = data[0]
+                            # stub qty
+                            i['buyqty'] = data[1]
+                            i['sellqty'] = data[1]
+                            # break
+
             self.__log_api_data(position)
             lg.debug(str((position)))
         except Exception as err:
@@ -240,6 +314,17 @@ class broker:
                 write_to_json(holdings, json_path)
             else:
                 holdings = read_from_json(json_path)
+                if debug == 2:
+                    stub_file = "verify_holding.txt"
+                    data = read_stub_data(stub_file)
+                    if data is not None:
+                        for i in holdings['data']:
+                            # stub symbol
+                            i['tradingsymbol'] = data[0]
+                            # stub qty
+                            i['quantity'] = data[1]
+                            # break
+
             self.__log_api_data(holdings)
             lg.debug(str((holdings)))
         except Exception as err:
@@ -269,7 +354,6 @@ class broker:
         except Exception as err:
             print(err)
         return self.__ltp
-
 
 ###############################################################################
     def get_user_data(self):
@@ -301,8 +385,9 @@ class broker:
                 write_to_json(data, json_path)
             else:
                 data = read_from_json(json_path)
-                new_ltp = self.read_dummy_ltp()
-                data['data']['ltp'] = new_ltp
+                if debug == 2:
+                    new_ltp = self.read_dummy_ltp()
+                    data['data']['ltp'] = new_ltp
             self.__log_api_data(data)
             lg.debug(str((data)))
             ltp = float(data['data']['ltp'])
@@ -371,12 +456,6 @@ class broker:
     def verify_position(self, sym, qty, exit=False):
         res_positions = self.__get_positions()
         try:
-            print("res_positions type: ", type(res_positions))
-            if 'data' in res_positions:
-                print("TRUE")
-            else:
-                print("FALSE")
-
             for i in res_positions['data']:
                 if exit:
                     if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:

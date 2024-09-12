@@ -19,13 +19,35 @@ startTime = dt.time(9, 15)
 endTime = dt.time(15, 15)
 sleepTime = 5
 debug = 0
+debug_mode = ["LIVE", "DEBUG", "TEST"]
+
+config_path = 'config/'
+key_file = config_path + "debug_mode.txt"
 
 if len(sys.argv) > 1:
-    print("U0: First argument:", sys.argv[1].upper())
-    if sys.argv[1].upper() == 'DEBUG':
+    if sys.argv[1].upper() == 'LIVE':
+        debug = 0
+    elif sys.argv[1].upper() == 'DEBUG':
         debug = 1
     elif sys.argv[1].upper() == 'TEST':
         debug = 2
+    else:
+        debug = 0
+    
+    try:
+        with open(key_file, "w") as f:
+            f.write(f'{debug}')
+            f.flush()
+            f.close()
+    except Exception as err:
+        print(err)
+
+try:
+    debug = int(open(key_file, "r").read())
+except Exception as err:
+    print(err)
+
+print("TRADING BOT MODE: {} \n".format(debug_mode[debug]))
 
 def save_trade_in_csv(ticker, quantity, order_type, price):
     datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -221,3 +243,14 @@ def is_market_open(mode='None'):
         return True
     else:
         return False
+
+def read_stub_data(file_name):
+    config_path = '../'
+    key_file = config_path + file_name
+    data = None
+    try:
+        data = open(key_file, "r").read().split()
+    except Exception as err:
+        print(err)
+    
+    return data
