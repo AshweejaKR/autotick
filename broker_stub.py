@@ -102,19 +102,21 @@ class broker:
                 else:
                     orderid = read_from_json(json_path)
                     if debug == 2:
-                        # stub buy orderID
-                        if buy_sell == "BUY":
-                            stub_file = "place_buy_order.txt"
-                            data = read_stub_data(stub_file)
-                            if data is not None:
-                                orderid = data[0]
+                        try:
+                            # stub buy orderID
+                            if buy_sell == "BUY":
+                                stub_file = "place_buy_order.txt"
+                                data = read_stub_data(stub_file)
+                                if data is not None:
+                                    orderid = data[0]
 
-                        # stub sell orderID
-                        elif buy_sell == "SELL":
-                            stub_file = "place_sell_order.txt"
-                            data = read_stub_data(stub_file)
-                            if data is not None:
-                                orderid = data[0]
+                            # stub sell orderID
+                            elif buy_sell == "SELL":
+                                stub_file = "place_sell_order.txt"
+                                data = read_stub_data(stub_file)
+                                if data is not None:
+                                    orderid = data[0]
+                        except Exception: pass
 
                 self.__log_api_data(orderid)
             except Exception as err:
@@ -149,18 +151,20 @@ class broker:
             else:
                 order_history_response = read_from_json(json_path)
                 if debug == 2:
-                    # stub order status
-                    stub_file = "get_oder_status.txt"
-                    data = read_stub_data(stub_file)
-                    if data is not None:
-                        for i in order_history_response['data']:
-                            # for buy
-                            if i['transactiontype'] == "BUY":
-                                i['status'] = data[0]
+                    try:
+                        # stub order status
+                        stub_file = "get_oder_status.txt"
+                        data = read_stub_data(stub_file)
+                        if data is not None:
+                            for i in order_history_response['data']:
+                                # for buy
+                                if i['transactiontype'] == "BUY":
+                                    i['status'] = data[0]
 
-                            # for sell
-                            elif i['transactiontype'] == "SELL":
-                                i['status'] = data[0]
+                                # for sell
+                                elif i['transactiontype'] == "SELL":
+                                    i['status'] = data[0]
+                    except Exception: pass
 
                     # stub buy orderID
                     stub_file = "place_buy_order.txt"
@@ -198,11 +202,13 @@ class broker:
             else:
                 res = read_from_json(json_path)
                 if debug == 2:
-                    # stub net amt
-                    stub_file = "get_margin.txt"
-                    data = read_stub_data(stub_file)
-                    if data is not None:
-                        res['data']['net'] = data[0]
+                    try:
+                        # stub net amt
+                        stub_file = "get_margin.txt"
+                        data = read_stub_data(stub_file)
+                        if data is not None:
+                            res['data']['net'] = data[0]
+                    except Exception: pass
 
             self.__log_api_data(res)
             lg.debug(str((res)))
@@ -272,26 +278,28 @@ class broker:
             else:
                 position = read_from_json(json_path)
                 if debug == 2:
-                    stub_file = "get_entry_exit_price.txt"
-                    data = read_stub_data(stub_file)
-                    if data is not None:
-                        for i in position['data']:
-                            # stub entry price
-                            i['buyavgprice'] = data[0]
-                            # stub exit price
-                            i['sellavgprice'] = data[1]
-                            # break
-        
-                    stub_file = "verify_position.txt"
-                    data = read_stub_data(stub_file)
-                    if data is not None:
-                        for i in position['data']:
-                            # stub symbol
-                            i['tradingsymbol'] = data[0]
-                            # stub qty
-                            i['buyqty'] = data[1]
-                            i['sellqty'] = data[1]
-                            # break
+                    try:
+                        stub_file = "get_entry_exit_price.txt"
+                        data = read_stub_data(stub_file)
+                        if data is not None:
+                            for i in position['data']:
+                                # stub entry price
+                                # i['buyavgprice'] = data[0]
+                                i['buyavgprice'] = self.read_dummy_ltp()
+                                # stub exit price
+                                # i['sellavgprice'] = data[1]
+                                i['sellavgprice'] = self.read_dummy_ltp()
+            
+                        stub_file = "verify_position.txt"
+                        data = read_stub_data(stub_file)
+                        if data is not None:
+                            for i in position['data']:
+                                # stub symbol
+                                i['tradingsymbol'] = data[0]
+                                # stub qty
+                                i['buyqty'] = data[1]
+                                i['sellqty'] = data[1]
+                    except Exception: pass
 
             self.__log_api_data(position)
             lg.debug(str((position)))
@@ -315,15 +323,16 @@ class broker:
             else:
                 holdings = read_from_json(json_path)
                 if debug == 2:
-                    stub_file = "verify_holding.txt"
-                    data = read_stub_data(stub_file)
-                    if data is not None:
-                        for i in holdings['data']:
-                            # stub symbol
-                            i['tradingsymbol'] = data[0]
-                            # stub qty
-                            i['quantity'] = data[1]
-                            # break
+                    try:
+                        stub_file = "verify_holding.txt"
+                        data = read_stub_data(stub_file)
+                        if data is not None:
+                            for i in holdings['data']:
+                                # stub symbol
+                                i['tradingsymbol'] = data[0]
+                                # stub qty
+                                i['quantity'] = data[1]
+                    except Exception: pass
 
             self.__log_api_data(holdings)
             lg.debug(str((holdings)))
@@ -386,8 +395,10 @@ class broker:
             else:
                 data = read_from_json(json_path)
                 if debug == 2:
-                    new_ltp = self.read_dummy_ltp()
-                    data['data']['ltp'] = new_ltp
+                    try:
+                        new_ltp = self.read_dummy_ltp()
+                        data['data']['ltp'] = new_ltp
+                    except Exception: pass
             self.__log_api_data(data)
             lg.debug(str((data)))
             ltp = float(data['data']['ltp'])

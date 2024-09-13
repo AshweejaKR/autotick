@@ -8,7 +8,6 @@ import pandas as pd
 import os
 
 from autotick import *
-from test import *
 
 global ticker, exchange, target, stoploss
 

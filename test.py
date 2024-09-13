@@ -196,7 +196,6 @@ def stub_test(ticker, exchange):
         res = res and VERIFY(data, True)
         print("RESULT: {} \n".format(res))
 
-        # res = "PASS"
         test_done = True
     except Exception as err:
         print(err)
@@ -210,7 +209,7 @@ def stub_test(ticker, exchange):
 
 ticker = "NIFTYBEES-EQ"
 exchange = "NSE"
-# run_test(ticker, exchange)
-# ltp_test(ticker, exchange)
+run_test(ticker, exchange)
+ltp_test(ticker, exchange)
 
-actual_test(ticker, exchange)
+stub_test(ticker, exchange)

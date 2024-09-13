@@ -71,6 +71,11 @@ def initialize_logger():
     
     currentlog_path = logs_path + log_name
 
+    if len(sys.argv) > 1:
+        try:
+            os.remove(currentlog_path)
+        except Exception: pass
+
     # log parameter
     lg.basicConfig(filename = currentlog_path, format = '%(asctime)s {%(pathname)s:%(lineno)d} [%(threadName)s] - %(levelname)s: %(message)s', level = lg.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 
