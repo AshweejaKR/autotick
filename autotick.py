@@ -103,9 +103,12 @@ class autotick:
     def run(self):
         takeprofit = self.__set_takeprofit(self.entry_price)
         stoploss = self.__set_stoploss(self.entry_price)
-        lg.info("entry_price : {} ".format(self.entry_price))
-        lg.info("takeprofit : {} ".format(takeprofit))
-        lg.info("stoploss : {} ".format(stoploss))
+        lg.info("Ticker Name : {} ".format(self.ticker))
+        lg.info("Entry Price : {} ".format(self.entry_price))
+        lg.info("Quantity : {} ".format(self.quantity))
+        lg.info("Target Price : {} ".format(takeprofit))
+        lg.info("Stoploss Price : {} ".format(stoploss))
+        lg.info("Iteration Count : {} ".format(self.Pos_count))
         wait_till_market_open()
         try:
             global start_time, current_time
