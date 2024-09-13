@@ -312,7 +312,7 @@ class broker:
         res_holdings = self.__get_holdings()
         try:
             for i in res_holdings['data']:    
-                if i['tradingsymbol'] == sym and int(i['quantity']) == qty:
+                if i['tradingsymbol'] == sym and int(i['quantity']) >= qty:
                     return True
                 else:
                     return False
