@@ -109,31 +109,34 @@ class autotick:
     def trail_SL(self, stoploss, trigger, cur_price, trail_percent):
         print("Trailing the SL ...")
         
-        # If the current price is above the trigger point, adjust the stoploss
-        if cur_price > trigger:
-            # new target price
-            trigger = self.__set_takeprofit(cur_price)
-        
-        # Calculate the new stoploss based on trail percentage
-        new_stoploss = cur_price * (1 - trail_percent / 100)
-
         lg.info("cur_price : {} ".format(cur_price))
         lg.info("trigger : {} ".format(trigger))
         lg.info("Stoploss : {} ".format(stoploss))
-        lg.info("new_stoploss : {} ".format(new_stoploss))
         lg.info("trail_percent : {} ".format(trail_percent))
+    
+        # If the current price is above the trigger point, adjust the stoploss
+        if cur_price > trigger:
+            # new target price
+            new_stoploss = cur_price * (1 - trail_percent / 100)
+            new_target = self.__set_takeprofit(cur_price)
         
-        # Only update the stoploss if the new stoploss is greater than the current one
-        if new_stoploss > stoploss:
-            stoploss = new_stoploss
-            print(f"Stoploss updated to: {stoploss}")
-        else:
-            print(f"Stoploss remains unchanged: {stoploss}")
+            lg.info("new_stoploss : {} ".format(new_stoploss))
+        
+            # Only update the stoploss if the new stoploss is greater than the current one
+            if new_stoploss > stoploss:
+                stoploss = new_stoploss
+                print(f"Stoploss updated to: {stoploss}")
+            else:
+                print(f"Stoploss remains unchanged: {stoploss}")
 
-        self.target_price = trigger
+            if new_target > self.target_price:
+                self.target_price = new_target
+        
+        else:
+            print(f"Current price {cur_price} has not reached trigger {trigger}. Stoploss remains at {stoploss}")
+
         self.stoploss_price = stoploss
         return stoploss
-
 
     def run(self):
         takeprofit = self.target_price
@@ -180,7 +183,8 @@ class autotick:
 
                 if self.trade == "BUY":
                     trail_percent = 1
-                    self.trail_SL(stoploss, takeprofit, cur_price, trail_percent)
+                    trigger = self.__set_takeprofit(self.entry_price)
+                    self.trail_SL(stoploss, trigger, cur_price, trail_percent)
                     takeprofit = self.target_price
                     stoploss = self.stoploss_price
 
