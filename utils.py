@@ -134,7 +134,7 @@ def symbol_lookup(token, instrument_list, exchange):
             if instrument["token"] == token and instrument["exch_seg"] == exchange:
                 return instrument["symbol"]
 
-def save_positions(filename, ticker, quantity, order_type, entryprice):
+def save_positions(filename, ticker, quantity, order_type, entryprice, stoploss, takeprofit):
     pos_path = './data/'
     try:
         os.mkdir(pos_path)
@@ -148,6 +148,8 @@ def save_positions(filename, ticker, quantity, order_type, entryprice):
         "quantity" : quantity,
         "order_type" : order_type,
         "entryprice" : entryprice,
+        "stoploss" : stoploss,
+        "takeprofit" : takeprofit,
     }
 
     write_to_json(data, currentpos_path)

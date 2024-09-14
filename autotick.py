@@ -5,6 +5,8 @@ Created on Fri Jun 21 20:52:24 2024
 @author: ashwe
 """
 
+tel_time = 300
+
 import time
 
 from broker import *
@@ -20,6 +22,8 @@ class autotick:
         self.trade = "NA"
         self.quantity = 0
         self.entry_price = 0.0
+        self.target_price = 9999.99
+        self.stoploss_price = 0.0
         self.exit_price = 0.0
         self.stoploss_p = 1.0
         self.target_p = 2.0
@@ -79,6 +83,8 @@ class autotick:
                     if res:
                         self.trade = data['order_type']
                         self.entry_price = data['entryprice']
+                        self.stoploss_price = data['stoploss']
+                        self.target_price = data['takeprofit']
 
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
@@ -100,9 +106,38 @@ class autotick:
         else:
             self.target_p = tp_p / 100.00
 
+    def trail_SL(self, stoploss, trigger, cur_price, trail_percent):
+        print("Trailing the SL ...")
+        
+        # If the current price is above the trigger point, adjust the stoploss
+        if cur_price > trigger:
+            # new target price
+            trigger = self.__set_takeprofit(cur_price)
+        
+        # Calculate the new stoploss based on trail percentage
+        new_stoploss = cur_price * (1 - trail_percent / 100)
+
+        lg.info("cur_price : {} ".format(cur_price))
+        lg.info("trigger : {} ".format(trigger))
+        lg.info("Stoploss : {} ".format(stoploss))
+        lg.info("new_stoploss : {} ".format(new_stoploss))
+        lg.info("trail_percent : {} ".format(trail_percent))
+        
+        # Only update the stoploss if the new stoploss is greater than the current one
+        if new_stoploss > stoploss:
+            stoploss = new_stoploss
+            print(f"Stoploss updated to: {stoploss}")
+        else:
+            print(f"Stoploss remains unchanged: {stoploss}")
+
+        self.target_price = trigger
+        self.stoploss_price = stoploss
+        return stoploss
+
+
     def run(self):
-        takeprofit = self.__set_takeprofit(self.entry_price)
-        stoploss = self.__set_stoploss(self.entry_price)
+        takeprofit = self.target_price
+        stoploss = self.stoploss_price
         lg.info("Ticker Name : {} ".format(self.ticker))
         lg.info("Entry Price : {} ".format(self.entry_price))
         lg.info("Quantity : {} ".format(self.quantity))
@@ -110,12 +145,21 @@ class autotick:
         lg.info("Stoploss Price : {} ".format(stoploss))
         lg.info("Iteration Count : {} ".format(self.Pos_count))
         wait_till_market_open()
+
+        message = "Running Trade For {}, Itr Count : {}".format(self.ticker, self.Pos_count)
+        send_to_telegram(message)
+        lg.info(message)
+
         try:
             global start_time, current_time
             start_time = time.time()
             while is_market_open():
                 lg.info("Running Trade For {}, {}".format(self.ticker, self.Pos_count))
                 current_time = time.time()
+
+                if (current_time - start_time) >= tel_time:
+                    message = "Running Trade For {}, Itr Count : {}".format(self.ticker, self.Pos_count)
+                    send_to_telegram(message)
 
                 if self.Pos_count > self.Pos_max_count:
                     self.PosOn = False
@@ -128,17 +172,21 @@ class autotick:
                     self.trade = "NA"
 
                 self.__load_positions()
-                takeprofit = self.__set_takeprofit(self.entry_price)
-                stoploss = self.__set_stoploss(self.entry_price)
 
                 ret = "NA"
                 if self.PosOn:
                     ret = self.strategy()
                 cur_price = self.__get_cur_price()
-                
+
+                if self.trade == "BUY":
+                    trail_percent = 1
+                    self.trail_SL(stoploss, takeprofit, cur_price, trail_percent)
+                    takeprofit = self.target_price
+                    stoploss = self.stoploss_price
+
                 if self.trade == "BUY":
                     lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
-                    if (current_time - start_time) >= 300:
+                    if (current_time - start_time) >= tel_time:
                         send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
 
                 if self.PosOn and (ret == "BUY"):
@@ -170,7 +218,7 @@ class autotick:
                         self.trade = "BUY"
                         self.Pos_count = self.Pos_count + 1
                         save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price)
+                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price, stoploss, takeprofit)
                         save_trade_itr(self.ticker, str(self.Pos_count))
                         save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
 
@@ -250,11 +298,11 @@ class autotick:
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
 
                 else:
-                    if (current_time - start_time) >= 300:
+                    if (current_time - start_time) >= tel_time:
                         lg.info("Doing nothing")
 
                 time.sleep(self.interval)
-                if (current_time - start_time) >= 300:
+                if (current_time - start_time) >= tel_time:
                     start_time = current_time
 
         except KeyboardInterrupt:
@@ -269,8 +317,8 @@ class autotick:
         buy_p = 0.995
 
         cur_price = self.__get_cur_price()
-        lg.info("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-        if (current_time - start_time) >= 300:
+        lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
+        if (current_time - start_time) >= tel_time:
             send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):
             self.prev_high = cur_price
