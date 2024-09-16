@@ -114,6 +114,7 @@ class autotick:
         lg.info("Stoploss : {} ".format(stoploss))
         lg.info("trail_percent : {} ".format(trail_percent))
     
+        tsl_change = False
         # If the current price is above the trigger point, adjust the stoploss
         if cur_price > trigger:
             # new target price
@@ -126,8 +127,10 @@ class autotick:
             if new_stoploss > stoploss:
                 stoploss = new_stoploss
                 print(f"Stoploss updated to: {stoploss}")
+                tsl_change = True
             else:
                 print(f"Stoploss remains unchanged: {stoploss}")
+                tsl_change = False
 
             if new_target > self.target_price:
                 self.target_price = new_target
@@ -136,7 +139,7 @@ class autotick:
             print(f"Current price {cur_price} has not reached trigger {trigger}. Stoploss remains at {stoploss}")
 
         self.stoploss_price = stoploss
-        return stoploss
+        return tsl_change
 
     def run(self):
         takeprofit = self.target_price
@@ -184,10 +187,17 @@ class autotick:
                 if self.trade == "BUY":
                     trail_percent = 1
                     trigger = self.__set_takeprofit(self.entry_price)
-                    self.trail_SL(stoploss, trigger, cur_price, trail_percent)
+                    tsl_change = self.trail_SL(stoploss, trigger, cur_price, trail_percent)
                     takeprofit = self.target_price
                     stoploss = self.stoploss_price
-
+                    if tsl_change:
+                        lg.info("Updating the TSL")
+                        save_ticker = self.ticker + "_" + str(self.Pos_count)
+                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price, stoploss, takeprofit)
+                        lg.info("Updated the TSL")
+                    else:
+                        lg.info("NOT Updating")                        
+         
                 if self.trade == "BUY":
                     lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
                     if (current_time - start_time) >= tel_time:
