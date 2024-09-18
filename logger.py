@@ -65,8 +65,16 @@ def initialize_logger():
     # renaming each log depending on time Creation
     date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
     log_name = 'logger_file_' + date_time + '.log'
-    # log_name = 'logger_file.log'
+
+    if len(sys.argv) > 1:
+        log_name = 'logger_file.log'
+    
     currentlog_path = logs_path + log_name
+
+    if len(sys.argv) > 1:
+        try:
+            os.remove(currentlog_path)
+        except Exception: pass
 
     # log parameter
     lg.basicConfig(filename = currentlog_path, format = '%(asctime)s {%(pathname)s:%(lineno)d} [%(threadName)s] - %(levelname)s: %(message)s', level = lg.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')

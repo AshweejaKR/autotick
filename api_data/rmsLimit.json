@@ -1,0 +1,21 @@
+{
+    "status": true,
+    "message": "SUCCESS",
+    "errorcode": "",
+    "data": {
+        "net": "12038.8700",
+        "availablecash": "12038.8700",
+        "availableintradaypayin": "0.0000",
+        "availablelimitmargin": "0.0000",
+        "collateral": "0.0000",
+        "m2munrealized": "0.0000",
+        "m2mrealized": "0.0000",
+        "utiliseddebits": "7180.5300",
+        "utilisedspan": null,
+        "utilisedoptionpremium": null,
+        "utilisedholdingsales": null,
+        "utilisedexposure": null,
+        "utilisedturnover": null,
+        "utilisedpayout": "12038.8700"
+    }
+}

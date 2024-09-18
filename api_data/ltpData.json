@@ -1,0 +1,15 @@
+{
+    "status": true,
+    "message": "SUCCESS",
+    "errorcode": "",
+    "data": {
+        "exchange": "NSE",
+        "tradingsymbol": "NIFTYBEES-EQ",
+        "symboltoken": "10576",
+        "open": 278.35,
+        "high": 278.75,
+        "low": 277.25,
+        "close": 277.68,
+        "ltp": 278.23
+    }
+}

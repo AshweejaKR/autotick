@@ -1,0 +1,45 @@
+{
+    "status": true,
+    "message": "SUCCESS",
+    "errorcode": "",
+    "data": [
+        {
+            "tradingsymbol": "INFY-EQ",
+            "exchange": "NSE",
+            "isin": "INE009A01021",
+            "t1quantity": 0,
+            "realisedquantity": 0,
+            "quantity": 0,
+            "authorisedquantity": 0,
+            "product": "DELIVERY",
+            "collateralquantity": null,
+            "collateraltype": null,
+            "haircut": 0.0,
+            "averageprice": 0.0,
+            "ltp": 1921.65,
+            "symboltoken": "1594",
+            "close": 1894.65,
+            "profitandloss": 0.0,
+            "pnlpercentage": 0.0
+        },
+        {
+            "tradingsymbol": "NIFTYBEES-EQ",
+            "exchange": "NSE",
+            "isin": "INF204KB14I2",
+            "t1quantity": 18,
+            "realisedquantity": 68,
+            "quantity": 103,
+            "authorisedquantity": 0,
+            "product": "DELIVERY",
+            "collateralquantity": null,
+            "collateraltype": null,
+            "haircut": 0.0,
+            "averageprice": 279.76,
+            "ltp": 278.29,
+            "symboltoken": "10576",
+            "close": 277.68,
+            "profitandloss": -152.0,
+            "pnlpercentage": -0.53
+        }
+    ]
+}

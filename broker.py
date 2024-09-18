@@ -82,14 +82,13 @@ class broker:
                 lg.debug(str((params)))
                 orderid = self._instance.placeOrder(params)
                 self.__log_api_data(orderid)
-                lg.debug(str((orderid)))
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 time.sleep(1)
                 orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
-            lg.info(orderid)
+            lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -291,12 +290,6 @@ class broker:
     def verify_position(self, sym, qty, exit=False):
         res_positions = self.__get_positions()
         try:
-            print("res_positions type: ", type(res_positions))
-            if 'data' in res_positions:
-                print("TRUE")
-            else:
-                print("FALSE")
-
             for i in res_positions['data']:
                 if exit:
                     if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:
@@ -319,7 +312,7 @@ class broker:
         res_holdings = self.__get_holdings()
         try:
             for i in res_holdings['data']:    
-                if i['tradingsymbol'] == sym and int(i['quantity']) == qty:
+                if i['tradingsymbol'] == sym and int(i['quantity']) >= qty:
                     return True
                 else:
                     return False
@@ -333,13 +326,13 @@ class broker:
     def get_entry_exit_price(self, sym, exit=False):
         res_positions = self.__get_positions()
         price = 0.0
-        try:    
+        try:
             for i in res_positions['data']:
                 if i['tradingsymbol'] == sym:
                     if exit:
-                        price = i['sellavgprice']
+                        price = float(i['sellavgprice'])
                     else:
-                        price = i['buyavgprice']
+                        price = float(i['buyavgprice'])
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
