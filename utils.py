@@ -18,6 +18,36 @@ waitTime = dt.time(8, 59)
 startTime = dt.time(9, 15)
 endTime = dt.time(15, 15)
 sleepTime = 5
+debug = 0
+debug_mode = ["LIVE", "DEBUG", "TEST"]
+
+config_path = 'config/'
+key_file = config_path + "debug_mode.txt"
+
+if len(sys.argv) > 1:
+    if sys.argv[1].upper() == 'LIVE':
+        debug = 0
+    elif sys.argv[1].upper() == 'DEBUG':
+        debug = 1
+    elif sys.argv[1].upper() == 'TEST':
+        debug = 2
+    else:
+        debug = 0
+    
+    try:
+        with open(key_file, "w") as f:
+            f.write(f'{debug}')
+            f.flush()
+            f.close()
+    except Exception as err:
+        print(err)
+
+try:
+    debug = int(open(key_file, "r").read())
+except Exception as err:
+    print(err)
+
+print("TRADING BOT MODE: {} \n".format(debug_mode[debug]))
 
 def save_trade_in_csv(ticker, quantity, order_type, price):
     datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -104,13 +134,13 @@ def symbol_lookup(token, instrument_list, exchange):
             if instrument["token"] == token and instrument["exch_seg"] == exchange:
                 return instrument["symbol"]
 
-def save_positions(ticker, quantity, order_type, entryprice):
+def save_positions(filename, ticker, quantity, order_type, entryprice, stoploss, takeprofit):
     pos_path = './data/'
     try:
         os.mkdir(pos_path)
     except Exception as err:
         pass
-    pos_file_name = ticker + "_trade_data.json"
+    pos_file_name = filename + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
 
     data = {
@@ -118,13 +148,15 @@ def save_positions(ticker, quantity, order_type, entryprice):
         "quantity" : quantity,
         "order_type" : order_type,
         "entryprice" : entryprice,
+        "stoploss" : stoploss,
+        "takeprofit" : takeprofit,
     }
 
     write_to_json(data, currentpos_path)
 
-def load_positions(ticker):
+def load_positions(filename):
     pos_path = './data/'
-    pos_file_name = ticker + "_trade_data.json"
+    pos_file_name = filename + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
     data = None
     
@@ -137,7 +169,13 @@ def remove_positions(ticker):
     pos_path = './data/'
     pos_file_name = ticker + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
-    os.remove(currentpos_path)
+    
+    try:
+        os.remove(currentpos_path)
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.debug("{}".format(message))
     
 def wait_till_market_open():
     while True:
@@ -149,15 +187,72 @@ def wait_till_market_open():
         if cur_time > startTime:
             break
 
+        if debug:
+            break
+
         lg.info("Market is NOT opened waiting ... !")
         time.sleep(sleepTime)
 
     lg.info("Market is Opened ...")
 
+def save_trade_itr(ticker, count):
+    pos_path = './data/'
+    try:
+        os.mkdir(pos_path)
+    except Exception as err:
+        pass
+    pos_file_name = ticker + "_pos_count.txt"
+    currentpos_path = pos_path + pos_file_name
+
+    try:
+        with open(currentpos_path, 'w') as file:
+            file.write(count)
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.debug("{}".format(message))
+
+def load_trade_itr(ticker):
+    pos_path = './data/'
+    count = 0
+    try:
+        os.mkdir(pos_path)
+    except Exception as err:
+        pass
+    pos_file_name = ticker + "_pos_count.txt"
+    currentpos_path = pos_path + pos_file_name
+
+    try:
+        with open(currentpos_path, 'r') as file:
+            data = file.read()
+            count = int(data)
+
+            if(count == 0):
+                os.remove(currentpos_path)
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.debug("{}".format(message))
+    
+    return count
 
 def is_market_open(mode='None'):
+    if debug:
+        return True
+
     cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
     if startTime <= cur_time <= endTime:
         return True
     else:
         return False
+
+def read_stub_data(file_name):
+    config_path = '../'
+    key_file = config_path + file_name
+    data = None
+    try:
+        data = open(key_file, "r").read().split()
+    except Exception as err:
+        print(err)
+    
+    return data
