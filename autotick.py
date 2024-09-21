@@ -46,8 +46,6 @@ class autotick:
         ltp = 0.0
         while ltp <= 1.0:
             ltp = self.obj.get_current_price(self.ticker, self.exchange)
-        # lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
-        # send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
 
         self.__load_positions()
 
@@ -103,9 +101,10 @@ class autotick:
 
         self.module = importlib.import_module(import_file)
 
+        self.init_list = []
         for i in self.init_fun:
             str_to_convert = i
-            exec(f"self.x = self.module.{str_to_convert}")
+            exec(f"self.init_list.append(self.module.{str_to_convert})")
 
         exec(f"self.y = self.module.{self.run_fun}")
 
@@ -168,7 +167,8 @@ class autotick:
         lg.info("Stoploss Price : {} ".format(stoploss))
         lg.info("Iteration Count : {} ".format(self.Pos_count))
         wait_till_market_open()
-        self.x()
+        for init in self.init_list:
+            init()
 
         message = "Running Trade For {}, Itr Count : {}".format(self.ticker, self.Pos_count)
         send_to_telegram(message)
