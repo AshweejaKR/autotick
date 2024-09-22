@@ -31,7 +31,7 @@ class autotick:
         self.target_p = 2.0
         self.ticker = ticker
         self.exchange = exchange
-        self.obj = broker()
+        self.obj = broker("autotick")
         self.PosOn = True
         self.Pos_count = 0
         self.Pos_max_count = 2 # set through config file

@@ -24,9 +24,10 @@ if not os.path.isdir(data_path):
     get_live_data = True
 
 class broker:
-    def __init__(self):
-        lg.info("broker class constructor called")
-        send_to_telegram("broker class constructor called")
+    def __init__(self, usr_="NO_USR"):
+        self.usr = usr_
+        lg.info(f"{self.usr} broker class constructor called")
+        send_to_telegram(f"{self.usr} broker class constructor called")
         
         self._instance = None
         logfile = 'logs/broker_api_log_' + '.txt'
@@ -38,8 +39,8 @@ class broker:
         self.__ltp = 0.0
     
     def __del__(self):
-        lg.info("broker class destructor called")
-        send_to_telegram("broker class destructor called")
+        lg.info(f"{self.usr} broker class destructor called")
+        send_to_telegram(f"{self.usr} broker class destructor called")
         self.__logout()
         self.broker_api_log.write("log file close\n")
         self.broker_api_log.flush()

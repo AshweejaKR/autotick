@@ -18,9 +18,10 @@ from utils import *
 delay = 1.2
 
 class broker:
-    def __init__(self):
-        lg.info("broker class constructor called")
-        send_to_telegram("broker class constructor called")
+    def __init__(self, usr_="NO_USR"):
+        self.usr = usr_
+        lg.info(f"{self.usr} broker class constructor called")
+        send_to_telegram(f"{self.usr} broker class constructor called")
         
         self._instance = None
         date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
@@ -31,8 +32,8 @@ class broker:
         self.instrument_list = load_instrument_list()
     
     def __del__(self):
-        lg.info("broker class destructor called")
-        send_to_telegram("broker class destructor called")
+        lg.info(f"{self.usr} broker class destructor called")
+        send_to_telegram(f"{self.usr} broker class destructor called")
         self.__logout()
         self.broker_api_log.write("log file close\n")
         self.broker_api_log.flush()
