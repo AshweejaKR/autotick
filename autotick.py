@@ -346,6 +346,8 @@ class autotick:
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
             send_to_telegram(message)
+        
+        self.module.del_variables()
 
 ########################### run fun ###########################################
     # def strategy(self, ison):
