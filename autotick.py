@@ -20,19 +20,22 @@ class autotick:
         self.ticker = ticker
         self.interval = 1
         self.exchange = exchange
+        self.datestamp = datestamp
         self.obj = broker(self.ticker, exchange, self.name, self.mode, datestamp)
         self.quantity = None
         self.entry_price = None
         self.takeprofit_price = None
         self.stoploss_price = None
         self.trigger_price = None
-        self.stoploss_p = 0.05
-        self.target_p = 0.1
+        self.stoploss_p = 0.1
+        self.target_p = 0.02
         self.trailSL = False
-        self.capital_per_trade = 1000.00
+        self.capital_per_trade = 10000.00
 
         if self.mode.value == 3:
             self.interval = 0.001
+        
+        lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {exchange} exchange, running on {self.datestamp}")
 
     def __del__(self):
         pass
@@ -140,7 +143,7 @@ class autotick:
                             self.__set_takeprofit()
                             self.current_trade = "BUY"
                             save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
-                            save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
+                            save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price, self.datestamp)
                             lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("BUY",
                                                                                                 self.ticker,
                                                                                                 self.quantity,
@@ -162,7 +165,7 @@ class autotick:
                         exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         self.current_trade = "NA"
                         remove_positions(self.ticker)
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price, self.datestamp)
                         lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                             self.ticker,
                                                                                             self.quantity,
@@ -182,7 +185,7 @@ class autotick:
                         exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         self.current_trade = "NA"
                         remove_positions(self.ticker)
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price, self.datestamp)
                         lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                             self.ticker,
                                                                                             self.quantity,
@@ -202,7 +205,7 @@ class autotick:
                         exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                         self.current_trade = "NA"
                         remove_positions(self.ticker)
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price, self.datestamp)
                         lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                             self.ticker,
                                                                                             self.quantity,

@@ -13,10 +13,10 @@ from logger import *
 from autotick import *
 
 class Mode(Enum):
-    LIVE = 1
-    PAPER = 2
+    LIVE_TRADE = 1
+    PAPER_TRADE = 2
     BACKTEST = 3
-    TEST = 4
+    USER_TEST = 4
 
 # def read_config_data():
 #     try:
@@ -37,14 +37,15 @@ def main():
     ticker = "INFY"
     exchange = "NSE"
     
-    mode = Mode.LIVE    
+    mode = Mode.LIVE_TRADE    
     # x = input(f"start {mode}:\n")
     lg.info("--------------------------------------------------------------")
     obj = autotick(ticker, exchange, mode)
     obj.run_strategy()
     del obj
 
-    mode = Mode.PAPER
+    '''
+    mode = Mode.PAPER_TRADE
     # x = input(f"start {mode}:\n")
     lg.info("--------------------------------------------------------------")
     obj = autotick(ticker, exchange, mode)
@@ -52,18 +53,25 @@ def main():
     del obj
 
     mode = Mode.BACKTEST
-    # x = input(f"start {mode}:\n")
-    lg.info("--------------------------------------------------------------")
-    obj = autotick(ticker, exchange, mode)
-    obj.run_strategy()
-    del obj
+    from_date = "2024-12-12" # YYYY-MM-DD format
+    to_date = "2024-12-14" # YYYY-MM-DD format
+    dates = get_date_range(from_date, to_date)
 
-    mode = Mode.TEST
+    # x = input(f"start {mode}:\n")
+    lg.info("--------------------------------------------------------------")
+    for date_str in dates:
+        datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
+        obj = autotick(ticker, exchange, mode, datestamp)
+        obj.run_strategy()
+        del obj
+
+    mode = Mode.USER_TEST
     # x = input(f"start {mode}:\n")
     lg.info("--------------------------------------------------------------")
     obj = autotick(ticker, exchange, mode)
     obj.run_strategy()
     del obj
+    '''
 
     lg.done("Trading Bot done ...")
     

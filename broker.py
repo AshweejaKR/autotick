@@ -106,28 +106,28 @@ class broker:
             ct = ct + 1
             if ct > max_:
                 ct = 0
-                break
+                # break
 
         for i in data['High']:
             intraday_data.append(i)
             ct = ct + 1
             if ct > max_:
                 ct = 0
-                break
+                # break
 
         for i in data['Low']:
             intraday_data.append(i)
             ct = ct + 1
             if ct > max_:
                 ct = 0
-                break
+                # break
 
         for i in data['Close']:
             intraday_data.append(i)
             ct = ct + 1
             if ct > max_:
                 ct = 0
-                break
+                # break
 
         gvars.max_len = len(intraday_data)
         gvars.i = -1
@@ -142,7 +142,8 @@ class broker:
                     file.write(str(ltp + i) + "\n")
         except Exception as err: print("***", err)
 
-        lg.done("test init done ... !")
+        lg.info("Init done ... !")
+        lg.info(f"Trading Bot Mode: {self.mode.name}")
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
         orderid = "STUB_ID1234"
@@ -200,7 +201,6 @@ class broker:
         return cp
 
     def hist_data_daily(self, ticker, duration, exchange):
-        print(self.mode)
         if self.mode.value == 1 or self.mode.value == 2:
             historical_data = self._instance.hist_data_daily(ticker, duration, exchange)
         else:

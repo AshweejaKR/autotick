@@ -111,8 +111,8 @@ def remove_positions(ticker):
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
 
-def save_trade_in_csv(ticker, quantity, order_type, price):
-    datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
+def save_trade_in_csv(ticker, quantity, order_type, price, datetime):
+    # datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
     filename = ticker + "_trade_report.csv"
     pos_path = './data/'
     currentpos_path = pos_path + filename
@@ -144,3 +144,15 @@ def extract_column_value(df, attrb_column_name, value_in_list=False):
         return values
     else:
         return values[0] if len(values) > 0 else None
+
+def get_date_range(from_date, to_date):
+    dates = []
+    start_date = dt.datetime.strptime(from_date, "%Y-%m-%d")
+    end_date = dt.datetime.strptime(to_date, "%Y-%m-%d")
+    
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date.strftime("%Y-%m-%d"))
+        current_date += dt.timedelta(days=1)
+    
+    return dates
