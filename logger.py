@@ -26,10 +26,15 @@ def send_to_telegram(message):
         message = str(message)
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
         requests.get(url).json() # this sends the message
+        return True
+    except ImportError:
+        lg.error("THIS IS AN BUG, NEED TO FIX BUT NO EFFECTS TO OTHER LOGIC")
+        return False
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error(message)
+        return False
 
 
 class MyStreamHandler(lg.Handler):
