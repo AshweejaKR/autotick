@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed May 22 18:17:32 2024
+Created on Sat Nov 30 18:13:45 2024
 
 @author: ashwe
 """
@@ -9,28 +9,35 @@ import logging as lg
 import os, sys
 import datetime as dt
 import pytz
-import requests
 
-TOKEN = ""
-chat_id = ""
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    ERROR = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
-try:
-    tocken_key = open("../tocken_key.txt", "r").read().split()
-    TOKEN = tocken_key[0]
-    chat_id = tocken_key[1]
-except Exception as err:
-    print(err)
+# Add custom log level
+DONE = 25
+lg.addLevelName(DONE, 'DONE')
 
-def send_to_telegram(message):
-    try:
-        message = str(message)
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
-        requests.get(url).json() # this sends the message
-    except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
-        message = template.format(type(err).__name__, err.args)
-        lg.error(message)
+def done(message, *args, **kwargs):
+    """
+    Global subdebug function to log messages at SUBDEBUG level.
+    Uses the root logger.
+    """
+    root_logger = lg.getLogger()
+    if root_logger.isEnabledFor(DONE):
+        root_logger._log(DONE, message, args, **kwargs)
 
+
+# Attach the global function to the logging module
+lg.DONE = DONE
+lg.done = done
 
 class MyStreamHandler(lg.Handler):
     terminator = '\n'
@@ -40,9 +47,16 @@ class MyStreamHandler(lg.Handler):
         self.stream = sys.stdout
 
     def emit(self, record):
-        if record.levelno == lg.INFO or record.levelno == lg.WARNING or record.levelno == lg.ERROR:
+        if record.levelno == lg.INFO or record.levelno == lg.WARNING or record.levelno == lg.ERROR or record.levelno == lg.DONE:
             try:
-                msg = self.format(record)
+                if record.levelno == lg.ERROR:
+                    msg = bcolors.ERROR + self.format(record) + bcolors.ENDC
+                elif record.levelno == lg.WARNING:
+                    msg = bcolors.WARNING + self.format(record) + bcolors.ENDC
+                elif record.levelno == lg.DONE:
+                    msg = bcolors.OKGREEN + self.format(record) + bcolors.ENDC
+                else:
+                    msg = self.format(record)
                 stream = self.stream
                 stream.write(msg + self.terminator)
                 self.flush()
@@ -50,7 +64,6 @@ class MyStreamHandler(lg.Handler):
                 raise
             except Exception:
                 self.handleError(record)
-
 
 def initialize_logger():
     # creating s folder for the log
@@ -66,15 +79,7 @@ def initialize_logger():
     date_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
     log_name = 'logger_file_' + date_time + '.log'
 
-    if len(sys.argv) > 1:
-        log_name = 'logger_file.log'
-    
     currentlog_path = logs_path + log_name
-
-    if len(sys.argv) > 1:
-        try:
-            os.remove(currentlog_path)
-        except Exception: pass
 
     # log parameter
     lg.basicConfig(filename = currentlog_path, format = '%(asctime)s {%(pathname)s:%(lineno)d} [%(threadName)s] - %(levelname)s: %(message)s', level = lg.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
@@ -84,9 +89,7 @@ def initialize_logger():
     console_handler = MyStreamHandler()
     console_handler.setFormatter(console_formatter)
     
-    # lg.getLogger().addHandler(lg.StreamHandler())
     lg.getLogger().addHandler(console_handler)
 
     # init message
     lg.info('Log initialized \n')
-    send_to_telegram("Log initialized \n")

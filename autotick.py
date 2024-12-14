@@ -1,98 +1,53 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 21 20:52:24 2024
+Created on Sat Nov 30 18:21:09 2024
 
 @author: ashwe
 """
 
-tel_time = 300
-
 import time
 
 from broker import *
-if debug:
-    from broker_stub import *
+from utils import *
+
+import gvars
+
+###############################################################################
+###################### dummy var ##############################################
+###############################################################################
 
 class autotick:
-    def __init__(self, ticker, exchange):
+    def __init__(self, ticker, exchange, mode, datestamp=dt.date.today()):
         lg.info("autotick class constructor called")
-        send_to_telegram("autotick class constructor called")
         self.name = "autotick"
-        self.interval = 1
-        self.trade = "NA"
-        self.quantity = 0
-        self.entry_price = 0.0
-        self.target_price = 9999.99
-        self.stoploss_price = 0.0
-        self.exit_price = 0.0
-        self.stoploss_p = 1.0
-        self.target_p = 2.0
+        self.mode = mode
+        self.current_trade = "NA"
         self.ticker = ticker
+        self.interval = 1
         self.exchange = exchange
-        self.obj = broker()
-        self.PosOn = True
-        self.Pos_count = 0
-        self.Pos_max_count = 2 # set through config file
-        self.capital_per_trade = 5000.00 # set through config file
-        
-        ############## Init call ######################################################
-        stock_data = self.obj.hist_data_daily(ticker, 4, self.exchange)
-        self.prev_high = max(stock_data.iloc[-1]['high'], stock_data.iloc[-2]['high'])
-        self.prev_low = min(stock_data.iloc[-1]['low'], stock_data.iloc[-2]['low'])
-        ###############################################################################
+        self.obj = broker(self.ticker, self.name, self.mode, datestamp)
+        self.quantity = None
+        self.entry_price = None
+        self.takeprofit_price = None
+        self.stoploss_price = None
+        self.trigger_price = None
+        self.stoploss_p = 0.05
+        self.target_p = 0.1
+        self.trailSL = False
+        self.capital_per_trade = 1000.00
 
-        ltp = 0.0
-        while ltp <= 1.0:
-            ltp = self.obj.get_current_price(self.ticker, self.exchange)
-        lg.info("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
-        send_to_telegram("prev high: {}, prev low: {}, current price: {}".format(self.prev_high, self.prev_low, ltp))
-
-        self.__load_positions()
+        if self.mode.value == 3:
+            self.interval = 0.001
 
     def __del__(self):
         lg.info("autotick class destructor called")
-        send_to_telegram("autotick class destructor called")
 
-    def __set_stoploss(self, entryprice, trend="long"):
-        stoploss = entryprice - (entryprice * self.stoploss_p)
-        return stoploss
+    def __set_stoploss(self):
+        self.stoploss_price = self.entry_price - (self.entry_price * self.stoploss_p)
 
-    def __set_takeprofit(self, entryprice, trend="long"):
-        takeprofit = entryprice + (entryprice * self.target_p)
-        return takeprofit
-
-    def __get_cur_price(self):
-        c = self.obj.get_current_price(self.ticker, self.exchange)
-        return c
-
-    def __load_positions(self):
-        self.Pos_count = load_trade_itr(self.ticker)
-        lg.info("Trade Count: {}".format(self.Pos_count))
-        load_ticker = self.ticker + "_" + str(self.Pos_count)
-        data = load_positions(load_ticker)
-        if data is not None:
-            try:
-                if self.ticker == data['ticker']:
-                    self.quantity = data['quantity']
-                    res = self.obj.verify_holding(self.ticker, self.quantity)
-                    lg.debug("verify_holding: {} ".format(str(res)))
-
-                    if debug:
-                        res = True
-
-                    if res:
-                        self.trade = data['order_type']
-                        self.entry_price = data['entryprice']
-                        self.stoploss_price = data['stoploss']
-                        self.target_price = data['takeprofit']
-
-            except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
-                message = template.format(type(err).__name__, err.args)
-                lg.error("ERROR: {}".format(message))
-                send_to_telegram(message)
-
-###############################################################################
+    def __set_takeprofit(self):
+        self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
+        self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
 
     def set_stoploss(self, sl_p):
         if sl_p < 1:
@@ -108,234 +63,169 @@ class autotick:
 
     def trail_SL(self, stoploss, trigger, cur_price, trail_percent):
         print("Trailing the SL ...")
-        
+
         lg.info("cur_price : {} ".format(cur_price))
         lg.info("trigger : {} ".format(trigger))
         lg.info("Stoploss : {} ".format(stoploss))
         lg.info("trail_percent : {} ".format(trail_percent))
-    
-        tsl_change = False
-        # If the current price is above the trigger point, adjust the stoploss
+
         if cur_price > trigger:
-            # new target price
             new_stoploss = cur_price * (1 - trail_percent / 100)
-            new_target = self.__set_takeprofit(cur_price)
-        
             lg.info("new_stoploss : {} ".format(new_stoploss))
-        
+
             # Only update the stoploss if the new stoploss is greater than the current one
             if new_stoploss > stoploss:
-                stoploss = new_stoploss
-                print(f"Stoploss updated to: {stoploss}")
-                tsl_change = True
+                self.stoploss_price = new_stoploss
+                print(f"Stoploss updated to: {self.stoploss_price}")
+                save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
             else:
-                print(f"Stoploss remains unchanged: {stoploss}")
-                tsl_change = False
+                print(f"Stoploss remains unchanged: {self.stoploss_price}")
 
-            if new_target > self.target_price:
-                self.target_price = new_target
-        
-        else:
-            print(f"Current price {cur_price} has not reached trigger {trigger}. Stoploss remains at {stoploss}")
+    def __get_cur_price(self):
+        cp = self.obj.get_current_price(self.ticker, self.exchange)
+        return cp
 
-        self.stoploss_price = stoploss
-        return tsl_change
+    def __load_positions(self):
+        data = load_positions(self.ticker)
+        if data is not None:
+            try:
+                if self.ticker == data['ticker']:
+                    self.quantity = data['quantity']
+                    res = self.obj.verify_holding(self.ticker, self.quantity)
 
-    def run(self):
-        takeprofit = self.target_price
-        stoploss = self.stoploss_price
-        lg.info("Ticker Name : {} ".format(self.ticker))
-        lg.info("Entry Price : {} ".format(self.entry_price))
-        lg.info("Quantity : {} ".format(self.quantity))
-        lg.info("Target Price : {} ".format(takeprofit))
-        lg.info("Stoploss Price : {} ".format(stoploss))
-        lg.info("Iteration Count : {} ".format(self.Pos_count))
-        wait_till_market_open()
+                    if res:
+                        self.current_trade = data['order_type']
+                        self.entry_price = data['entryprice']
+                        self.stoploss_price = data['stoploss']
+                        self.takeprofit_price = data['takeprofit']
+                        self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
 
-        message = "Running Trade For {}, Itr Count : {}".format(self.ticker, self.Pos_count)
-        send_to_telegram(message)
-        lg.info(message)
+            except Exception as err:
+                template = "An exception of type {0} occurred. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("ERROR: {}".format(message))
 
-        try:
-            global start_time, current_time
-            start_time = time.time()
-            while is_market_open():
-                lg.info("Running Trade For {}, {}".format(self.ticker, self.Pos_count))
-                current_time = time.time()
+    def init_strategy(self):
+        self.init_1()
 
-                if (current_time - start_time) >= tel_time:
-                    message = "Running Trade For {}, Itr Count : {}".format(self.ticker, self.Pos_count)
-                    send_to_telegram(message)
+    def run_strategy(self):
+        self.init_strategy()
+        wait_till_market_open(self.mode)
+        self.__load_positions()
 
-                if self.Pos_count > self.Pos_max_count:
-                    self.PosOn = False
-                else:
-                    self.PosOn = True
-
-                if self.Pos_count > 0:
-                    self.trade = "BUY"
-                else:
-                    self.trade = "NA"
-
+        while is_market_open(self.mode):
+            try:
+                lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
                 self.__load_positions()
-
-                ret = "NA"
-                if self.PosOn:
-                    ret = self.strategy()
                 cur_price = self.__get_cur_price()
+                ret = "NA"
+                if self.current_trade == "NA":
+                    ret = self.strategy(cur_price)
 
-                if self.trade == "BUY":
-                    trail_percent = 1
-                    trigger = self.__set_takeprofit(self.entry_price)
-                    tsl_change = self.trail_SL(stoploss, trigger, cur_price, trail_percent)
-                    takeprofit = self.target_price
-                    stoploss = self.stoploss_price
-                    if tsl_change:
-                        lg.info("Updating the TSL")
-                        save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price, stoploss, takeprofit)
-                        lg.info("Updated the TSL")
-                    else:
-                        lg.info("NOT Updating")                        
-         
-                if self.trade == "BUY":
-                    lg.info('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
-                    if (current_time - start_time) >= tel_time:
-                        send_to_telegram('SL %.2f <-- %.2f --> %.2f TP' % (stoploss, cur_price, takeprofit))
+                if self.current_trade == "BUY":
+                    if self.trailSL:
+                        tsl_change = self.trail_SL(self.stoploss_price, self.trigger_price, cur_price, 10)
+                    lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
 
-                if self.PosOn and (ret == "BUY"):
-                    lg.info("*************** Entering Trade ********************")
-                    amt = self.obj.get_margin()
+                if self.current_trade == "NA" and (ret == "BUY"):
+                    lg.info("Entering Trade")
+                    amt = self.obj.get_trade_margin()
                     lg.info("cash available: {} ".format(amt))
                     amt_for_trade = min(amt, self.capital_per_trade)
                     lg.info("cash using for trade: {} ".format(amt_for_trade))
                     self.quantity = int(amt_for_trade / cur_price)
                     lg.info("quantity: {} ".format(self.quantity))
-                    orderid = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
-                    lg.info("orderid: {} ".format(orderid))
-                    status = self.obj.get_oder_status(orderid)
+                    status = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
                     lg.info("status: {} ".format(status))
-                    if status == 'complete':
-                        lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("BUY",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
-                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("BUY",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
+                    if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
                         self.entry_price = self.obj.get_entry_exit_price(self.ticker)
-                        takeprofit = self.__set_takeprofit(self.entry_price)
-                        stoploss = self.__set_stoploss(self.entry_price)
-                        lg.debug("verify_position: {} ".format(str(res)))
-                        self.trade = "BUY"
-                        self.Pos_count = self.Pos_count + 1
-                        save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        save_positions(save_ticker, self.ticker, self.quantity, self.trade, self.entry_price, stoploss, takeprofit)
-                        save_trade_itr(self.ticker, str(self.Pos_count))
+                        self.__set_stoploss()
+                        self.__set_takeprofit()
+                        self.current_trade = "BUY"
+                        save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
                         save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
+                        lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("BUY",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            self.entry_price))
 
-                elif (self.trade == "BUY") and (ret == "SELL"):
-                    lg.info("*************** Exiting Trade ********************")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
-                    lg.info("orderid: {} ".format(orderid))
-                    status = self.obj.get_oder_status(orderid)
+                elif (self.current_trade == "BUY") and (ret == "SELL"):
+                    lg.info("Exiting Trade")
+                    status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("status: {} ".format(status))
-                    if status == 'complete':
-                        lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
-                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
+                    if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
-                        self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
-                        lg.debug("verify_position: {} ".format(str(res)))
-                        # self.trade = "NA"
-                        save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        remove_positions(save_ticker)
-                        self.Pos_count = self.Pos_count - 1
-                        save_trade_itr(self.ticker, str(self.Pos_count))
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
+                        exit_price = self.obj.get_entry_exit_price(self.ticker, True)
+                        self.current_trade = "NA"
+                        remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
 
-                elif (self.trade == "BUY") and (cur_price > takeprofit):
-                    lg.info("*************** Exiting Trade ********************")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
-                    lg.info("orderid: {} ".format(orderid))
-                    status = self.obj.get_oder_status(orderid)
+                elif (self.current_trade == "BUY") and (cur_price > self.takeprofit_price) and not self.trailSL:
+                    lg.info("Exiting Trade")
+                    status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("status: {} ".format(status))
-                    if status == 'complete':
-                        lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
-                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
+                    if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
-                        self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
-                        lg.debug("verify_position: {} ".format(str(res)))
-                        # self.trade = "NA"
-                        save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        remove_positions(save_ticker)
-                        self.Pos_count = self.Pos_count - 1
-                        save_trade_itr(self.ticker, str(self.Pos_count))
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
+                        exit_price = self.obj.get_entry_exit_price(self.ticker, True)
+                        self.current_trade = "NA"
+                        remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
 
-                elif (self.trade == "BUY") and (cur_price < stoploss):
-                    lg.info("*************** Exiting Trade ********************")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
-                    lg.info("orderid: {} ".format(orderid))
-                    status = self.obj.get_oder_status(orderid)
+                elif (self.current_trade == "BUY") and (cur_price < self.stoploss_price):
+                    lg.info("Exiting Trade")
+                    status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                     lg.info("status: {} ".format(status))
-                    if status == 'complete':
-                        lg.info('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
-                        send_to_telegram('Submitting {} Order for {}, Qty = {} at price: {}'.format("SELL",
-                                                                                               self.ticker,
-                                                                                               self.quantity,
-                                                                                               cur_price))
+                    if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
-                        self.exit_price = self.obj.get_entry_exit_price(self.ticker, True)
-                        lg.debug("verify_position: {} ".format(str(res)))
-                        self.trade = "NA"
-                        save_ticker = self.ticker + "_" + str(self.Pos_count)
-                        remove_positions(save_ticker)
-                        self.Pos_count = self.Pos_count - 1
-                        save_trade_itr(self.ticker, str(self.Pos_count))
-                        save_trade_in_csv(self.ticker, self.quantity, "SELL", self.exit_price)
+                        exit_price = self.obj.get_entry_exit_price(self.ticker, True)
+                        self.current_trade = "NA"
+                        remove_positions(self.ticker)
+                        save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
+                        lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
 
-                else:
-                    if (current_time - start_time) >= tel_time:
-                        lg.info("Doing nothing")
-
+                lg.info("------------------------------------------------------\n")
                 time.sleep(self.interval)
-                if (current_time - start_time) >= tel_time:
-                    start_time = current_time
 
-        except KeyboardInterrupt:
-            lg.error("Bot stop request by user")
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            send_to_telegram(message)
+            except KeyboardInterrupt:
+                lg.error("Bot stop request by user")
+                break
 
-    def strategy(self):
-        buy_p = 0.995
+            except Exception as err:
+                template = "An exception of type {0} occurred. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("{}".format(message))
+                break
 
-        cur_price = self.__get_cur_price()
-        lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
-        if (current_time - start_time) >= tel_time:
-            send_to_telegram("current price: {} < prev high: {}".format(cur_price, (buy_p * self.prev_high)))
-        if cur_price < (buy_p * self.prev_high):
-            self.prev_high = cur_price
+###############################################################################
+###################### dummy Init fun #########################################
+    def init_1(self):
+        try:
+            hist_data = self.obj.hist_data_daily(self.ticker, 3, self.exchange)
+            print(hist_data)
+            self.prev_high = hist_data['High'].iloc[1]
+            self.prev_low = hist_data['Low'].iloc[1]
+        except Exception as err: lg.error("{}".format(err))
+
+###############################################################################
+
+########################### dummy strategy ####################################
+    def strategy(self, cur_price):
+        lg.info("current price: {} < prev high: {}".format(cur_price, self.prev_high))
+        if cur_price < self.prev_high:
             return "BUY"
         else:
             return "NA"
+###############################################################################
+###############################################################################

@@ -1,48 +1,74 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 21 20:58:12 2024
+Created on Sat Nov 30 18:11:42 2024
 
 @author: ashwe
 """
+
 import pandas as pd
 import os
+from enum import Enum
 
+from logger import *
 from autotick import *
 
-global ticker, exchange, target, stoploss
+class Mode(Enum):
+    LIVE = 1
+    PAPER = 2
+    BACKTEST = 3
+    TEST = 4
 
-def read_config_data():
-    global ticker, exchange, target, stoploss
-    if os.name == 'nt':
-        df = pd.read_excel('../trade_settings.xlsx')
-    elif os.name == 'posix':
-        df = pd.read_csv('../trade_settings.csv')
-    print(df)
-
-    ticker = extract_column_value(df, "SYMBOL")
-    exchange = extract_column_value(df, "EXCHANGE")
-    target = float(extract_column_value(df, "TARGET PRICE"))
-    stoploss = float(extract_column_value(df, "STOPLOSS PRICE"))
+# def read_config_data():
+#     try:
+#         df1 = pd.read_excel('../trade_settings.xlsx', "SETTING")
+#         df2 = pd.read_excel('../trade_settings.xlsx', "SYMBOLS")
+#     except Exception as err:
+#         template = "An exception of type {0} occurred. error message:{1!r}"
+#         message = template.format(type(err).__name__, err.args)
+#         lg.error("{}".format(message))
 
 def main():
+
     initialize_logger()
-    
     lg.info("Trading Bot running ... ! \n")
-    send_to_telegram("Trading Bot running ... ! \n")
 
-    read_config_data()
+    # read_config_data()
 
-    # run_test(ticker, exchange)
-    # ltp_test(ticker, exchange)
+    ticker = "INFY"
+    exchange = "NSE"
     
-    obj = autotick(ticker, exchange)
-    obj.set_stoploss(stoploss)
-    obj.set_takeprofit(target)
+    mode = Mode.LIVE    
+    # x = input(f"start {mode}:\n")
+    lg.info("--------------------------------------------------------------")
+    obj = autotick(ticker, exchange, mode)
+    obj.run_strategy()
+    del obj
 
-    obj.run()
+    mode = Mode.PAPER
+    # x = input(f"start {mode}:\n")
+    lg.info("--------------------------------------------------------------")
+    obj = autotick(ticker, exchange, mode)
+    obj.run_strategy()
+    del obj
 
-    lg.info("Trading Bot done ...")
-    send_to_telegram("Trading Bot done ...")
+    mode = Mode.BACKTEST
+    # x = input(f"start {mode}:\n")
+    lg.info("--------------------------------------------------------------")
+    obj = autotick(ticker, exchange, mode)
+    obj.run_strategy()
+    del obj
 
-if __name__ == '__main__':
+    mode = Mode.TEST
+    # x = input(f"start {mode}:\n")
+    lg.info("--------------------------------------------------------------")
+    obj = autotick(ticker, exchange, mode)
+
+    # obj.set_stoploss(5)
+    # obj.set_takeprofit(10)
+    obj.run_strategy()
+    
+    del obj
+    lg.done("Trading Bot done ...")
+    
+if __name__ == "__main__":
     main()
