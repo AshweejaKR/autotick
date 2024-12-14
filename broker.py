@@ -18,14 +18,6 @@ global intraday_data
 global ltp
 intraday_data = []
 
-data_path = 'data/test/'
-if not os.path.isdir(data_path):
-    os.mkdir(data_path)
-
-# Calculate the start and end dates
-# end_date = datetime.today()
-# start_date = end_date - timedelta(days=10 * 30)  # Approximate 10 months as 300 days
-
 # Fetch historical data using yfinance
 def fetch_historical_data(ticker, start, end):
     try:

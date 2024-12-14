@@ -34,8 +34,8 @@ def wait_till_market_open(mode_):
     return True
 
 def is_market_open(mode_):
+    gvars.i = gvars.i + 1
     if mode_.value == 3 or mode_.value == 4:
-        gvars.i = gvars.i + 1
         if gvars.i > gvars.max_len - 1:
             return False
         return True

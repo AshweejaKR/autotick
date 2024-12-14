@@ -62,12 +62,9 @@ def main():
     # x = input(f"start {mode}:\n")
     lg.info("--------------------------------------------------------------")
     obj = autotick(ticker, exchange, mode)
-
-    # obj.set_stoploss(5)
-    # obj.set_takeprofit(10)
     obj.run_strategy()
-    
     del obj
+
     lg.done("Trading Bot done ...")
     
 if __name__ == "__main__":
