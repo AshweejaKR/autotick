@@ -63,24 +63,24 @@ def fetch_current_price_bt():
     return ltp
 
 class broker:
-    def __init__(self, sym_, usr_, mode_, datestamp):
+    def __init__(self, sym_, exchange, usr_, mode_, datestamp):
         self.mode = mode_
         self.usr = usr_
-        lg.info(f"{self.usr} broker class with mode {self.mode.name} constructor called")
         # self._instance = None
         self._instance = angleone()
         # self._instance = aliceblue()
         self.cp = None
         self.intraday_data = None
-        lg.info(f"{self.usr} stub broker class constructor called")
-        # Define the ticker symbol for Infosys on NSE
-        self.ticker_symbol = sym_ + ".NS"
-        self.__init_test(datestamp)
-        self.__login()
+        # lg.info(f"{self.usr} stub broker class constructor called")
+
+        if self._instance is None:
+            self.ticker = sym_ + ".NS"
+        else:
+            self.ticker = sym_
+        self.__init_test(exchange, datestamp)
 
     def __del__(self):
-        lg.info(f"{self.usr} broker class destructor called")
-        self.__logout()
+        pass
 
     def __wait_till_order_fill(self, orderid, order):
         count = 0
@@ -91,10 +91,13 @@ class broker:
 
 ###############################################################################
 
-    def __init_test(self, datestamp):
+    def __init_test(self, exchange, datestamp):
         global intraday_data
         global ltp
-        data = fetch_intraday_data(self.ticker_symbol, datestamp)
+        if self._instance is None:
+            data = fetch_intraday_data(self.ticker, datestamp)
+        else:
+            data = self._instance.hist_data_intraday(self.ticker, exchange, datestamp)
         max_ = 4
         ct = 0
         intraday_data = []
@@ -129,23 +132,17 @@ class broker:
         gvars.max_len = len(intraday_data)
         gvars.i = -1
 
-        ltp = fetch_current_price(self.ticker_symbol)
+        if self._instance is None:
+            ltp = fetch_current_price(self.ticker)
+        else:
+            ltp = self._instance.get_current_price(self.ticker, exchange)
         try:
             with open("../ltp.txt", "w") as file:
                 for i in range(5):
                     file.write(str(ltp + i) + "\n")
-        except Exception as err: 
-            print(err)
+        except Exception as err: print("***", err)
 
-        lg.info(f"gvars.max_len : {gvars.max_len} ")
-        lg.info(f"gvars.i : {gvars.i} ")
         lg.done("test init done ... !")
-
-    def __login(self):
-        lg.done(f"{self.usr} stub broker class Login done ...")
-
-    def __logout(self):
-        lg.done(f"{self.usr} stub broker class Logout done ...")
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
         orderid = "STUB_ID1234"
@@ -199,7 +196,7 @@ class broker:
             cp = fetch_current_price_bt()
         else:
             cp = self.__read_dummy_ltp()
-            # cp = fetch_current_price(self.ticker_symbol)
+        self.cp = cp
         return cp
 
     def hist_data_daily(self, ticker, duration, exchange):
@@ -207,22 +204,27 @@ class broker:
         if self.mode.value == 1 or self.mode.value == 2:
             historical_data = self._instance.hist_data_daily(ticker, duration, exchange)
         else:
-            end_date = datetime.today()
-            start_date = end_date - timedelta(days=10 * 30)  # Approximate 10 months as 300 days
-
-            # Get the historical data
-            historical_data = fetch_historical_data(self.ticker_symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if self._instance is None:
+                end_date = datetime.today()
+                start_date = end_date - timedelta(days=10 * 30)  # Approximate 10 months as 300 days
+                # Get the historical data
+                historical_data = fetch_historical_data(self.ticker, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            else:
+                historical_data = self._instance.hist_data_daily(ticker, duration, exchange)
         if historical_data is not None:
             return historical_data
         else:
             lg.error("Failed to fetch historical data.")
 
-    def hist_data_intraday(self, ticker, exchange, datestamp=dt.date.today()):
+    def hist_data_intraday(self, ticker, exchange, datestamp):
         if self.mode.value == 1 or self.mode.value == 2:
             intraday_data = self._instance.hist_data_intraday(ticker, exchange, datestamp)
         else:
-            # Get the historical data
-            intraday_data = fetch_intraday_data(self.ticker_symbol, specific_date)
+            if self._instance is None:
+                # Get the historical data
+                intraday_data = fetch_intraday_data(self.ticker, datestamp)
+            else:
+                intraday_data = self._instance.hist_data_intraday(ticker, exchange, datestamp)
         if intraday_data is not None:
             return intraday_data
         else:
@@ -234,6 +236,8 @@ class broker:
             orderid = self._instance.place_buy_order(ticker, quantity, exchange)
             self.__wait_till_order_fill(orderid, buy_sell)
             status = self._instance.get_oder_status(orderid)
+            print("Order status : ", status)
+            x = input("Debug stop:\n")
             if status == 'complete':
                 return True
             else:
@@ -282,8 +286,5 @@ class broker:
         if self.mode.value == 1:
             ep = self._instance.get_entry_exit_price(sym, _exit)
         else:
-            if _exit:
-                ep = self.cp
-            else:
-                ep = self.cp
+            ep = self.cp
         return ep

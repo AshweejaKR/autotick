@@ -67,14 +67,13 @@ class angleone:
         self._instance = None
         self.__login()
         self.instrument_list = load_instrument_list()
-        lg.info(f"{self.usr} angleone broker class constructor called")
+        # lg.info(f"{self.usr} angleone broker class constructor called")
 
     def __del__(self):
         self.__logout()
-        lg.info(f"{self.usr} angleone broker class destructor called")
+        # lg.info(f"{self.usr} angleone broker class destructor called")
 
     def __login(self):
-        lg.info(f"{self.usr} angleone broker class Login done ...")
         try:
             self._instance = SmartConnect(API_KEY)
             totp = TOTP(TOTP_TOKEN).now()
@@ -93,7 +92,6 @@ class angleone:
             # self.__login()
 
     def __logout(self):
-        lg.info(f"{self.usr} angleone broker class Logout done ...")
         try:
             time.sleep(delay)
             data = self._instance.terminateSession(CLIENT_ID)
@@ -118,9 +116,9 @@ class angleone:
             "todate" : todate
                     }
         try:
-            lg.info(str((params)))
+            lg.debug(str((params)))
             hist_data = self._instance.getCandleData(params)
-            lg.info(str((hist_data)))
+            lg.debug(str((hist_data)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -147,7 +145,7 @@ class angleone:
 
             time.sleep(delay)
             try:
-                lg.info(str((params)))
+                lg.debug(str((params)))
                 orderid = self._instance.placeOrder(params)
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
@@ -166,7 +164,7 @@ class angleone:
     def __get_oder_status(self):
         try:
             order_history_response = self._instance.orderBook()
-            lg.info(str((order_history_response)))
+            lg.debug(str((order_history_response)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -178,7 +176,7 @@ class angleone:
     def __get_margin(self):
         try:
             res = self._instance.rmsLimit()
-            lg.info(str((res)))
+            lg.debug(str((res)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -191,7 +189,7 @@ class angleone:
         try:
             time.sleep(1)
             position = self._instance.position()
-            lg.info(str((position)))
+            lg.debug(str((position)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -205,7 +203,7 @@ class angleone:
         try:
             time.sleep(1)
             holdings = self._instance.holding()
-            lg.info(str((holdings)))
+            lg.debug(str((holdings)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -231,10 +229,10 @@ class angleone:
     def get_current_price(self, ticker_, exchange):
         ticker = ticker_lookup(ticker_, self.instrument_list, exchange)
         time.sleep(delay)
-        lg.info("GETTING LTP DATA")
+        lg.debug("GETTING LTP DATA")
         try:
             data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
-            lg.info(str((data)))
+            lg.debug(str((data)))
             ltp = float(data['data']['ltp'])
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -242,7 +240,7 @@ class angleone:
             lg.error("{}".format(message))
             # time.sleep(1)
             # ltp = self.get_current_price(ticker, exchange)
-        lg.info("GETTING LTP DATA: DONE")
+        lg.debug("GETTING LTP DATA: DONE")
         return ltp
 
     def hist_data_daily(self, ticker, duration, exchange):
@@ -258,7 +256,7 @@ class angleone:
         df_data.index = df_data.index.tz_localize(None)
         return df_data
 
-    def hist_data_intraday(self, ticker, exchange, datestamp=dt.date.today()):
+    def hist_data_intraday(self, ticker, exchange, datestamp):
         interval = 'FIVE_MINUTE'
         fromdate = datestamp.strftime("%Y-%m-%d")+ " 09:15"
         todate = datestamp.strftime("%Y-%m-%d") + " 15:30" 
@@ -277,12 +275,26 @@ class angleone:
         return orderid
 
     def place_sell_order(self, ticker, quantity, exchange):
-        lg.info(f"{self.usr} angleone broker place_sell_order")
-
-    def get_oder_status(self, orderid):
         buy_sell = "SELL"
         orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
         return orderid
+
+    def get_oder_status(self, orderid):
+        time.sleep(delay)
+        order_history_response = self.__get_oder_status()
+        status = "NA"
+
+        try:
+            for i in order_history_response['data']:
+                if i['orderid'] == orderid:
+                    status = i['status']  # complete/rejected/open/cancelled
+                    break
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+
+        return status
 
     def verify_position(self, sym, qty, exit=False):
         res_positions = self.__get_positions()

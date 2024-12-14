@@ -12,20 +12,15 @@ from utils import *
 
 import gvars
 
-###############################################################################
-###################### dummy var ##############################################
-###############################################################################
-
 class autotick:
     def __init__(self, ticker, exchange, mode, datestamp=dt.date.today()):
-        lg.info("autotick class constructor called")
         self.name = "autotick"
         self.mode = mode
         self.current_trade = "NA"
         self.ticker = ticker
         self.interval = 1
         self.exchange = exchange
-        self.obj = broker(self.ticker, self.name, self.mode, datestamp)
+        self.obj = broker(self.ticker, exchange, self.name, self.mode, datestamp)
         self.quantity = None
         self.entry_price = None
         self.takeprofit_price = None
@@ -40,7 +35,7 @@ class autotick:
             self.interval = 0.001
 
     def __del__(self):
-        lg.info("autotick class destructor called")
+        pass
 
     def __set_stoploss(self):
         self.stoploss_price = self.entry_price - (self.entry_price * self.stoploss_p)
@@ -135,20 +130,28 @@ class autotick:
                     lg.info("cash using for trade: {} ".format(amt_for_trade))
                     self.quantity = int(amt_for_trade / cur_price)
                     lg.info("quantity: {} ".format(self.quantity))
-                    status = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
-                    lg.info("status: {} ".format(status))
-                    if status:
-                        res = self.obj.verify_position(self.ticker, self.quantity)
-                        self.entry_price = self.obj.get_entry_exit_price(self.ticker)
-                        self.__set_stoploss()
-                        self.__set_takeprofit()
-                        self.current_trade = "BUY"
-                        save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
-                        save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
-                        lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("BUY",
-                                                                                            self.ticker,
-                                                                                            self.quantity,
-                                                                                            self.entry_price))
+                    if self.quantity > 0:
+                        status = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
+                        lg.info("status: {} ".format(status))
+                        if status:
+                            res = self.obj.verify_position(self.ticker, self.quantity)
+                            self.entry_price = self.obj.get_entry_exit_price(self.ticker)
+                            self.__set_stoploss()
+                            self.__set_takeprofit()
+                            self.current_trade = "BUY"
+                            save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
+                            save_trade_in_csv(self.ticker, self.quantity, "BUY", self.entry_price)
+                            lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("BUY",
+                                                                                                self.ticker,
+                                                                                                self.quantity,
+                                                                                                self.entry_price))
+                        else:
+                            lg.error('Failed to Submit {} Order for {}, Qty = {} at price: {}'.format("BUY",
+                                                                                                self.ticker,
+                                                                                                self.quantity,
+                                                                                                self.entry_price))
+                    else:
+                        lg.error("Insufficient funds")
 
                 elif (self.current_trade == "BUY") and (ret == "SELL"):
                     lg.info("Exiting Trade")
@@ -161,6 +164,11 @@ class autotick:
                         remove_positions(self.ticker)
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
                         lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
+                    else:
+                        lg.error('Failed to Submit {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                             self.ticker,
                                                                                             self.quantity,
                                                                                             exit_price))
@@ -179,6 +187,11 @@ class autotick:
                                                                                             self.ticker,
                                                                                             self.quantity,
                                                                                             exit_price))
+                    else:
+                        lg.error('Failed to Submit {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
 
                 elif (self.current_trade == "BUY") and (cur_price < self.stoploss_price):
                     lg.info("Exiting Trade")
@@ -191,6 +204,11 @@ class autotick:
                         remove_positions(self.ticker)
                         save_trade_in_csv(self.ticker, self.quantity, "SELL", exit_price)
                         lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format("SELL",
+                                                                                            self.ticker,
+                                                                                            self.quantity,
+                                                                                            exit_price))
+                    else:
+                        lg.error('Failed to Submit {} Order for {}, Qty = {} at price: {}'.format("SELL",
                                                                                             self.ticker,
                                                                                             self.quantity,
                                                                                             exit_price))
@@ -209,11 +227,10 @@ class autotick:
                 break
 
 ###############################################################################
-###################### dummy Init fun #########################################
+###################### dummy strategy init #####################################
     def init_1(self):
         try:
             hist_data = self.obj.hist_data_daily(self.ticker, 3, self.exchange)
-            print(hist_data)
             self.prev_high = hist_data['High'].iloc[1]
             self.prev_low = hist_data['Low'].iloc[1]
         except Exception as err: lg.error("init_1 Error: {}".format(err))
