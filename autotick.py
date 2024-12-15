@@ -104,7 +104,7 @@ class autotick:
                 lg.error("ERROR: {}".format(message))
 
     def init_strategy(self):
-        self.init_1()
+        self.init_strategy_1()
 
     def run_strategy(self):
         self.init_strategy()
@@ -118,7 +118,7 @@ class autotick:
                 cur_price = self.__get_cur_price()
                 ret = "NA"
                 if self.current_trade == "NA":
-                    ret = self.strategy(cur_price)
+                    ret = self.strategy_1(cur_price)
 
                 if self.current_trade == "BUY":
                     if self.trailSL:
@@ -233,8 +233,8 @@ class autotick:
                 break
 
 ###############################################################################
-###################### dummy strategy init #####################################
-    def init_1(self):
+###################### simple strategy init ###################################
+    def init_strategy_1(self):
         try:
             hist_data = self.obj.hist_data_daily(self.ticker, 3, self.exchange)
             self.prev_high = hist_data['High'].iloc[1]
@@ -243,10 +243,12 @@ class autotick:
 
 ###############################################################################
 
-########################### dummy strategy ####################################
-    def strategy(self, cur_price):
-        lg.info("current price: {} < prev high: {}".format(cur_price, self.prev_high))
-        if cur_price < self.prev_high:
+########################### simple strategy ###################################
+    def strategy_1(self, cur_price):
+        buy_p = 0.995
+
+        lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
+        if cur_price < (buy_p * self.prev_high):
             return "BUY"
         else:
             return "NA"
