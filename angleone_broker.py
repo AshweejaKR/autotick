@@ -67,11 +67,9 @@ class angleone:
         self._instance = None
         self.__login()
         self.instrument_list = load_instrument_list()
-        # lg.info(f"{self.usr} angleone broker class constructor called")
 
     def __del__(self):
         self.__logout()
-        # lg.info(f"{self.usr} angleone broker class destructor called")
 
     def __login(self):
         try:
