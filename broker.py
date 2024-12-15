@@ -272,13 +272,15 @@ class broker:
 
     def verify_position(self, sym, qty, exit=False):
         if self.mode.value == 1:
-            pass
+            # need to update here
+            return True
         else:
             return True
 
     def verify_holding(self, sym, qty):
         if self.mode.value == 1:
-            pass
+            # need to update here
+            return True
         else:
             return True
 
