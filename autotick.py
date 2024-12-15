@@ -135,7 +135,7 @@ class autotick:
                     lg.info("quantity: {} ".format(self.quantity))
                     if self.quantity > 0:
                         status = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
-                        lg.info("status: {} ".format(status))
+                        lg.info("{} Order status: {} ".format("BUY", status))
                         if status:
                             res = self.obj.verify_position(self.ticker, self.quantity)
                             self.entry_price = self.obj.get_entry_exit_price(self.ticker)
@@ -159,6 +159,7 @@ class autotick:
                 elif (self.current_trade == "BUY") and (ret == "SELL"):
                     lg.info("Exiting Trade")
                     status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
+                    lg.info("{} Order status: {} ".format("SELL", status))
                     lg.info("status: {} ".format(status))
                     if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
@@ -179,6 +180,7 @@ class autotick:
                 elif (self.current_trade == "BUY") and (cur_price > self.takeprofit_price) and not self.trailSL:
                     lg.info("Exiting Trade")
                     status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
+                    lg.info("{} Order status: {} ".format("SELL", status))
                     lg.info("status: {} ".format(status))
                     if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
@@ -199,6 +201,7 @@ class autotick:
                 elif (self.current_trade == "BUY") and (cur_price < self.stoploss_price):
                     lg.info("Exiting Trade")
                     status = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
+                    lg.info("{} Order status: {} ".format("SELL", status))
                     lg.info("status: {} ".format(status))
                     if status:
                         res = self.obj.verify_position(self.ticker, self.quantity)
