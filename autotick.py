@@ -18,7 +18,7 @@ class autotick:
         self.mode = mode
         self.current_trade = "NA"
         self.ticker = ticker
-        self.interval = 1
+        self.interval = 2
         self.exchange = exchange
         self.datestamp = datestamp
         self.obj = broker(self.ticker, exchange, self.name, self.mode, datestamp)
