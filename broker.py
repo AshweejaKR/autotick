@@ -236,8 +236,7 @@ class broker:
             orderid = self._instance.place_buy_order(ticker, quantity, exchange)
             self.__wait_till_order_fill(orderid, buy_sell)
             status = self._instance.get_oder_status(orderid)
-            print("Order status : ", status)
-            x = input("Debug stop:\n")
+            lg.info("Order status for {} order for {} : {}".format(buy_sell, ticker, status))
             if status == 'complete':
                 return True
             else:
@@ -257,6 +256,7 @@ class broker:
             orderid = self._instance.place_sell_order(ticker, quantity, exchange)
             self.__wait_till_order_fill(orderid, buy_sell)
             status = self._instance.get_oder_status(orderid)
+            lg.info("Order status for {} order for {} : {}".format(buy_sell, ticker, status))
             if status == 'complete':
                 return True
             else:
