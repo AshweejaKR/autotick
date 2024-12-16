@@ -239,9 +239,9 @@ class angleone:
         lg.debug("GETTING LTP DATA: DONE")
         return ltp
 
-    def hist_data_daily(self, ticker, duration, exchange):
+    def hist_data_daily(self, ticker, duration, exchange, datestamp=dt.date.today()):
         interval = "ONE_DAY"
-        fromdate = (dt.date.today() - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M')
+        fromdate = (datestamp - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M')
         todate = dt.date.today().strftime('%Y-%m-%d %H:%M')
         time.sleep(delay)
         hist_data = self.__get_hist(ticker, interval, fromdate, todate, exchange)
@@ -299,19 +299,16 @@ class angleone:
                 if exit:
                     if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:
                         return True
-                    else:
-                        return False
                 else:
                     if i['tradingsymbol'] == sym and int(i['buyqty']) == qty:
                         return True
-                    else:
-                        return False
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
             return False
+        return False
 
     def verify_holding(self, sym, qty):
         res_holdings = self.__get_holdings()
