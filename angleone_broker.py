@@ -215,12 +215,10 @@ class angleone:
 
     def get_user_data(self):
         res = self._instance.getProfile(self.refreshToken)
-        lg.info(str((res)))
         return res
 
     def get_trade_margin(self):
         res = self.__get_margin()
-        lg.info(res)
         margin = float(res['data']['net'])
         return margin
 
@@ -336,7 +334,7 @@ class angleone:
         try:
             for i in res_positions['data']:
                 if i['tradingsymbol'] == sym:
-                    if exit:
+                    if _exit:
                         price = float(i['sellavgprice'])
                     else:
                         price = float(i['buyavgprice'])
