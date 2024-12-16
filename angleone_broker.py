@@ -319,14 +319,13 @@ class angleone:
             for i in res_holdings['data']:    
                 if i['tradingsymbol'] == sym and int(i['quantity']) >= qty:
                     return True
-                else:
-                    return False
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
             return False
+        return False
 
     def get_entry_exit_price(self, sym, _exit=False):
         res_positions = self.__get_positions()

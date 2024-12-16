@@ -42,7 +42,24 @@ class aliceblue:
         lg.done('Logout success ... !')
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
-        pass
+        orderid = None
+        try:
+            time.sleep(delay)
+            try:
+                orderid = self._instance.placeOrder(params)
+            except Exception as err:
+                template = "An exception of type {0} occurred. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("{}".format(message))
+                # time.sleep(1)
+                # orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
+            lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+
+        return orderid
 
     def get_user_data(self):
         pass

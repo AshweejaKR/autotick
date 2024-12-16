@@ -279,8 +279,7 @@ class broker:
 
     def verify_holding(self, sym, qty):
         if self.mode.value == 1:
-            # need to update here
-            return True
+            r = self._instance.verify_holding(sym, qty)
         else:
             return True
 
