@@ -17,7 +17,7 @@ class Mode(Enum):
     PAPER_TRADE = 2
     BACKTEST = 3
     USER_TEST = 4
-
+# Test add
 # def read_config_data():
 #     try:
 #         df1 = pd.read_excel('../trade_settings.xlsx', "SETTING")
