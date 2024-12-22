@@ -33,16 +33,21 @@ def main():
     lg.info("Trading Bot running ... ! \n")
 
     # read_config_data()
+    start = time.time()
+    lg.info("T0 : {}".format(start))
 
-    ticker = "INFY"
+    ticker = "SAGILITY-EQ"
     exchange = "NSE"
-    
-    mode = Mode.LIVE_TRADE    
-    # x = input(f"start {mode}:\n")
-    lg.info("--------------------------------------------------------------")
-    obj = autotick(ticker, exchange, mode)
-    obj.run_strategy()
+    datestamp = dt.date.today()
+    mode = Mode.LIVE_TRADE
+    obj = autotick(ticker, exchange, mode, datestamp)
+    obj.run_trade()
     del obj
+
+    end = time.time()
+    lg.info("T1 : {}".format(end))
+    diff = end - start
+    lg.info("Total time taken : {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
 
     '''
     mode = Mode.PAPER_TRADE

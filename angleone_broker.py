@@ -19,7 +19,7 @@ from utils import *
 delay = 1.2
 
 def load_instrument_list():
-    filename = "instrument_list_file.json"
+    filename = "config/instrument_list_file.json"
     _instrument_list = read_from_json(filename)
 
     if _instrument_list is None:
@@ -30,16 +30,6 @@ def load_instrument_list():
         write_to_json(_instrument_list, filename)
 
     return _instrument_list
-
-def ticker_lookup(name, instrument_list, exchange):
-    for instrument in instrument_list:
-        if exchange == "NSE":
-            if instrument["name"] == name and instrument["exch_seg"] == exchange and instrument["symbol"].split('-')[
-            -1] == "EQ":
-                return instrument["symbol"]
-        else:
-            if instrument["symbol"] == ticker and instrument["exch_seg"] == exchange:
-                return instrument["token"]
 
 def token_lookup(ticker, instrument_list, exchange):
     for instrument in instrument_list:
@@ -62,32 +52,34 @@ def symbol_lookup(token, instrument_list, exchange):
                 return instrument["symbol"]
 
 class angleone:
-    def __init__(self, usr_="NO_USR"):
-        self.usr = usr_
+    def __init__(self):
         self._instance = None
-        self.__login()
         self.instrument_list = load_instrument_list()
+        self.ltp = None
+        self.error_msg = "NA"
+        self.__login()
 
     def __del__(self):
         self.__logout()
 
     def __login(self):
         try:
+            time.sleep(delay)
             self._instance = SmartConnect(API_KEY)
             totp = TOTP(TOTP_TOKEN).now()
             time.sleep(delay)
             data = self._instance.generateSession(CLIENT_ID, PASSWORD, totp)
-            self.refreshToken = data['data']['refreshToken']
             if data['status'] and data['message'] == 'SUCCESS':
+                self.refreshToken = data['data']['refreshToken']
                 lg.done('Login success ... !')
             else:
-                lg.error('Login failed ... !')
+                lg.error('Login failed, ERROR: ', data['message'])
+                sys.exit(-1)
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-            # time.sleep(5)
-            # self.__login()
+            sys.exit(-1)
 
     def __logout(self):
         try:
@@ -96,16 +88,13 @@ class angleone:
             if data['status'] and data['message'] == 'SUCCESS':
                 lg.done('Logout success ... !')
             else:
-                lg.error('Logout failed ... !')
+                lg.error('Logout failed, ERROR: ', data['message'])
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-            # time.sleep(5)
-            # self.__logout()
 
-    def __get_hist(self, ticker_, interval, fromdate, todate, exchange):
-        ticker = ticker_lookup(ticker_, self.instrument_list, exchange)
+    def __get_hist_data(self, ticker, interval, fromdate, todate, exchange):
         params = {
             "exchange" : exchange,
             "symboltoken" : token_lookup(ticker, self.instrument_list, exchange),
@@ -114,20 +103,52 @@ class angleone:
             "todate" : todate
                     }
         try:
-            lg.debug(str((params)))
+            time.sleep(delay)
             hist_data = self._instance.getCandleData(params)
-            lg.debug(str((hist_data)))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-            # time.sleep(1)
-            # hist_data = self.__get_hist(ticker, interval, fromdate, todate, exchange)
         return hist_data
 
-    def __place_order(self, ticker_, quantity, buy_sell, exchange):
-        orderid = None
-        ticker = ticker_lookup(ticker_, self.instrument_list, exchange)
+    def hist_data_daily(self, ticker, duration, exchange, datestamp):
+        interval = "ONE_DAY"
+        fromdate = (datestamp - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M')
+        todate = dt.date.today().strftime('%Y-%m-%d %H:%M')
+        hist_data = self.__get_hist_data(ticker, interval, fromdate, todate, exchange)
+        df_data = pd.DataFrame(hist_data["data"],
+                               columns=["date", "Open", "High", "Low", "Close", "Volume"])
+        df_data.set_index("date", inplace=True)
+        df_data.index = pd.to_datetime(df_data.index)
+        df_data.index = df_data.index.tz_localize(None)
+        return df_data
+
+    def hist_data_intraday(self, ticker, exchange, datestamp):
+        interval = 'FIVE_MINUTE'
+        fromdate = datestamp.strftime("%Y-%m-%d")+ " 09:15"
+        todate = datestamp.strftime("%Y-%m-%d") + " 15:30" 
+        hist_data = self.__get_hist_data(ticker, interval, fromdate, todate, exchange)
+        df_data = pd.DataFrame(hist_data["data"],
+                               columns=["date", "Open", "High", "Low", "Close", "Volume"])
+        df_data.set_index("date",inplace=True)
+        df_data.index = pd.to_datetime(df_data.index)
+        df_data.index = df_data.index.tz_localize(None)
+        return df_data
+
+    def get_current_price(self, ticker, exchange):
+        try:
+            time.sleep(delay)
+            data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
+            ltp = float(data['data']['ltp'])
+            self.ltp = ltp
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            ltp = self.ltp
+        return ltp
+
+    def __place_order(self, ticker, quantity, buy_sell, exchange):
         try:
             params = {
                 "variety" : "NORMAL",
@@ -142,15 +163,7 @@ class angleone:
             }
 
             time.sleep(delay)
-            try:
-                lg.debug(str((params)))
-                orderid = self._instance.placeOrder(params)
-            except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
-                message = template.format(type(err).__name__, err.args)
-                lg.error("{}".format(message))
-                # time.sleep(1)
-                # orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
+            orderid = self._instance.placeOrder(params)
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -158,112 +171,6 @@ class angleone:
             lg.error("{}".format(message))
 
         return orderid
-
-    def __get_oder_status(self):
-        try:
-            order_history_response = self._instance.orderBook()
-            lg.debug(str((order_history_response)))
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            # time.sleep(1)
-            # order_history_response = self.__get_oder_status()
-        return order_history_response
-
-    def __get_margin(self):
-        try:
-            res = self._instance.rmsLimit()
-            lg.debug(str((res)))
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            # time.sleep(1)
-            # res = self.__get_margin()
-        return res
-
-    def __get_positions(self):
-        try:
-            time.sleep(1)
-            position = self._instance.position()
-            lg.debug(str((position)))
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            # time.sleep(1)
-            # position = self.__get_positions()
-        
-        return position
-    
-    def __get_holdings(self):
-        try:
-            time.sleep(1)
-            holdings = self._instance.holding()
-            lg.debug(str((holdings)))
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            # time.sleep(1)
-            # holdings = self.__get_holdings()
-        
-        return holdings
-
-###############################################################################
-
-    def get_user_data(self):
-        res = self._instance.getProfile(self.refreshToken)
-        return res
-
-    def get_trade_margin(self):
-        res = self.__get_margin()
-        margin = float(res['data']['net'])
-        return margin
-
-    def get_current_price(self, ticker_, exchange):
-        ticker = ticker_lookup(ticker_, self.instrument_list, exchange)
-        time.sleep(delay)
-        lg.debug("GETTING LTP DATA")
-        try:
-            data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
-            lg.debug(str((data)))
-            ltp = float(data['data']['ltp'])
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            # time.sleep(1)
-            # ltp = self.get_current_price(ticker, exchange)
-        lg.debug("GETTING LTP DATA: DONE")
-        return ltp
-
-    def hist_data_daily(self, ticker, duration, exchange, datestamp=dt.date.today()):
-        interval = "ONE_DAY"
-        fromdate = (datestamp - dt.timedelta(duration)).strftime('%Y-%m-%d %H:%M')
-        todate = dt.date.today().strftime('%Y-%m-%d %H:%M')
-        time.sleep(delay)
-        hist_data = self.__get_hist(ticker, interval, fromdate, todate, exchange)
-        df_data = pd.DataFrame(hist_data["data"],
-                               columns=["date", "Open", "High", "Low", "Close", "Volume"])
-        df_data.set_index("date", inplace=True)
-        df_data.index = pd.to_datetime(df_data.index)
-        df_data.index = df_data.index.tz_localize(None)
-        return df_data
-
-    def hist_data_intraday(self, ticker, exchange, datestamp):
-        interval = 'FIVE_MINUTE'
-        fromdate = datestamp.strftime("%Y-%m-%d")+ " 09:15"
-        todate = datestamp.strftime("%Y-%m-%d") + " 15:30" 
-        time.sleep(delay)
-        hist_data = self.__get_hist(ticker, interval, fromdate, todate, exchange)
-        df_data = pd.DataFrame(hist_data["data"],
-                               columns=["date", "Open", "High", "Low", "Close", "Volume"])
-        df_data.set_index("date",inplace=True)
-        df_data.index = pd.to_datetime(df_data.index)
-        df_data.index = df_data.index.tz_localize(None)
-        return df_data
 
     def place_buy_order(self, ticker, quantity, exchange):
         buy_sell = "BUY"
@@ -276,67 +183,97 @@ class angleone:
         return orderid
 
     def get_oder_status(self, orderid):
-        time.sleep(delay)
-        order_history_response = self.__get_oder_status()
         status = "NA"
-
         try:
+            time.sleep(delay)
+            order_history_response = self._instance.orderBook()
             for i in order_history_response['data']:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled
+                    self.error_msg = i['text']
                     break
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-
+        
         return status
 
-    def verify_position(self, sym, qty, exit=False):
-        res_positions = self.__get_positions()
-        try:
-            for i in res_positions['data']:
-                if exit:
-                    if i['tradingsymbol'] == sym and int(i['sellqty']) == qty:
-                        return True
-                else:
-                    if i['tradingsymbol'] == sym and int(i['buyqty']) == qty:
-                        return True
+    def get_user_data(self):
+        time.sleep(delay)
+        res = self._instance.getProfile(self.refreshToken)
+        return res
 
+    def get_available_margin(self):
+        try:
+            time.sleep(delay)
+            res = self._instance.rmsLimit()
+            margin = float(res['data']['net'])
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-            return False
-        return False
+        return margin
 
-    def verify_holding(self, sym, qty):
-        res_holdings = self.__get_holdings()
+    def verify_position(self, ticker, quantity, exit_=False):
         try:
-            for i in res_holdings['data']:    
-                if i['tradingsymbol'] == sym and int(i['quantity']) >= qty:
-                    return True
-
-        except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
-            return False
-        return False
-
-    def get_entry_exit_price(self, sym, _exit=False):
-        res_positions = self.__get_positions()
-        price = 0.0
-        try:
-            for i in res_positions['data']:
-                if i['tradingsymbol'] == sym:
-                    if _exit:
-                        price = float(i['sellavgprice'])
+            time.sleep(delay)
+            res_positions = self._instance.position()
+            if res_positions['data'] is not None:
+                for i in res_positions['data']:
+                    if exit_:
+                        if i['tradingsymbol'] == ticker and int(i['sellqty']) == quantity:
+                            return True
                     else:
-                        price = float(i['buyavgprice'])
+                        if i['tradingsymbol'] == ticker and int(i['buyqty']) == quantity:
+                            return True
+            else:
+                lg.error("NO POSITIONS FOUND")
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            return False
+        return False
+
+    def verify_holding(self, ticker, quantity):
+        try:
+            time.sleep(delay)
+            res_holdings = self._instance.holding() 
+            if res_holdings['data'] is not None:
+                for i in res_holdings['data']:    
+                    if i['tradingsymbol'] == ticker and int(i['quantity']) >= quantity:
+                        return True
+            else:
+                lg.error("NO HOLDINGS FOUND")
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            return False
+        return False
+
+    def get_entry_exit_price(self, ticker, _exit=False):
+        try:
+            time.sleep(delay)
+            res_positions = self._instance.position()
+            if res_positions['data'] is not None:
+                for i in res_positions['data']:
+                    if i['tradingsymbol'] == ticker:
+                        if _exit:
+                            price = float(i['sellavgprice'])
+                        else:
+                            price = float(i['buyavgprice'])
+            else:
+                lg.error("NO POSITIONS FOUND")
+                return None
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            return None
+
         return price
