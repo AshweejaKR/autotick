@@ -110,7 +110,7 @@ class autotick:
                     lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
 
                 # x = input("debug stop")
-                if self.current_trade == "NA" and (res == "BUY"):
+                if self.current_trade != "BUY" and (res == "BUY"):
                     order_type = "BUY"
                     lg.info("Entering Trade")
                     amt = self.obj.get_available_margin()
@@ -128,6 +128,7 @@ class autotick:
                             lg.info("{} Order status: {} ".format(order_type, status))
                             if status == 'complete':
                                 x = self.obj.verify_position(self.ticker, self.quantity)
+                                lg.info("Entered into Position Mode : ".format(x))
                                 self.entry_price = self.obj.get_entry_exit_price(self.ticker)
                                 self.stoploss_price = self.entry_price - (self.entry_price * self.stoploss_p)
                                 self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
