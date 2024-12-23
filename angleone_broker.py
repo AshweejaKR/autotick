@@ -222,10 +222,10 @@ class angleone:
             if res_positions['data'] is not None:
                 for i in res_positions['data']:
                     if exit_:
-                        if i['tradingsymbol'] == ticker and int(i['sellqty']) == quantity:
+                        if i['tradingsymbol'] == ticker and int(i['sellqty']) >= quantity:
                             return True
                     else:
-                        if i['tradingsymbol'] == ticker and int(i['buyqty']) == quantity:
+                        if i['tradingsymbol'] == ticker and int(i['buyqty']) >= quantity:
                             return True
             else:
                 lg.error("NO POSITIONS FOUND")
