@@ -179,7 +179,7 @@ class autotick:
                     if (cur_price > self.takeprofit_price) or (cur_price < self.stoploss_price):
                         order_type = "SELL"
                         lg.info("Exiting Trade")
-                        orderid = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
+                        orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
                         no_of_order_placed = no_of_order_placed + 1
                         if orderid is not None:
                             self.__wait_till_order_fill(orderid, order_type)
