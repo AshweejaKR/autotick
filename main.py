@@ -36,7 +36,7 @@ def main():
     start = time.time()
     lg.info("T0 : {}".format(start))
 
-    ticker = "SAGILITY-EQ"
+    ticker = "INFY-EQ"
     exchange = "NSE"
     datestamp = dt.date.today()
     mode = Mode.LIVE_TRADE

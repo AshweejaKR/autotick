@@ -7,9 +7,9 @@ Created on Fri Jun 21 21:03:34 2024
 
 import sys, os
 
-def get_keys():
+def get_keys(key_file):
     config_path = 'config/'
-    key_file = config_path + "key.txt"
+    key_file = config_path + key_file
     try:
         if not os.path.isdir(config_path):
             os.mkdir(config_path)
@@ -29,9 +29,3 @@ def get_keys():
             f.close()
 
     return key_secret
-
-API_KEY = get_keys()[0]
-API_SECRET = get_keys()[1]
-CLIENT_ID = get_keys()[2]
-PASSWORD = get_keys()[3]
-TOTP_TOKEN = get_keys()[4]

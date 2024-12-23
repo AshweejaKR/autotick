@@ -17,6 +17,12 @@ from config import *
 from utils import *
 
 delay = 1.2
+key_file = "angleone_key.txt"
+API_KEY = get_keys(key_file)[0]
+API_SECRET = get_keys(key_file)[1]
+CLIENT_ID = get_keys(key_file)[2]
+PASSWORD = get_keys(key_file)[3]
+TOTP_TOKEN = get_keys(key_file)[4]
 
 def load_instrument_list():
     filename = "config/instrument_list_file.json"
@@ -124,7 +130,7 @@ class angleone:
         return df_data
 
     def hist_data_intraday(self, ticker, exchange, datestamp):
-        interval = 'FIVE_MINUTE'
+        interval = 'ONE_MINUTE'
         fromdate = datestamp.strftime("%Y-%m-%d")+ " 09:15"
         todate = datestamp.strftime("%Y-%m-%d") + " 15:30" 
         hist_data = self.__get_hist_data(ticker, interval, fromdate, todate, exchange)

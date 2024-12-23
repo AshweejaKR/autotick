@@ -8,6 +8,7 @@ Created on Sat Nov 30 18:21:09 2024
 import time
 
 from angleone_broker import *
+from aliceblue_broker import *
 # from broker import *
 from utils import *
 
@@ -36,6 +37,7 @@ class autotick:
         self.current_trade = "NA"
         self.trailSL = False
         self.obj = angleone()
+        # self.obj = aliceblue()
 
         cur_price = self.obj.get_current_price(self.ticker, self.exchange)
         while cur_price is None:
