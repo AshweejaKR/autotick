@@ -9,6 +9,7 @@ import time
 
 from angleone_broker import *
 from aliceblue_broker import *
+from stub_broker import *
 # from broker import *
 from utils import *
 
@@ -26,27 +27,38 @@ def KillSwitch():
 
 class autotick:
     def __init__(self, ticker, exchange, mode, datestamp):
+        global no_of_order_placed
         self.ticker = ticker
         self.exchange = exchange
         self.mode = mode
         self.datestamp = datestamp
         self.interval = 10
         self.stoploss_p = 0.1
-        self.target_p = 0.0005
+        self.target_p = 0.021
         self.capital_per_trade = 10000.00
         self.current_trade = "NA"
         self.trailSL = False
-        self.obj = angleone()
-        # self.obj = aliceblue()
+        no_of_order_placed = 0
+
+        if self.mode.value == 3 or self.mode.value == 4:
+            self.interval = 0.000
+            self.print_int = 100
+            self.obj = stub()
+            self.obj.init_test(ticker, exchange, datestamp)
+        else:
+            self.obj = angleone()
+            # self.obj = aliceblue()
 
         cur_price = self.obj.get_current_price(self.ticker, self.exchange)
+        lg.info(f"Current Price for {self.ticker} : {cur_price}")
         while cur_price is None:
             cur_price = self.obj.get_current_price(self.ticker, self.exchange)
             lg.info(f"Checking current_price : {cur_price}")
             time.sleep(1)
 
         lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {exchange} exchange, running on {self.datestamp}")
-    
+        lg.info(f"Trading Bot Mode: {self.mode.name}")
+
     def __del__(self):
         pass
 
@@ -101,7 +113,15 @@ class autotick:
             start_time = time.time()
             try:
                 KillSwitch()
-                lg.info("Running Trade For {} ... ".format(self.ticker))
+                if self.mode.value != 3:
+                    lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
+                else:
+                    if no_of_order_placed > 4:
+                        lg.warning("Kill Switch Activated!!")
+                        lg.warning("Stopping the Trading Bot")
+                        return
+                    if gvars.i % self.print_int == 0:
+                        lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
                 cur_price = self.obj.get_current_price(self.ticker, self.exchange)
                 if self.current_trade != "BUY":
                     res = self.run_strategy(cur_price)
@@ -109,7 +129,12 @@ class autotick:
                 if self.current_trade == "BUY":
                     if self.trailSL:
                         tsl_change = self.trail_SL(self.stoploss_price, self.trigger_price, cur_price, 10)
-                    lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
+                    
+                    if self.mode.value != 3:
+                        lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
+                    else:
+                        if gvars.i % self.print_int == 0:
+                            lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
 
                 # x = input("debug stop")
                 if self.current_trade != "BUY" and (res == "BUY"):
@@ -204,7 +229,12 @@ class autotick:
                         else:
                             lg.error("Order ID is NONE")
 
-                lg.info("------------------------------------------------------\n")
+                if self.mode.value != 3:
+                    lg.info("------------------------------------------------------\n")
+                else:
+                    if gvars.i % self.print_int == 0:
+                        lg.info("------------------------------------------------------\n")
+
                 end_time = time.time()
                 taken_time = end_time - start_time
                 if self.interval - taken_time > 0:
@@ -233,7 +263,7 @@ class autotick:
         except Exception as err: lg.info("init_strategy Error: {}".format(err))
 
     def run_strategy(self, cur_price):
-        buy_p = 0.999
+        buy_p = 0.99
 
         lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
         if cur_price < (buy_p * self.prev_high):

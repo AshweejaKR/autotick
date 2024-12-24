@@ -5,8 +5,7 @@ Created on Sat Nov 30 18:11:42 2024
 @author: ashwe
 """
 
-import pandas as pd
-import os
+import sys
 from enum import Enum
 
 from logger import *
@@ -17,7 +16,8 @@ class Mode(Enum):
     PAPER_TRADE = 2
     BACKTEST = 3
     USER_TEST = 4
-# Test add
+
+# TODO
 # def read_config_data():
 #     try:
 #         df1 = pd.read_excel('../trade_settings.xlsx', "SETTING")
@@ -32,51 +32,48 @@ def main():
     initialize_logger()
     lg.info("Trading Bot running ... ! \n")
 
+    # TODO
+    # Need to update here
     # read_config_data()
+    # exec_fun(compile(code_ast, filename, "exec"), globals)
+
     start = time.time()
     lg.info("T0 : {}".format(start))
 
+    ###########################################################################
+    # User input here
     ticker = "INFY-EQ"
     exchange = "NSE"
     datestamp = dt.date.today()
     mode = Mode.LIVE_TRADE
-    obj = autotick(ticker, exchange, mode, datestamp)
-    obj.run_trade()
-    del obj
+    
+    # input for BACKTEST
+    duration = 25
+    from_date = (datestamp - dt.timedelta(duration)).strftime("%Y-%m-%d") # YYYY-MM-DD format
+    # from_date = "2024-12-12" # YYYY-MM-DD format
+    to_date = datestamp.strftime("%Y-%m-%d") # YYYY-MM-DD format
+    # to_date = "2024-12-14" # YYYY-MM-DD format
 
+    ###########################################################################
+
+    if mode.value != 3:
+        obj = autotick(ticker, exchange, mode, datestamp)
+        obj.run_trade()
+        del obj
+    else:
+        dates = get_date_range(from_date, to_date)
+
+        for date_str in dates:
+            datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
+            obj = autotick(ticker, exchange, mode, datestamp)
+            obj.run_trade()
+            del obj
+
+    ###########################################################################
     end = time.time()
     lg.info("T1 : {}".format(end))
     diff = end - start
     lg.info("Total time taken : {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
-
-    '''
-    mode = Mode.PAPER_TRADE
-    # x = input(f"start {mode}:\n")
-    lg.info("--------------------------------------------------------------")
-    obj = autotick(ticker, exchange, mode)
-    obj.run_strategy()
-    del obj
-
-    mode = Mode.BACKTEST
-    from_date = "2024-12-12" # YYYY-MM-DD format
-    to_date = "2024-12-14" # YYYY-MM-DD format
-    dates = get_date_range(from_date, to_date)
-
-    # x = input(f"start {mode}:\n")
-    lg.info("--------------------------------------------------------------")
-    for date_str in dates:
-        datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
-        obj = autotick(ticker, exchange, mode, datestamp)
-        obj.run_strategy()
-        del obj
-
-    mode = Mode.USER_TEST
-    # x = input(f"start {mode}:\n")
-    lg.info("--------------------------------------------------------------")
-    obj = autotick(ticker, exchange, mode)
-    obj.run_strategy()
-    del obj
-    '''
 
     lg.done("Trading Bot done ...")
     

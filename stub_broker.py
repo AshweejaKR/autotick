@@ -10,6 +10,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 import datetime as dt
 
+from logger import *
+from config import *
+from utils import *
 
 import gvars
 global intraday_data
@@ -37,8 +40,9 @@ def fetch_intraday_data(ticker_, date):
         date = date.strftime("%Y-%m-%d")
 
         # Fetch data for the range covering the specific date
-        start_date = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-        intraday_data = ticker_data.history(interval="1m", start=start_date, end=date)
+        start_date = (datetime.strptime(date, "%Y-%m-%d")).strftime("%Y-%m-%d")
+        end_date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        intraday_data = ticker_data.history(interval="1m", start=start_date, end=end_date)
         return intraday_data
     except Exception as e:
         print(f"Error fetching data for {ticker}: {e}")
@@ -63,6 +67,20 @@ def fetch_current_price_bt():
         print(err)
     return ltp
 
+def read_dummy_ltp():
+    global ltp
+    try:
+        with open("../ltp.txt") as file:
+            data = file.readlines()
+            ltp = float(data[0])
+            # gvars.max_len = len(data)
+            # if gvars.i < gvars.max_len - 1:
+            #     ltp = float(data[gvars.i])
+    except Exception as err: 
+        print(err)
+        # ltp = float(input("Enter current price:\n"))
+    return ltp
+
 class stub:
     def __init__(self):
         self._instance = None
@@ -78,6 +96,43 @@ class stub:
     def __logout(self):
         print('Logout success ... !')
 
+###############################################################################
+
+    def init_test(self, ticker, exchange, datestamp):
+        global intraday_data
+        global ltp
+        if self._instance is None:
+            data = fetch_intraday_data(ticker, datestamp)
+
+        intraday_data = []
+        if len(data) > 0:
+            for i in data['Open']:
+                intraday_data.append(i)
+
+            for i in data['High']:
+                intraday_data.append(i)
+
+            for i in data['Low']:
+                intraday_data.append(i)
+
+            for i in data['Close']:
+                intraday_data.append(i)
+
+        gvars.max_len = len(intraday_data)
+        gvars.i = -1
+
+        if self._instance is None:
+            ltp = fetch_current_price(ticker)
+
+        try:
+            with open("../ltp.txt", "w") as file:
+                for i in range(5):
+                    file.write(str(ltp + i) + "\n")
+        except Exception as err: print("***", err)
+
+        lg.info("Init done ... !")
+        # lg.info(f"Trading Bot Mode: {self.mode.name}")
+
     def hist_data_daily(self, ticker, duration, exchange, datestamp):
         end_date = datetime.today()
         start_date = end_date - timedelta(days=duration)
@@ -89,24 +144,28 @@ class stub:
         return df_data
 
     def get_current_price(self, ticker, exchange):
-        ltp = fetch_current_price(ticker)
-        print(f"Current Price is {ltp} ")
+        if len(intraday_data) > 0:
+            ltp = fetch_current_price_bt()
+        else:
+            ltp = fetch_current_price(ticker)
+        # ltp = read_dummy_ltp()
+        # ltp = fetch_current_price(ticker)
         # ltp = float(input("Enter new Price:\n"))
         self.cp = ltp
         return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
-        orderid = "TEST1"
+        orderid = "TEST1_" + buy_sell
         print("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         return orderid
 
     def place_buy_order(self, ticker, quantity, exchange):
-        buy_sell = "BUY"
+        buy_sell = "B"
         orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
         return orderid
 
     def place_sell_order(self, ticker, quantity, exchange):
-        buy_sell = "SELL"
+        buy_sell = "S"
         orderid = self.__place_order(ticker, quantity, buy_sell, exchange)
         return orderid
 
