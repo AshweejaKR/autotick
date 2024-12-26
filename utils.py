@@ -21,7 +21,6 @@ def wait_till_market_open(mode_):
 
         cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
         if cur_time > gvars.endTime or cur_time < gvars.waitTime:
-            lg.info('Market is closed. \n')
             return False
 
         if cur_time > gvars.startTime:
@@ -44,6 +43,7 @@ def is_market_open(mode_):
     if gvars.startTime <= cur_time <= gvars.endTime:
         return True
     else:
+        lg.info('Market is closed. \n')
         return False
 
 # Function to write data to a JSON file
