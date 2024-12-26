@@ -3,11 +3,16 @@ from SmartApi.smartWebSocketOrderUpdate import SmartWebSocketOrderUpdate
 from SmartApi import SmartConnect
 from pyotp import TOTP
 import urllib
-import sys
+import sys, os
 import json
+
+main_path = 'C:/user/ashwee/autotick'
+sys.path.append(main_path)
+os.chdir(main_path)
 
 from config import *
 from angleone_broker import *
+
 
 import threading
 
@@ -20,17 +25,20 @@ TOTP_TOKEN = get_keys(key_file)[4]
 
 obj=SmartConnect(api_key=API_KEY)
 totp = TOTP(TOTP_TOKEN).now()
-# data = obj.generateSession(key_secret[2],key_secret[3],TOTP(key_secret[4]).now())
 data = obj.generateSession(CLIENT_ID, PASSWORD, totp)
-print(data, "\n")
 feed_token = obj.getfeedToken()
-print(feed_token, "\n")
 
 instrument_url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
 response = urllib.request.urlopen(instrument_url)
 instrument_list = json.loads(response.read())
 
+global sws_message, stop, client, sws
+sws_message = ""
+stop = False
+client = None
+
 sws = SmartWebSocketV2(data["data"]["jwtToken"], API_KEY, CLIENT_ID, feed_token)
+client = SmartWebSocketOrderUpdate(data["data"]["jwtToken"], API_KEY, CLIENT_ID, feed_token)
 
 correlation_id = "stream_1" #any string value which will help identify the specific streaming in case of concurrent streaming
 action = 1 #1 subscribe, 0 unsubscribe
@@ -43,10 +51,6 @@ exchange = "NSE"
 token1 = token_lookup(ticker1, instrument_list, exchange)
 token2 = token_lookup(ticker2, instrument_list, exchange)
 token_list = [{"exchangeType": 1, "tokens": [token1, token2]}]
-
-global sws_message, stop
-sws_message = ""
-stop = False
 
 def on_data(wsapp, message):
     global sws_message, stop
@@ -63,6 +67,9 @@ def on_error(wsapp, error):
     print(error)
 
 def on_close(wsapp):
+    print("on close")
+
+def on_close(wsapp, close_status_code, close_msg):
     print("on close")
 
 def run_smartWebSocketV2(sws):
@@ -92,14 +99,8 @@ Sample SmartWebSocketV2 stream output
 '''
 
 def run_SmartWebSocketOrderUpdate():
-    global data
-    client = SmartWebSocketOrderUpdate(data["data"]["jwtToken"], API_KEY, CLIENT_ID, feed_token)
-
-    sws.on_open = on_open
-    sws.on_data = on_data
-    sws.on_error = on_error
-    sws.on_close = on_close
-
+    global data, client
+    client.on_close = on_close
     client.connect()
 
 ''' 
@@ -113,7 +114,8 @@ Sample SmartWebSocketOrderUpdate stream output
 [I 241226 13:48:21 smartWebSocketOrderUpdate:32] Received message: b'\x00'
 [I 241226 13:48:31 smartWebSocketOrderUpdate:32] Received message: b'\x00'
 
-[I 241226 13:48:37 smartWebSocketOrderUpdate:32] Received message: 
+[I 241226 13:48:37 smartWebSocketOrderUpdate:32] Received message:
+# for pending
 {"user-id": "A496209","status-code": "200","order-status": "AB09","error-message": "","orderData": 
 {"variety": "NORMAL","ordertype": "LIMIT","ordertag": "","producttype": "DELIVERY","price": 260.0,"triggerprice": 0.0,
 "quantity": "1","disclosedquantity": "0","duration": "DAY","squareoff": 0.0,"stoploss": 0.0,"trailingstoploss": 0.0,
@@ -123,11 +125,25 @@ Sample SmartWebSocketOrderUpdate stream output
 "orderstatus": "open pending","updatetime": "26-Dec-2024 13:48:37","exchtime": "","exchorderupdatetime": "",
 "fillid": "","filltime": "","parentorderid": ""}}
 
+# for completed
+Received message: {"user-id": 
+"A496209","status-code": "200","order-status": "AB05","error-message":
+"","orderData": {"variety": "NORMAL","ordertype": "LIMIT","ordertag":
+"","producttype": "DELIVERY","price": 266.94,"triggerprice": 0.0,"quantity":
+"1","disclosedquantity": "0","duration": "DAY","squareoff": 0.0,"stoploss":
+0.0,"trailingstoploss": 0.0,"tradingsymbol": "NIFTYBEES-EQ","transactiontype":
+"BUY","exchange": "NSE","symboltoken": "10576","instrumenttype": "","strikeprice":
+-1.0,"optiontype": "","expirydate": "","lotsize": "1","cancelsize":
+"0","averageprice": 265.62,"filledshares": "1","unfilledshares": "0","orderid":
+"241226000790638","text": "","status": "complete","orderstatus":
+"complete","updatetime": "26-Dec-2024 14:07:19","exchtime": 
+"26-Dec-2024 14:07:19","exchorderupdatetime": "26-Dec-2024 14:07:19",
+"fillid": "","filltime": "","parentorderid": ""}}
 '''
 
 def display():
     global sws_message
-    print("\n\n-----------------------------\n", sws_message, "\n--------------------------------\n\n")
+    print(sws_message, "\n")
     # sym = symbol_lookup(sws_message['token'], instrument_list, exchange)
     # ltp = (sws_message['average_traded_price'] / 100 )
     # print("\n**** Tick: {} : LTP : {} **********".format(sym, ltp))
@@ -151,10 +167,21 @@ while True:
     c = c + 1
     display()
 
+    try:
+        # TO STOP THE THREAD MANUALLY
+        with open("../ltp.txt") as file:
+            data = file.readlines()
+            ltp = float(data[0])
+            print(ltp, "\n")
+            
+            if ltp == 108:
+                sws.unsubscribe(correlation_id, mode, token_list)
+                sws.close_connection()
+                client.close_connection()
+                stop = True
+                break
 
-    if c > 120:
-        stop = True
-        break
+    except Exception as err: print(err)
 
 for th in threads:
     th.join()
