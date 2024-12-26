@@ -265,7 +265,12 @@ class autotick:
     def run_strategy(self, cur_price):
         buy_p = 0.99
 
-        lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
+        if self.mode.value != 3:
+            lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
+        else:
+            if gvars.i % self.print_int == 0:
+                lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
+
         if cur_price < (buy_p * self.prev_high):
             return "BUY"
         else:

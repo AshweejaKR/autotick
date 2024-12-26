@@ -46,7 +46,13 @@ def main():
     exchange = "NSE"
     datestamp = dt.date.today()
     mode = Mode.LIVE_TRADE
-    
+
+    # NEED TO REMOVE THIS LINE
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '3':
+            mode = Mode.BACKTEST
+    ###########################
+
     # input for BACKTEST
     duration = 25
     from_date = (datestamp - dt.timedelta(duration)).strftime("%Y-%m-%d") # YYYY-MM-DD format
