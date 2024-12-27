@@ -182,17 +182,17 @@ class aliceblue:
         try:
             time.sleep(delay)
             res_positions = self._instance.get_netwise_positions()
-            print(res_positions)
-            # if res_positions['data'] is not None:
-            #     for i in res_positions['data']:
-            #         if exit_:
-            #             if i['tradingsymbol'] == ticker and int(i['sellqty']) >= quantity:
-            #                 return True
-            #         else:
-            #             if i['tradingsymbol'] == ticker and int(i['buyqty']) >= quantity:
-            #                 return True
-            # else:
-            #     lg.error("NO POSITIONS FOUND")
+            if len(res_positions) > 0:
+                for i in res_positions:
+                    if i["stat"] == "Ok":
+                        if exit_:
+                            if i['Tsym'] == ticker and int(i['Sqty']) >= quantity:
+                                return True
+                        else:
+                            if i['Tsym'] == ticker and int(i['Bqty']) >= quantity:
+                                return True
+            else:
+                lg.error("NO POSITIONS FOUND")
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -205,13 +205,13 @@ class aliceblue:
         try:
             time.sleep(delay)
             res_holdings = self._instance.get_holding_positions()
-            print(res_holdings)
-            # if res_holdings['data'] is not None:
-            #     for i in res_holdings['data']:    
-            #         if i['tradingsymbol'] == ticker and int(i['quantity']) >= quantity:
-            #             return True
-            # else:
-            #     lg.error("NO HOLDINGS FOUND")
+            if res_holdings['stat'] == "Ok":
+                if len(res_holdings['HoldingVal']) > 0:
+                    for i in res_holdings['HoldingVal']:
+                            if i['Nsetsym'] == ticker and int(i['SellableQty']) >= quantity:
+                                return True
+                else:
+                    lg.error("NO HOLDINGS FOUND")
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -221,4 +221,25 @@ class aliceblue:
         return False
 
     def get_entry_exit_price(self, ticker, _exit=False):
-        pass
+        try:
+            time.sleep(delay)
+            res_positions = self._instance.get_netwise_positions()
+            if len(res_positions) > 0:
+                for i in res_positions:
+                    if i["stat"] == "Ok":
+                        if _exit:
+                            if i['Tsym'] == ticker:
+                                price = float(i['Sellavgprc'])
+                        else:
+                            if i['Tsym'] == ticker:
+                                price = float(i['Buyavgprc'])
+            else:
+                lg.error("NO POSITIONS FOUND")
+
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            return None
+
+        return price
