@@ -26,11 +26,12 @@ def KillSwitch():
         sys.exit(-1)
 
 class autotick:
-    def __init__(self, ticker, exchange, mode, datestamp):
+    def __init__(self, ticker, exchange, mode, broker, datestamp):
         global no_of_order_placed
         self.ticker = ticker
         self.exchange = exchange
         self.mode = mode
+        self.broker = broker
         self.datestamp = datestamp
         self.interval = 10
         self.stoploss_p = 0.1
@@ -39,15 +40,19 @@ class autotick:
         self.current_trade = "NA"
         self.trailSL = False
         no_of_order_placed = 0
+        self.file_name = self.ticker + "_" + self.broker.name
+
+        if self.broker.name == "ANGELONE":
+            self.obj = angleone()
+        elif self.broker.name == "ALICEBLUE":
+            self.obj = aliceblue()
+        elif self.broker.name == "NOBROKER":
+            self.obj = stub()
 
         if self.mode.value == 3 or self.mode.value == 4:
             self.interval = 0.000
             self.print_int = 100
-            self.obj = stub()
             self.obj.init_test(ticker, exchange, datestamp)
-        else:
-            self.obj = angleone()
-            # self.obj = aliceblue()
 
         cur_price = self.obj.get_current_price(self.ticker, self.exchange)
         lg.info(f"Current Price for {self.ticker} : {cur_price}")
@@ -57,7 +62,7 @@ class autotick:
             time.sleep(1)
 
         lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {exchange} exchange, running on {self.datestamp}")
-        lg.info(f"Trading Bot Mode: {self.mode.name}")
+        lg.info(f"Trading Bot Mode: {self.mode.name}, running Broker : {self.broker.name}")
 
     def __del__(self):
         pass
@@ -161,8 +166,8 @@ class autotick:
                                 self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
                                 self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
                                 self.current_trade = order_type
-                                save_positions(self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
-                                save_trade_in_csv(self.ticker, self.quantity, order_type, self.entry_price, self.datestamp)
+                                save_positions(self.file_name, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
+                                save_trade_in_csv(self.file_name, self.quantity, order_type, self.entry_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,
                                                                                                 self.quantity,
@@ -187,10 +192,10 @@ class autotick:
                         lg.info("{} Order status: {} ".format(order_type, status))
                         if status == 'complete':
                             x = self.obj.verify_position(self.ticker, self.quantity)
-                            exit_price = self.obj.get_entry_exit_price(self.ticker)
+                            exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                             self.current_trade = order_type
-                            remove_positions(self.ticker)
-                            save_trade_in_csv(self.ticker, self.quantity, order_type, exit_price, self.datestamp)
+                            remove_positions(self.file_name)
+                            save_trade_in_csv(self.file_name, self.quantity, order_type, exit_price, self.datestamp)
                             lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                             self.ticker,
                                                                                             self.quantity,
@@ -214,10 +219,10 @@ class autotick:
                             lg.info("{} Order status: {} ".format(order_type, status))
                             if status == 'complete':
                                 x = self.obj.verify_position(self.ticker, self.quantity)
-                                exit_price = self.obj.get_entry_exit_price(self.ticker)
+                                exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                                 self.current_trade = order_type
-                                remove_positions(self.ticker)
-                                save_trade_in_csv(self.ticker, self.quantity, order_type, exit_price, self.datestamp)
+                                remove_positions(self.file_name)
+                                save_trade_in_csv(self.file_name, self.quantity, order_type, exit_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,
                                                                                                 self.quantity,

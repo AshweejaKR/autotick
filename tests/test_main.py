@@ -20,7 +20,7 @@ def main():
 
     exchange = "NSE"
     stock = "INFY-EQ"
-    datestamp=dt.date.today()
+    datestamp = dt.date.today()
     duration = 10
 
     user_data = obj_1.get_user_data()

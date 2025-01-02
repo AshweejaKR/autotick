@@ -46,6 +46,7 @@ def main():
     exchange = "NSE"
     datestamp = dt.date.today()
     mode = Mode.LIVE_TRADE
+    broker = Broker.ANGELONE
 
     # NEED TO REMOVE THIS LINE
     if len(sys.argv) > 1:
@@ -63,7 +64,7 @@ def main():
     ###########################################################################
 
     if mode.value != 3:
-        obj = autotick(ticker, exchange, mode, datestamp)
+        obj = autotick(ticker, exchange, mode, broker, datestamp)
         obj.run_trade()
         del obj
     else:
@@ -71,7 +72,7 @@ def main():
 
         for date_str in dates:
             datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
-            obj = autotick(ticker, exchange, mode, datestamp)
+            obj = autotick(ticker, exchange, mode, broker, datestamp)
             obj.run_trade()
             del obj
 
