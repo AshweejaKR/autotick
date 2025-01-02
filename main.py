@@ -17,6 +17,11 @@ class Mode(Enum):
     BACKTEST = 3
     USER_TEST = 4
 
+class Broker(Enum):
+    ANGELONE = 1
+    ALICEBLUE = 2
+    NOBROKER = 3
+
 # TODO
 # def read_config_data():
 #     try:
