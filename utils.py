@@ -68,13 +68,13 @@ def read_from_json(filename):
         lg.error("{}".format(message))
     return data
 
-def save_positions(ticker, quantity, order_type, entryprice, stoploss, takeprofit):
+def save_positions(filename, ticker, quantity, order_type, entryprice, stoploss, takeprofit):
     pos_path = './data/'
     try:
         os.mkdir(pos_path)
     except Exception as err:
         pass
-    pos_file_name = ticker + "_trade_data.json"
+    pos_file_name = filename + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
 
     data = {
@@ -88,9 +88,9 @@ def save_positions(ticker, quantity, order_type, entryprice, stoploss, takeprofi
 
     write_to_json(data, currentpos_path)
 
-def load_positions(ticker):
+def load_positions(filename):
     pos_path = './data/'
-    pos_file_name = ticker + "_trade_data.json"
+    pos_file_name = filename + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
     data = None
     
@@ -99,9 +99,9 @@ def load_positions(ticker):
 
     return data
 
-def remove_positions(ticker):
+def remove_positions(filename):
     pos_path = './data/'
-    pos_file_name = ticker + "_trade_data.json"
+    pos_file_name = filename + "_trade_data.json"
     currentpos_path = pos_path + pos_file_name
     
     try:
@@ -111,9 +111,9 @@ def remove_positions(ticker):
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
 
-def save_trade_in_csv(ticker, quantity, order_type, price, datetime):
+def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
     # datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
-    filename = ticker + "_trade_report.csv"
+    filename = filename_ + "_trade_report.csv"
     pos_path = './data/'
     currentpos_path = pos_path + filename
     try:
