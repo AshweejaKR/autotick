@@ -47,11 +47,14 @@ class autotick:
         elif self.broker.name == "ALICEBLUE":
             self.obj = aliceblue()
         elif self.broker.name == "NOBROKER":
-            self.obj = stub()
+            self.obj = None
 
-        if self.mode.value == 3 or self.mode.value == 4:
-            self.interval = 0.000
-            self.print_int = 100
+        if self.mode.value != 1:
+            self.interval = 0.1
+            self.print_int = 10
+            if self.mode.value == 3:
+                self.interval = 0.000
+            self.obj = stub(self.mode, self.obj)
             self.obj.init_test(ticker, exchange, datestamp)
 
         cur_price = self.obj.get_current_price(self.ticker, self.exchange)
@@ -68,7 +71,7 @@ class autotick:
         pass
 
     def __load_positions(self):
-        data = load_positions(self.ticker)
+        data = load_positions(self.file_name)
         if data is not None:
             try:
                 if self.ticker == data['ticker']:
@@ -116,15 +119,12 @@ class autotick:
 
         while is_market_open(self.mode):
             start_time = time.time()
+            no_of_order_placed = 0
             try:
                 KillSwitch()
                 if self.mode.value != 3:
                     lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
                 else:
-                    if no_of_order_placed > 4:
-                        lg.warning("Kill Switch Activated!!")
-                        lg.warning("Stopping the Trading Bot")
-                        return
                     if gvars.i % self.print_int == 0:
                         lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
                 cur_price = self.obj.get_current_price(self.ticker, self.exchange)
@@ -166,8 +166,8 @@ class autotick:
                                 self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
                                 self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
                                 self.current_trade = order_type
-                                save_positions(self.file_name, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
-                                save_trade_in_csv(self.file_name, self.quantity, order_type, self.entry_price, self.datestamp)
+                                save_positions(self.file_name, self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
+                                save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, self.entry_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,
                                                                                                 self.quantity,
@@ -195,7 +195,7 @@ class autotick:
                             exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                             self.current_trade = order_type
                             remove_positions(self.file_name)
-                            save_trade_in_csv(self.file_name, self.quantity, order_type, exit_price, self.datestamp)
+                            save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
                             lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                             self.ticker,
                                                                                             self.quantity,
@@ -222,7 +222,7 @@ class autotick:
                                 exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                                 self.current_trade = order_type
                                 remove_positions(self.file_name)
-                                save_trade_in_csv(self.file_name, self.quantity, order_type, exit_price, self.datestamp)
+                                save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,
                                                                                                 self.quantity,
