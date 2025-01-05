@@ -2,9 +2,10 @@ import sys, os
 import time
 from enum import Enum
 
-main_path = 'C:/user/ashwee/autotick'
+cwd = os.getcwd()
+os.chdir("..")
+main_path = os.getcwd()
 sys.path.append(main_path)
-os.chdir(main_path)
 
 from angleone_broker import *
 from aliceblue_broker import *
@@ -226,5 +227,5 @@ def main():
     diff = end - start
     print("T: {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
