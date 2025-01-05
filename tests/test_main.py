@@ -227,5 +227,5 @@ def main():
     diff = end - start
     print("T: {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
