@@ -261,9 +261,12 @@ class autotick:
 ###############################################################################
     def init_strategy(self):
         try:
-            hist_data = self.obj.hist_data_daily(self.ticker, 8, self.exchange, self.datestamp)
-            self.prev_high = hist_data['High'].iloc[1]
-            self.prev_low = hist_data['Low'].iloc[1]
+            duration = 4
+            hist_data = self.obj.hist_data_daily(self.ticker, duration, self.exchange, self.datestamp)
+            lg.info(str(hist_data))
+            lg.info("\n")
+            self.prev_high = hist_data['High'].iloc[-1]
+            self.prev_low = hist_data['Low'].iloc[-1]
             lg.info(f"High : {self.prev_high}, Low : {self.prev_low}")
         except Exception as err: lg.info("init_strategy Error: {}".format(err))
 
