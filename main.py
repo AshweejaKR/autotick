@@ -47,7 +47,7 @@ def main():
 
     ###########################################################################
     # User input here
-    ticker = "INFY-EQ"
+    ticker = "NIFTYBEES-EQ"
     exchange = "NSE"
     datestamp = dt.date.today()
     mode = Mode.LIVE_TRADE

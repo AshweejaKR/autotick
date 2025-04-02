@@ -40,6 +40,8 @@ class autotick:
         self.current_trade = "NA"
         self.trailSL = False
         no_of_order_placed = 0
+        trade_count = load_trade_count(self.ticker)
+        lg.info(f"Initial Trade count for {self.ticker} : {trade_count}")
         self.file_name = self.ticker + "_" + self.broker.name
 
         if self.broker.name == "ANGELONE":
@@ -55,7 +57,7 @@ class autotick:
             if self.mode.value == 3:
                 self.interval = 0.000
             self.obj = stub(self.mode, self.obj)
-            self.obj.init_test(ticker, exchange, datestamp)
+            self.obj.init_test(self.ticker, exchange, datestamp)
 
         cur_price = self.obj.get_current_price(self.ticker, self.exchange)
         lg.info(f"Current Price for {self.ticker} : {cur_price}")
@@ -71,7 +73,8 @@ class autotick:
         pass
 
     def __load_positions(self):
-        data = load_positions(self.file_name)
+        trade_count = load_trade_count(self.ticker)
+        data = load_positions(self.file_name, trade_count)
         if data is not None:
             try:
                 if self.ticker == data['ticker']:
@@ -120,15 +123,22 @@ class autotick:
         while is_market_open(self.mode):
             start_time = time.time()
             no_of_order_placed = 0
+            self.__load_positions()
             try:
+                trade_count = load_trade_count(self.ticker)
                 KillSwitch()
                 if self.mode.value != 3:
-                    lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
+                    lg.info("Running Trade For {}, Trade count {} ... {} ".format(self.ticker, trade_count, gvars.i))
                 else:
                     if gvars.i % self.print_int == 0:
                         lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
                 cur_price = self.obj.get_current_price(self.ticker, self.exchange)
-                if self.current_trade != "BUY":
+
+                if trade_count > 0:
+                   self.current_trade = "BUY"
+
+                # if self.current_trade != "BUY":
+                if trade_count < 5:
                     res = self.run_strategy(cur_price)
 
                 if self.current_trade == "BUY":
@@ -142,7 +152,8 @@ class autotick:
                             lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
 
                 # x = input("debug stop")
-                if self.current_trade != "BUY" and (res == "BUY"):
+                # if self.current_trade != "BUY" and (res == "BUY"):
+                if trade_count < 5 and (res == "BUY"):
                     order_type = "BUY"
                     lg.info("Entering Trade")
                     amt = self.obj.get_available_margin()
@@ -166,12 +177,16 @@ class autotick:
                                 self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
                                 self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
                                 self.current_trade = order_type
-                                save_positions(self.file_name, self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
+                                trade_count = load_trade_count(self.ticker)
+                                trade_count = trade_count + 1
+                                save_trade_count(self.ticker, trade_count)
+                                save_positions(self.file_name, trade_count, self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
                                 save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, self.entry_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,
                                                                                                 self.quantity,
                                                                                                 self.entry_price))
+                                self.prev_high = self.obj.get_current_price(self.ticker, self.exchange)
                             else:
                                 lg.error('Failed to Submit {} Order for {}, Reason : {} '.format(order_type,
                                                                                                 self.ticker,
@@ -194,7 +209,10 @@ class autotick:
                             x = self.obj.verify_position(self.ticker, self.quantity)
                             exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                             self.current_trade = order_type
-                            remove_positions(self.file_name)
+                            trade_count = load_trade_count(self.ticker)
+                            remove_positions(self.file_name, trade_count)
+                            trade_count = trade_count - 1
+                            save_trade_count(self.ticker, trade_count)
                             save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
                             lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                             self.ticker,
@@ -221,7 +239,10 @@ class autotick:
                                 x = self.obj.verify_position(self.ticker, self.quantity)
                                 exit_price = self.obj.get_entry_exit_price(self.ticker, True)
                                 self.current_trade = order_type
-                                remove_positions(self.file_name)
+                                trade_count = load_trade_count(self.ticker)
+                                remove_positions(self.file_name, trade_count)
+                                trade_count = trade_count - 1
+                                save_trade_count(self.ticker, trade_count)
                                 save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
                                 lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
                                                                                                 self.ticker,

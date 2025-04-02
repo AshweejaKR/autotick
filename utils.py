@@ -68,13 +68,46 @@ def read_from_json(filename):
         lg.error("{}".format(message))
     return data
 
-def save_positions(filename, ticker, quantity, order_type, entryprice, stoploss, takeprofit):
+def save_trade_count(ticker, trade_count):
     pos_path = './data/'
     try:
         os.mkdir(pos_path)
     except Exception as err:
         pass
-    pos_file_name = filename + "_trade_data.json"
+    trade_count_filename = ticker.upper().split("-")[0] + "_COUNT.TXT"
+    currentpos_path = pos_path + trade_count_filename
+
+    try:
+        with open(currentpos_path, "w") as f:
+            f.write(str(trade_count))
+            f.flush()
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+    
+def load_trade_count(ticker):
+    trade_count_filename = ticker.upper().split("-")[0] + "_COUNT.TXT"
+    trade_count = 0
+    try:
+        pos_path = './data/'
+        currentpos_path = pos_path + trade_count_filename
+        count = open(currentpos_path, "r").read()
+        trade_count = int(count)
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.debug("{}".format(message))
+    
+    return trade_count
+
+def save_positions(filename, trade_count, ticker, quantity, order_type, entryprice, stoploss, takeprofit):
+    pos_path = './data/'
+    try:
+        os.mkdir(pos_path)
+    except Exception as err:
+        pass
+    pos_file_name = filename + "_trade_data_" + str(trade_count) + ".json"
     currentpos_path = pos_path + pos_file_name
 
     data = {
@@ -88,9 +121,9 @@ def save_positions(filename, ticker, quantity, order_type, entryprice, stoploss,
 
     write_to_json(data, currentpos_path)
 
-def load_positions(filename):
+def load_positions(filename, trade_count):
     pos_path = './data/'
-    pos_file_name = filename + "_trade_data.json"
+    pos_file_name = filename + "_trade_data_" + str(trade_count) + ".json"
     currentpos_path = pos_path + pos_file_name
     data = None
     
@@ -99,9 +132,9 @@ def load_positions(filename):
 
     return data
 
-def remove_positions(filename):
+def remove_positions(filename, trade_count):
     pos_path = './data/'
-    pos_file_name = filename + "_trade_data.json"
+    pos_file_name = filename + "_trade_data_" + str(trade_count) + ".json"
     currentpos_path = pos_path + pos_file_name
     
     try:
@@ -125,7 +158,9 @@ def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
         with open(currentpos_path) as f:
             data = f.read()
     except Exception as err:
-        print(err)
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         data = "datetime,ticker,quantity,order_type,price\n"
     
     data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "\n"
@@ -134,7 +169,9 @@ def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
             f.write(data)
             f.flush()
     except Exception as err:
-        print(err)
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
 
 # Function to extract values from a specific column
 def extract_column_value(df, attrb_column_name, value_in_list=False):
