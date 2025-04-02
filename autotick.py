@@ -34,7 +34,7 @@ class autotick:
         self.broker = broker
         self.datestamp = datestamp
         self.interval = 10
-        self.stoploss_p = 0.1
+        self.stoploss_p = 0.9
         self.target_p = 0.021
         self.capital_per_trade = 10000.00
         self.current_trade = "NA"
