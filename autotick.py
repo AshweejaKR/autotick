@@ -40,6 +40,7 @@ class autotick:
         self.current_trade = "NA"
         self.trailSL = False
         no_of_order_placed = 0
+        self.re_entry = get_re_entry(self.ticker)
         trade_count = load_trade_count(self.ticker)
         lg.info(f"Initial Trade count for {self.ticker} : {trade_count}")
         self.file_name = self.ticker + "_" + self.broker.name
@@ -124,6 +125,7 @@ class autotick:
             start_time = time.time()
             no_of_order_placed = 0
             self.__load_positions()
+            self.re_entry = get_re_entry(self.ticker)
             try:
                 trade_count = load_trade_count(self.ticker)
                 KillSwitch()
@@ -153,7 +155,7 @@ class autotick:
 
                 # x = input("debug stop")
                 # if self.current_trade != "BUY" and (res == "BUY"):
-                if trade_count < 5 and (res == "BUY"):
+                if trade_count < 5 and (res == "BUY") and self.re_entry:
                     order_type = "BUY"
                     lg.info("Entering Trade")
                     amt = self.obj.get_available_margin()

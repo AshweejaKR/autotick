@@ -193,3 +193,28 @@ def get_date_range(from_date, to_date):
         current_date += dt.timedelta(days=1)
     
     return dates
+
+def get_re_entry(ticker):
+    filename = ticker + "_re_entry.txt"
+    pos_path = './data/'
+    currentpos_path = pos_path + filename
+    re_entry = 1
+    try:
+        os.mkdir(pos_path)
+    except Exception as err:
+        pass
+
+    try:
+        with open(currentpos_path) as f:
+            data = f.read()
+            re_entry = int(data)
+    except FileNotFoundError:
+        with open(currentpos_path, "w") as f:
+            f.write(str(re_entry))
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.debug("{}".format(message))
+        data = "datetime,ticker,quantity,order_type,price\n"
+    
+    return re_entry
