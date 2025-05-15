@@ -17,7 +17,6 @@ def main():
     lg.info("Trading Bot running ... ! \n")
 
     start = time.time()
-    lg.info("T0 : {}".format(start))
 
     ###########################################################################
     datestamp = dt.date.today()
@@ -28,7 +27,6 @@ def main():
     del obj
     ###########################################################################
     end = time.time()
-    lg.info("T1 : {}".format(end))
     diff = end - start
     lg.info("Total time taken : {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
 
