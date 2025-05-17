@@ -11,7 +11,7 @@ sys.path.append(main_path)
 os.chdir(main_path)
 
 from config import *
-from angleone_broker import *
+from broker_angleone import *
 
 
 import threading

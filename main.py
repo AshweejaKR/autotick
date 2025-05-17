@@ -24,10 +24,10 @@ def main():
     datestamp = dt.date.today()
     ###########################
     ###########################################################################
-    obj = Broker(0, "ANGELONE")
+    obj = Broker(0, "NOBROKER")
     stock = "INFY-EQ"
     exchange = "NSE"
-    duration = 10
+    duration = 100
     quantity = 1
 
     user_data = obj.get_user_data()
@@ -50,22 +50,12 @@ def main():
     print("angleone data : ", data4)
     print("---------------------------------------------------------\n")
 
-    oid = obj.place_buy_order(stock, quantity, exchange)
-    print("angleone Order ID : ", oid)
-    print("---------------------------------------------------------\n")
-
-    status = obj.get_oder_status(oid)
+    status = obj.place_buy_order(stock, quantity, exchange)
     print("angleone Order status : ", status)
-    print("angleone Order status error : ", obj.error_msg)
     print("---------------------------------------------------------\n")
 
-    oid = obj.place_sell_order(stock, quantity, exchange)
-    print("angleone Order ID : ", oid)
-    print("---------------------------------------------------------\n")
-
-    status = obj.get_oder_status(oid)
+    status = obj.place_sell_order(stock, quantity, exchange)
     print("angleone Order status : ", status)
-    print("angleone Order status error : ", obj.error_msg)
     print("---------------------------------------------------------\n")
 
     status = obj.verify_position(stock, quantity)

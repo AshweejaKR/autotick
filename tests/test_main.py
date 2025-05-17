@@ -7,9 +7,9 @@ os.chdir("..")
 main_path = os.getcwd()
 sys.path.append(main_path)
 
-from angleone_broker import *
-from aliceblue_broker import *
-from stub_broker import *
+from broker_angleone import *
+from broker_aliceblue import *
+from broker_stub import *
 from logger import *
 
 class Mode(Enum):

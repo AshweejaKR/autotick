@@ -5,9 +5,9 @@ Created on Tue May  6 21:01:16 2025
 @author: ashwe
 """
 
-from angleone_broker import *
-from aliceblue_broker import *
-from stub_broker import *
+from broker_angleone import *
+from broker_aliceblue import *
+from broker_stub import *
 
 class Broker:
     def __init__(self, mode, broker_name):
@@ -20,8 +20,55 @@ class Broker:
         elif broker_name == "NOBROKER":
             self.obj = stub()
 
+        self.stub_obj = stub()
+
     def __del__(self):
         del self.obj
+        del self.stub_obj
+
+    def init_test(self, ticker, exchange, datestamp):
+        global intraday_data
+        global ltp
+        if self.obj is None:
+            data = fetch_intraday_data(ticker, datestamp)
+        else:
+            data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+
+        intraday_data = []
+        if len(data) > 0:
+            for i in data['Open']:
+                intraday_data.append(i)
+
+            for i in data['High']:
+                intraday_data.append(i)
+
+            for i in data['Low']:
+                intraday_data.append(i)
+
+            for i in data['Close']:
+                intraday_data.append(i)
+
+        gvars.max_len = len(intraday_data)
+        gvars.i = -1
+
+        ltp = self.get_current_price(ticker, exchange)
+
+        try:
+            with open("../ltp.txt", "w") as file:
+                for i in range(5):
+                    file.write(str(ltp) + "\n")
+        except Exception as err: print("***", err)
+
+        lg.info("Init done ... !")
+
+    def __wait_till_order_fill(self, orderid, order):
+        count = 0
+        lg.info('%s order is in open, waiting ... %d ' % (order, count))
+        while self.obj.get_oder_status(orderid) == 'open':
+            lg.info('%s order is in open, waiting ... %d ' % (order, count))
+            count = count + 1
+
+###############################################################################
 
     def get_available_margin(self):
         margin = self.obj.get_available_margin()
@@ -53,11 +100,23 @@ class Broker:
 
     def place_buy_order(self, ticker, quantity, exchange):
         orderid = self.obj.place_buy_order(ticker, quantity, exchange)
-        return orderid
+        if orderid is not None:
+            self.__wait_till_order_fill(orderid, "BUY")
+            status = self.obj.get_oder_status(orderid)
+            if status == "complete":
+                return True
+
+        return False
 
     def place_sell_order(self, ticker, quantity, exchange):
         orderid = self.obj.place_sell_order(ticker, quantity, exchange)
-        return orderid
+        if orderid is not None:
+            self.__wait_till_order_fill(orderid, "SELL")
+            status = self.obj.get_oder_status(orderid)
+            if status == "complete":
+                return True
+
+        return False
 
     def verify_holding(self, ticker, quantity):
         res = self.obj.verify_holding(ticker, quantity)
