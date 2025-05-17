@@ -20,11 +20,8 @@ class Broker:
         elif broker_name == "NOBROKER":
             self.obj = stub()
 
-        self.stub_obj = stub()
-
     def __del__(self):
         del self.obj
-        del self.stub_obj
 
     def init_test(self, ticker, exchange, datestamp):
         global intraday_data

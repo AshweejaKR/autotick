@@ -88,10 +88,10 @@ class stub:
         self.__logout()
 
     def __login(self):
-        print('Login success ... !')
+        lg.done('Login success ... !')
 
     def __logout(self):
-        print('Logout success ... !')
+        lg.done('Logout success ... !')
 
 ###############################################################################
 
