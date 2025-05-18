@@ -33,6 +33,7 @@ def main():
     print(f"obj.Target : {obj.Target}, {type(obj.Target)}")
     print(f"obj.Trade count : {obj.Trade_count}, {type(obj.Trade_count)}")
     print(f"obj.Trade once : {obj.Trade_once}, {type(obj.Trade_once)}")
+    print(f"\n{vars(obj)}")
     obj.start_trade()
     del obj
     ###########################################################################

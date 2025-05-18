@@ -16,7 +16,7 @@ import gvars
 
 def wait_till_market_open(mode_):
     while True:
-        if mode_.value == 3 or mode_.value == 4:
+        if mode_ == 3 or mode_ == 4:
             break
 
         cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
@@ -34,7 +34,7 @@ def wait_till_market_open(mode_):
 
 def is_market_open(mode_):
     gvars.i = gvars.i + 1
-    if mode_.value == 3 or mode_.value == 4:
+    if mode_ == 3 or mode_ == 4:
         if gvars.i > gvars.max_len - 1:
             return False
         return True
