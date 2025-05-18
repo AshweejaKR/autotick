@@ -6,6 +6,7 @@ Created on Sat Nov 30 18:21:09 2024
 """
 
 import time
+import pandas as pd
 
 from broker import *
 from utils import *
@@ -31,22 +32,33 @@ class autotick:
         self.__run_strategy = run_strategy
 
         ###########################
-        self.exchange = "NSE"
+        self.Exchange = "NSE"
         _broker = "NOBROKER"
-        self.__interval = 1
+        self.Interval = 1
         self.broker_obj = Broker(0, _broker)
-        self.__strategy_config = strategy_config
+        self.strategy_config = strategy_config
         ###########################
-        self.__read_config_data()
+        self.read_config_data()
         ###########################
 
     def __del__(self):
         pass
 
     # TODO
-    def __read_config_data(self):
+    def read_config_data(self):
         try:
-            print("reading strategy config CSV data")
+            lg.warning("Reading strategy config CSV data")
+            df = pd.read_csv(self.strategy_config)
+            # Create a dictionary with proper types
+            typed_mapping = {
+                row['NAME']: cast_value(row['VALUE'], row['TYPE'])
+                for _, row in df.iterrows()
+            }
+
+            for i in typed_mapping:
+                n = i.replace(" ", "_")
+                setattr(self, n, typed_mapping[i])
+
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
@@ -69,10 +81,10 @@ class autotick:
 
                 end_time = time.time()
                 taken_time = end_time - start_time
-                if self.__interval - taken_time > 0:
-                    taken_time = self.__interval - taken_time
+                if self.Interval - taken_time > 0:
+                    taken_time = self.Interval - taken_time
                 else:
-                    taken_time = self.__interval
+                    taken_time = self.Interval
                 time.sleep(taken_time)
 
             except KeyboardInterrupt:

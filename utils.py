@@ -218,3 +218,19 @@ def get_re_entry(ticker):
         data = "datetime,ticker,quantity,order_type,price\n"
     
     return re_entry
+
+# Function to cast string values to correct type
+def cast_value(value, dtype):
+    try:
+        if dtype == 'str':
+            return str(value)
+        elif dtype == 'float':
+            return float(value)
+        elif dtype == 'int':
+            return int(value)
+        elif dtype == 'bool':
+            return str(value).strip().lower() in ['yes', 'true', '1']
+        else:
+            return value
+    except:
+        return value  # Return as-is if casting fails
