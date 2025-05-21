@@ -23,11 +23,25 @@ def init_strategy(obj):
 def run_strategy(obj):
     global prev_high
     lg.info(f"Running Strategy for Stock {obj.tickers[0]} in {obj.Exchange} exchange ... ")
-    buy_p = 0.99
-    cur_price = obj.broker_obj.get_current_price(obj.tickers[0], obj.Exchange)
-    lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * prev_high)))
+    # buy_p = 0.99
+    # cur_price = obj.broker_obj.get_current_price(obj.tickers[0], obj.Exchange)
+    # lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * prev_high)))
 
-    if cur_price < (buy_p * prev_high):
-        return "BUY"
-    else:
-        return "NA"
+    # if cur_price < (buy_p * prev_high):
+    #     return "BUY"
+    # else:
+    #     return "NA"
+    filename = "C:\\user\\ashwee\\stub_test.txt"
+    signal = None
+    try:
+        with open(filename) as file:
+            data = file.readlines()
+            x = int(data[0])
+            if x == 1:
+                signal = "BUY"
+            if x == 2:
+                signal = "SELL"
+    except Exception as err: 
+        print(err)
+    return signal
+

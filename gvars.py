@@ -13,4 +13,4 @@ endTime = dt.time(15, 15)
 sleepTime = 5
 
 i = 0
-max_len = 10
+max_len = 20
