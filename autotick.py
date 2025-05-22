@@ -11,6 +11,10 @@ import pandas as pd
 from broker import *
 from utils import *
 
+## temp import
+import json
+import os
+
 import gvars
 
 global no_of_order_placed
@@ -47,11 +51,13 @@ class autotick:
         self.trailing_trigger_pct = 0.01
         self.max_reentries = 3
         self.Interval = 5.1
+        self.state_file = "autotick_state.json"
 
         # state
         self.open_trades = []      # list of dicts for each open position
         self.reentry_counts = { 'BUY': 0, 'SELL': 0 }
         self.max_open_positions = 0
+        self._load_state()
 
     def _enter_trade(self, signal):
         price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
@@ -65,31 +71,32 @@ class autotick:
 
         # place order via your broker API
         # order = self.place_order_api(signal, self.quantity)
-        order_id = "DUMMY_ID"
-        
+        order_count = self.reentry_counts[signal] + 1
+
         # save trade
         trade = {
             "signal":      signal,
             "entry_price": price,
             "sl":          sl,
             "tp":          tp,
-            "order_id":    order_id
+            "order_count":    order_count
         }
         self.open_trades.append(trade)
         self.reentry_counts[signal] += 1
         self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
         print(f"Entered {signal} @ {price:.2f}  SL={sl:.2f} TP={tp:.2f}")
+        self._save_state()
 
     def _manage_current_trade(self):
         trade = self.open_trades[-1]
         price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
         sig   = trade["signal"]
-        
+
         # 3) trailing stop logic
         profit_pct = (price - trade["entry_price"]) / trade["entry_price"]
         if sig == "SELL":
             profit_pct = -profit_pct
-        
+
         if profit_pct >= self.trailing_trigger_pct:
             # update SL to lock in profit
             if sig == "BUY":
@@ -99,25 +106,48 @@ class autotick:
                 new_sl = price * (1 + self.trailing_pct)
                 trade["sl"] = min(trade["sl"], new_sl)
             print(f"Trailing SL updated to {trade['sl']:.2f}")
-        
+            self._save_state()
+
         # 4) check SL or TP hit
-        if sig == "BUY":
-            if price <= trade["sl"] or price >= trade["tp"]:
-                self._exit_trade(trade, price)
-        else:  # SELL
-            if price >= trade["sl"] or price <= trade["tp"]:
-                self._exit_trade(trade, price)
+        hit_sl = (price <= trade["sl"]) if sig=="BUY" else (price >= trade["sl"])
+        hit_tp = (price >= trade["tp"]) if sig=="BUY" else (price <= trade["tp"])
+        if hit_sl or hit_tp:
+            self._exit_trade(trade, price)
 
     def _exit_trade(self, trade, exit_price):
         # close via your broker API
-        # self.close_order_api(trade["order_id"])
-        
+        # self.close_order_api(trade["order_count"])
+
         # update state
         self.open_trades.pop()
         self.reentry_counts[trade["signal"]] -= 1
-        
+
         pnl = (exit_price - trade["entry_price"]) * (1 if trade["signal"]=="BUY" else -1) * self.quantity
         print(f"Closed {trade['signal']} @ {exit_price:.2f}  P&L={pnl:.2f}")
+
+        self._save_state()
+
+    def _save_state(self):
+        state = {
+            "open_trades":        self.open_trades,
+            "reentry_counts":     self.reentry_counts,
+            "max_open_positions": self.max_open_positions
+        }
+        with open(self.state_file, "w") as f:
+            json.dump(state, f, indent=2)
+
+    def _load_state(self):
+        if os.path.isfile(self.state_file):
+            with open(self.state_file, "r") as f:
+                state = json.load(f)
+            self.open_trades        = state.get("open_trades", [])
+            self.reentry_counts     = state.get("reentry_counts", {"BUY":0,"SELL":0})
+            self.max_open_positions = state.get("max_open_positions", 0)
+        else:
+            # first run
+            self.open_trades        = []
+            self.reentry_counts     = {"BUY": 0, "SELL": 0}
+            self.max_open_positions = 0
 
     def __del__(self):
         pass
@@ -156,14 +186,18 @@ class autotick:
         self.__run_trade()
 
     def __run_trade(self, index=0):
+        # If market was closed while running, reload at start
+        self._load_state()
 
         while is_market_open(self.Mode):
             start_time = time.time()
             signal = "NA"
+            print(f"open_trades : {self.open_trades} ... \n")
             try:
                 if self.__run_strategy is not None:
                     try:
                         signal = self.__run_strategy(self)
+                        print(f"returned signal : {signal}")
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)
@@ -186,6 +220,8 @@ class autotick:
                     taken_time = self.Interval - taken_time
                 else:
                     taken_time = self.Interval
+                
+                # x = input("DEBUG WAIT ...")
                 time.sleep(taken_time)
 
             except KeyboardInterrupt:
