@@ -51,7 +51,9 @@ class autotick:
         self.trailing_trigger_pct = 0.01
         self.max_reentries = 3
         self.Interval = 5.1
-        self.state_file = "autotick_state.json"
+
+        pos_path = './data/'
+        self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
 
         # state
         self.open_trades = []      # list of dicts for each open position
@@ -60,37 +62,39 @@ class autotick:
         self._load_state()
 
     def _enter_trade(self, signal):
-        price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
+        entry_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange) #TODO replace with actual entry_price
         # calculate initial SL & TP
         if signal == "BUY":
-            sl = price * (1 - self.stop_loss_pct)
-            tp = price * (1 + self.target_pct)
+            sl = entry_price * (1 - self.stop_loss_pct)
+            tp = entry_price * (1 + self.target_pct)
         else:  # SELL
-            sl = price * (1 + self.stop_loss_pct)
-            tp = price * (1 - self.target_pct)
+            sl = entry_price * (1 + self.stop_loss_pct)
+            tp = entry_price * (1 - self.target_pct)
 
         # place order via your broker API
         # order = self.place_order_api(signal, self.quantity)
-        order_count = self.reentry_counts[signal] + 1
+        trade_count = self.reentry_counts[signal] + 1
 
         # save trade
         trade = {
             "signal":      signal,
-            "entry_price": price,
+            "entry_price": entry_price,
             "sl":          sl,
             "tp":          tp,
-            "order_count":    order_count
+            "trade_count":    trade_count
         }
         self.open_trades.append(trade)
         self.reentry_counts[signal] += 1
         self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
-        print(f"Entered {signal} @ {price:.2f}  SL={sl:.2f} TP={tp:.2f}")
+        print(f"Entered {signal} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
         self._save_state()
 
     def _manage_current_trade(self):
         trade = self.open_trades[-1]
         price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
         sig   = trade["signal"]
+        print(f"\ntrade : {trade} \n")
+        lg.info('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
 
         # 3) trailing stop logic
         profit_pct = (price - trade["entry_price"]) / trade["entry_price"]
@@ -99,25 +103,27 @@ class autotick:
 
         if profit_pct >= self.trailing_trigger_pct:
             # update SL to lock in profit
+            old_sl = trade["sl"]
             if sig == "BUY":
                 new_sl = price * (1 - self.trailing_pct)
                 trade["sl"] = max(trade["sl"], new_sl)
             else:
                 new_sl = price * (1 + self.trailing_pct)
                 trade["sl"] = min(trade["sl"], new_sl)
-            print(f"Trailing SL updated to {trade['sl']:.2f}")
+            print(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
             self._save_state()
 
         # 4) check SL or TP hit
         hit_sl = (price <= trade["sl"]) if sig=="BUY" else (price >= trade["sl"])
         hit_tp = (price >= trade["tp"]) if sig=="BUY" else (price <= trade["tp"])
         if hit_sl or hit_tp:
-            self._exit_trade(trade, price)
+            self._exit_trade(trade)
 
-    def _exit_trade(self, trade, exit_price):
+    def _exit_trade(self, trade):
         # close via your broker API
-        # self.close_order_api(trade["order_count"])
+        # self.close_order_api(trade["trade_count"])
 
+        exit_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange) #TODO replace with actual exit_price
         # update state
         self.open_trades.pop()
         self.reentry_counts[trade["signal"]] -= 1
@@ -192,12 +198,12 @@ class autotick:
         while is_market_open(self.Mode):
             start_time = time.time()
             signal = "NA"
-            print(f"open_trades : {self.open_trades} ... \n")
+            # print(f"open_trades : {self.open_trades} ... \n")
             try:
                 if self.__run_strategy is not None:
                     try:
                         signal = self.__run_strategy(self)
-                        print(f"returned signal : {signal}")
+                        # print(f"returned signal : {signal}")
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)
@@ -221,7 +227,6 @@ class autotick:
                 else:
                     taken_time = self.Interval
                 
-                # x = input("DEBUG WAIT ...")
                 time.sleep(taken_time)
 
             except KeyboardInterrupt:
