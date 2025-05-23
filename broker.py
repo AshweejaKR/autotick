@@ -75,13 +75,9 @@ class Broker:
         current_price = self.obj.get_current_price(ticker, exchange)
         return current_price
 
-    def get_entry_exit_price(self, ticker, _exit=False):
-        price = self.obj.get_entry_exit_price(ticker, _exit)
+    def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
+        price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
         return price
-
-    def get_oder_status(self, orderid):
-        status = self.obj.get_oder_status(orderid)
-        return status
 
     def get_user_data(self):
         usr_data = self.obj.get_user_data()
@@ -100,6 +96,7 @@ class Broker:
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "BUY")
             status = self.obj.get_oder_status(orderid)
+            self.error_msg = self.obj.error_msg
             if status == "complete":
                 return True
 
@@ -110,6 +107,7 @@ class Broker:
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "SELL")
             status = self.obj.get_oder_status(orderid)
+            self.error_msg = self.obj.error_msg
             if status == "complete":
                 return True
 
@@ -119,6 +117,6 @@ class Broker:
         res = self.obj.verify_holding(ticker, quantity)
         return res
 
-    def verify_position(self, ticker, quantity, exit_=False):
-        res = self.obj.verify_position(ticker, quantity, exit_)
+    def verify_position(self, ticker, quantity, trade_direction, exit_=False):
+        res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
         return res

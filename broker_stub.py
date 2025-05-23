@@ -82,6 +82,7 @@ def read_dummy_ltp():
 class stub:
     def __init__(self):
         self.cp = None
+        self.error_msg = ""
         self.__login()
 
     def __del__(self):
@@ -138,12 +139,12 @@ class stub:
         margin = 5000.00
         return margin
 
-    def verify_position(self, ticker, quantity, exit_=False):
+    def verify_position(self, ticker, quantity, trade_direction, exit_=False):
         return True
 
     def verify_holding(self, ticker, quantity):
         return True
 
-    def get_entry_exit_price(self, ticker, _exit=False):
+    def get_entry_exit_price(self, ticker, trade_direction, exit_=False):
         price = self.cp
         return price

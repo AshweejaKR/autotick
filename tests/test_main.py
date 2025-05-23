@@ -7,111 +7,81 @@ os.chdir("..")
 main_path = os.getcwd()
 sys.path.append(main_path)
 
-from broker_angleone import *
-from broker_aliceblue import *
-from broker_stub import *
-from logger import *
+# from broker_angleone import *
+# from broker_aliceblue import *
+# from broker_stub import *
+from broker import *
 
-class Mode(Enum):
-    LIVE_TRADE = 1
-    PAPER_TRADE = 2
-    BACKTEST = 3
-    USER_TEST = 4
+from logger import *
 
 def main():
     initialize_logger()
-    print("Hello")
+    lg.info("Hello Testing 1 2 3")
     start = time.time()
     print("T0 : {}".format(start))
-
-    obj_1 = angleone()
-    obj_2 = aliceblue()
-
-    mode = Mode.BACKTEST
-    obj_stub = stub(mode)
-    broker_objs = [obj_1, obj_2, obj_stub]
-
-    x = int(input("Select No for Broker:\n1. ANGELONE\n2. ALICEBLUE\n3. NOBROKER\n4. ALL\n\nEnter:\n"))
-
-    exchange = "NSE"
-    stock = "INFY-EQ"
-    datestamp = dt.date.today()
-    duration = 10
-    quantity = 1
-    stock = "INFY-EQ"
-    quantity = 1
-
-    x = x - 1
-    if x < len(broker_objs):
-        test_obj = broker_objs[x]
-        for i in broker_objs[:]:
-            if i != test_obj:
-                broker_objs.remove(i)
-
-    for i in broker_objs:
-        user_data = i.get_user_data()
-        print("angleone user data : ", user_data)
-        print("---------------------------------------------------------\n")
-
-        user_amt = i.get_available_margin()
-        print("angleone available margin : ", user_amt)
-        print("---------------------------------------------------------\n")
-
-        current_price = i.get_current_price(stock, exchange)
-        print("angleone current_price : ", current_price)
-        print("---------------------------------------------------------\n")
-
-        data1 = i.hist_data_daily(stock, duration, exchange, datestamp)
-        print("angleone data : ", data1)
-        print("---------------------------------------------------------\n")
-
-        data4 = i.hist_data_intraday(stock, exchange, datestamp)
-        print("angleone data : ", data4)
-        print("---------------------------------------------------------\n")
-
-        oid = i.place_buy_order(stock, quantity, exchange)
-        print("angleone Order ID : ", oid)
-        print("---------------------------------------------------------\n")
-
-        status = i.get_oder_status(oid)
-        print("angleone Order status : ", status)
-        print("angleone Order status error : ", obj_1.error_msg)
-        print("---------------------------------------------------------\n")
-
-        oid = i.place_sell_order(stock, quantity, exchange)
-        print("angleone Order ID : ", oid)
-        print("---------------------------------------------------------\n")
-
-        status = i.get_oder_status(oid)
-        print("angleone Order status : ", status)
-        print("angleone Order status error : ", obj_1.error_msg)
-        print("---------------------------------------------------------\n")
-
-        status = i.verify_position(stock, quantity)
-        print("angleone Position status : ", status)
-        print("---------------------------------------------------------\n")
-
-        status = i.verify_position(stock, quantity, True)
-        print("angleone Position status : ", status)
-        print("---------------------------------------------------------\n")
-
-        status = i.verify_holding(stock, quantity)
-        print("angleone holding status : ", status)
-        print("---------------------------------------------------------\n")
-
-        price = i.get_entry_exit_price(stock)
-        print("angleone Entry Price : ", price)
-        print("---------------------------------------------------------\n")
-
-        price = i.get_entry_exit_price(stock, True)
-        print("angleone Exit Price : ", price)
-        print("---------------------------------------------------------\n")
-
-    del obj_1
-    del obj_2
-    del obj_stub
     #######################################################################
+    supported_broker_list = ["ANGELONE", "ALICEBLUE", "NOBROKER"]
+    # supported_broker_list = ["NOBROKER"]
+    for broker_name in supported_broker_list:
+        broker_obj = Broker(0, broker_name)
+        Exchange = "NSE"
+        ticker = "NIFTYBEES-EQ"
+        datestamp = dt.date.today()
+        quantity = 1
+        duration = 30
+        trade_direction = "SELL"
 
+        user_data = broker_obj.get_user_data()
+        lg.info(f"{broker_name}: user data : {user_data}")
+        lg.info("---------------------------------------------------------\n")
+
+        user_amt = broker_obj.get_available_margin()
+        lg.info(f"{broker_name}: available margin: {user_amt}")
+        lg.info("---------------------------------------------------------\n")
+
+        current_price = broker_obj.get_current_price(ticker, Exchange)
+        lg.info(f"{broker_name}: {ticker} current_price: {current_price}")
+        lg.info("---------------------------------------------------------\n")
+
+        data1 = broker_obj.hist_data_daily(ticker, duration, Exchange, datestamp)
+        lg.info(f"{broker_name}: {ticker} historical data 1D: {data1}")
+        lg.info("---------------------------------------------------------\n")
+
+        data2 = broker_obj.hist_data_intraday(ticker, Exchange, datestamp)
+        lg.info(f"{broker_name}: {ticker} historical data 1m: {data2}")
+        lg.info("---------------------------------------------------------\n")
+
+        status = broker_obj.place_buy_order(ticker, quantity, Exchange)
+        lg.info(f"{broker_name}: buy order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+        lg.info("---------------------------------------------------------\n")
+
+        status = broker_obj.place_sell_order(ticker, quantity, Exchange)
+        lg.info(f"{broker_name}: sell order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+        lg.info("---------------------------------------------------------\n")
+
+        status = broker_obj.verify_position(ticker, quantity, trade_direction)
+        lg.info(f"{broker_name}: Position status for {ticker}, {quantity} qty: {status}")
+        lg.info("---------------------------------------------------------\n")
+
+        status = broker_obj.verify_position(ticker, quantity, trade_direction, True)
+        lg.info(f"{broker_name}: Position status for {ticker}, {quantity} qty: {status}")
+        lg.info("---------------------------------------------------------\n")
+
+        status = broker_obj.verify_holding(ticker, quantity)
+        lg.info(f"{broker_name}: holding status for {ticker}, {quantity} qty: {status}")
+        lg.info("---------------------------------------------------------\n")
+
+        entry_price = broker_obj.get_entry_exit_price(ticker, trade_direction)
+        lg.info(f"{broker_name}: {ticker} Entry Price: {entry_price}")
+        lg.info("---------------------------------------------------------\n")
+
+        exit_price = broker_obj.get_entry_exit_price(ticker, trade_direction, True)
+        lg.info(f"{broker_name}: {ticker} Exit Price: {exit_price}")
+        lg.info("---------------------------------------------------------\n")
+
+        del broker_obj
+
+    #######################################################################
     print("Done ...")
     end = time.time()
     print("T1 : {}".format(end))

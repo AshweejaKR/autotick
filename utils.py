@@ -16,7 +16,7 @@ import gvars
 
 def wait_till_market_open(mode_):
     while True:
-        if mode_ == 3 or mode_ == 4:
+        if mode_ == 3 or mode_ == 4 or mode_ == 5:
             break
 
         cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
@@ -39,11 +39,14 @@ def is_market_open(mode_):
             return False
         return True
 
+    if mode_ == 5:
+        return True
+
     cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
     if gvars.startTime <= cur_time <= gvars.endTime:
         return True
     else:
-        lg.info('Market is closed. \n')
+        lg.warning('Market is closed. \n')
         return False
 
 # Function to write data to a JSON file

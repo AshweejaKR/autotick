@@ -37,20 +37,10 @@ class autotick:
         self.__run_strategy = run_strategy
 
         ###########################
-        # self.Exchange = "NSE"
-        # _broker = "ANGELONE"
-        # self.Interval = 1
         ###########################
         self.read_config_data()
         ###########################
         self.broker_obj = Broker(0, self.Broker)
-        self.quantity = 1
-        self.stop_loss_pct = 0.1
-        self.target_pct = 0.2
-        self.trailing_pct = 0.05
-        self.trailing_trigger_pct = 0.01
-        self.max_reentries = 3
-        self.Interval = 5.1
 
         pos_path = './data/'
         self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
@@ -62,38 +52,57 @@ class autotick:
         self._load_state()
 
     def _enter_trade(self, signal):
-        entry_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange) #TODO replace with actual entry_price
-        # calculate initial SL & TP
-        if signal == "BUY":
-            sl = entry_price * (1 - self.stop_loss_pct)
-            tp = entry_price * (1 + self.target_pct)
-        else:  # SELL
-            sl = entry_price * (1 + self.stop_loss_pct)
-            tp = entry_price * (1 - self.target_pct)
-
         # place order via your broker API
-        # order = self.place_order_api(signal, self.quantity)
-        trade_count = self.reentry_counts[signal] + 1
+        order_status = False
+        available_cash = self.broker_obj.get_available_margin()
+        cash_for_trade = min(available_cash, self.capital_per_trade)
+        cur_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
+        quantity = int(cash_for_trade / cur_price)
+        if quantity > 0:
+            if signal == "BUY":
+                order_status = self.broker_obj.place_buy_order(self.tickers[0], quantity, self.Exchange)
+            else:
+                order_status = self.broker_obj.place_sell_order(self.tickers[0], quantity, self.Exchange)
 
-        # save trade
-        trade = {
-            "signal":      signal,
-            "entry_price": entry_price,
-            "sl":          sl,
-            "tp":          tp,
-            "trade_count":    trade_count
-        }
-        self.open_trades.append(trade)
-        self.reentry_counts[signal] += 1
-        self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
-        print(f"Entered {signal} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
-        self._save_state()
+            if order_status:
+                order_status = self.broker_obj.verify_position(self.tickers[0], quantity, signal)
+
+            if order_status:
+                trade_count = self.reentry_counts[signal] + 1
+
+                entry_price = self.broker_obj.get_entry_exit_price(self.tickers[0], signal)
+                # calculate initial SL & TP
+                if signal == "BUY":
+                    sl = entry_price * (1 - self.stop_loss_pct)
+                    tp = entry_price * (1 + self.target_pct)
+                else:  # SELL
+                    sl = entry_price * (1 + self.stop_loss_pct)
+                    tp = entry_price * (1 - self.target_pct)
+
+                # save trade
+                trade = {
+                    "signal":      signal,
+                    "entry_price": entry_price,
+                    "sl":          sl,
+                    "tp":          tp,
+                    "quantity":    quantity,
+                    "trade_count": trade_count
+                }
+                self.open_trades.append(trade)
+                self.reentry_counts[signal] += 1
+                self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
+                lg.info(f"Entered {signal} for {self.tickers[0]} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
+                self._save_state()
+            else:
+                lg.error(f"Failed to Entered {signal} for {self.tickers[0]}, Reason: {self.broker_obj.error_msg}")
+        else:
+            lg.error(f"Failed to Entered {signal} for {self.tickers[0]}, Reason: Insufficient funds")
 
     def _manage_current_trade(self):
         trade = self.open_trades[-1]
         price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
         sig   = trade["signal"]
-        print(f"\ntrade : {trade} \n")
+        # print(f"\ntrade : {trade} \n")
         lg.info('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
 
         # 3) trailing stop logic
@@ -110,7 +119,7 @@ class autotick:
             else:
                 new_sl = price * (1 + self.trailing_pct)
                 trade["sl"] = min(trade["sl"], new_sl)
-            print(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
+            lg.info(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
             self._save_state()
 
         # 4) check SL or TP hit
@@ -122,16 +131,28 @@ class autotick:
     def _exit_trade(self, trade):
         # close via your broker API
         # self.close_order_api(trade["trade_count"])
+        order_status = False
+        quantity = trade["quantity"]
+        signal = trade["signal"]
 
-        exit_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange) #TODO replace with actual exit_price
-        # update state
-        self.open_trades.pop()
-        self.reentry_counts[trade["signal"]] -= 1
+        if signal == "BUY":
+            order_status = self.broker_obj.place_sell_order(self.tickers[0], quantity, self.Exchange)
+        else:
+            order_status = self.broker_obj.place_buy_order(self.tickers[0], quantity, self.Exchange)
 
-        pnl = (exit_price - trade["entry_price"]) * (1 if trade["signal"]=="BUY" else -1) * self.quantity
-        print(f"Closed {trade['signal']} @ {exit_price:.2f}  P&L={pnl:.2f}")
+        if order_status:
+            order_status = self.broker_obj.verify_position(self.tickers[0], quantity, signal, True)
 
-        self._save_state()
+        if order_status:
+            exit_price = self.broker_obj.get_entry_exit_price(self.tickers[0], signal, True)
+            # update state
+            self.open_trades.pop()
+            self.reentry_counts[trade["signal"]] -= 1
+
+            pnl = (exit_price - trade["entry_price"]) * (1 if trade["signal"]=="BUY" else -1) * trade["quantity"]
+            lg.info(f"Closed {trade['signal']} for {self.tickers[0]} @ {exit_price:.2f}  P&L={pnl:.2f}")
+
+            self._save_state()
 
     def _save_state(self):
         state = {
@@ -173,6 +194,11 @@ class autotick:
                 n = i.replace(" ", "_")
                 setattr(self, n, typed_mapping[i])
 
+            # make sl, tgt, tsl to %
+            self.stop_loss_pct = self.stop_loss_pct / 100.00
+            self.target_pct = self.target_pct / 100.00
+            self.trailing_pct = self.trailing_pct / 100.00
+            self.trailing_trigger_pct = self.trailing_trigger_pct / 100.00
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)

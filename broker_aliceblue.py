@@ -25,7 +25,7 @@ class aliceblue:
         self._instance = None
         self.instrument = None
         self.ltp = None
-        self.error_msg = "NA"
+        self.error_msg = ""
         self.__login()
 
     def __del__(self):
@@ -178,10 +178,14 @@ class aliceblue:
             lg.error("{}".format(message))
         return margin
 
-    def verify_position(self, ticker, quantity, exit_=False):
+    def verify_position(self, ticker, quantity, trade_direction, exit_=False):
         try:
+            #TODO Need to update for trade_direction and bug fix when data in empty
             time.sleep(delay)
             res_positions = self._instance.get_netwise_positions()
+            if res_positions['stat'] != "Ok":
+                return False
+
             if len(res_positions) > 0:
                 for i in res_positions:
                     if i["stat"] == "Ok":
@@ -220,10 +224,14 @@ class aliceblue:
             return False
         return False
 
-    def get_entry_exit_price(self, ticker, _exit=False):
+    def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
         try:
+            #TODO Need to update for trade_direction and bug fix when data in empty
             time.sleep(delay)
             res_positions = self._instance.get_netwise_positions()
+            if res_positions['stat'] != "Ok":
+                return False
+
             if len(res_positions) > 0:
                 for i in res_positions:
                     if i["stat"] == "Ok":
