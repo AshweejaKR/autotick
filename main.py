@@ -21,7 +21,7 @@ def main():
     ###########################################################################
     datestamp = dt.date.today()
     ###########################
-    strategy_config_file = "C:\\user\\ashwee\\autotick\\config\\test_strategy.csv"
+    strategy_config_file = "config/test_strategy.csv"
     ###########################################################################
     obj = autotick(datestamp, ["INFY-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
     # print("--------------------------------------------------------------------------\n")
