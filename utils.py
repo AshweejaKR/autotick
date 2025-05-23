@@ -147,7 +147,7 @@ def remove_positions(filename, trade_count):
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
 
-def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
+def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, comment):
     # datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
     filename = filename_ + "_trade_report.csv"
     pos_path = './data/'
@@ -164,9 +164,9 @@ def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
-        data = "datetime,ticker,quantity,order_type,price\n"
+        data = "datetime,ticker,quantity,order_type,price,comment\n"
     
-    data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "\n"
+    data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "," + str(comment)+ "\n"
     try:
         with open(currentpos_path, "w") as f:
             f.write(data)

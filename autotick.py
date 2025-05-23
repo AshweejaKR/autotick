@@ -48,11 +48,28 @@ class autotick:
 
         pos_path = './data/'
         self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
+        self.trade_report_file = f"{self.tickers[0]}_test"
 
         # state
         self.open_trades = []      # list of dicts for each open position
         self.reentry_counts = { 'BUY': 0, 'SELL': 0 }
         self.max_open_positions = 0
+
+        # print("--------------------------------------------------------------------------\n")
+        # print(f"Inside the class -- Broker: {self.Broker}, {type(self.Broker)}")
+        # print(f"Inside the class -- Exchange: {self.Exchange}, {type(self.Exchange)}")
+        # print(f"Inside the class -- Mode: {self.Mode}, {type(self.Mode)}")
+        # print(f"Inside the class -- Intraday: {self.Intraday}, {type(self.Intraday)}")
+        # print(f"Inside the class -- Interval: {self.Interval}, {type(self.Interval)}")
+        # print(f"Inside the class -- stop_loss_pct: {self.stop_loss_pct}, {type(self.stop_loss_pct)}")
+        # print(f"Inside the class -- target_pct: {self.target_pct}, {type(self.target_pct)}")
+        # print(f"Inside the class -- trailing_pct: {self.trailing_pct}, {type(self.trailing_pct)}")
+        # print(f"Inside the class -- trailing_trigger_pct: {self.trailing_trigger_pct}, {type(self.trailing_trigger_pct)}")
+        # print(f"Inside the class -- max_reentries: {self.max_reentries}, {type(self.max_reentries)}")
+        # print(f"Inside the class -- capital_per_trade: {self.capital_per_trade}, {type(self.capital_per_trade)}")
+        # print(f"Inside the class -- Trade count: {self.Trade_count}, {type(self.Trade_count)}")
+        # print(f"Inside the class -- Trade once: {self.Trade_once}, {type(self.Trade_once)}")
+        # print("--------------------------------------------------------------------------\n")
         self._load_state()
 
     def _enter_trade(self, signal):
@@ -97,6 +114,12 @@ class autotick:
                 self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
                 lg.info(f"Entered {signal} for {self.tickers[0]} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
                 self._save_state()
+                cmnt = "Entered long position" if signal == "BUY" else "Entered short position"
+                if self.Mode != 3:
+                    trade_time = dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+                else:
+                    trade_time = self.datestamp
+                save_trade_in_csv(self.trade_report_file, trade_time, self.tickers[0], quantity, signal, entry_price, cmnt)
             else:
                 lg.error(f"Failed to Entered {signal} for {self.tickers[0]}, Reason: {self.broker_obj.error_msg}")
         else:
@@ -130,19 +153,23 @@ class autotick:
         hit_sl = (price <= trade["sl"]) if sig=="BUY" else (price >= trade["sl"])
         hit_tp = (price >= trade["tp"]) if sig=="BUY" else (price <= trade["tp"])
         if hit_sl or hit_tp:
-            self._exit_trade(trade)
+            cmnt = "Target hit" if hit_tp else "Stoploss hit"            
+            self._exit_trade(trade, cmnt)
 
-    def _exit_trade(self, trade):
+    def _exit_trade(self, trade, cmnt):
         # close via your broker API
         # self.close_order_api(trade["trade_count"])
         order_status = False
         quantity = trade["quantity"]
         signal = trade["signal"]
+        order_type = "NA"
 
         if signal == "BUY":
             order_status = self.broker_obj.place_sell_order(self.tickers[0], quantity, self.Exchange)
+            order_type = "SELL"
         else:
             order_status = self.broker_obj.place_buy_order(self.tickers[0], quantity, self.Exchange)
+            order_type = "BUY"
 
         if order_status:
             order_status = self.broker_obj.verify_position(self.tickers[0], quantity, signal, True)
@@ -157,12 +184,17 @@ class autotick:
             lg.info(f"Closed {trade['signal']} for {self.tickers[0]} @ {exit_price:.2f}  P&L={pnl:.2f}")
 
             self._save_state()
+            if self.Mode != 3:
+                trade_time = dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+            else:
+                trade_time = self.datestamp
+            save_trade_in_csv(self.trade_report_file, trade_time, self.tickers[0], quantity, order_type, exit_price, cmnt)
 
     def _save_state(self):
         state = {
             "open_trades":        self.open_trades,
             "reentry_counts":     self.reentry_counts,
-            "max_open_positions": self.max_open_positions
+            "max_open_positions": self.max_reentries
         }
         with open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)

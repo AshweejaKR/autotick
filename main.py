@@ -31,25 +31,26 @@ def main():
         # print("--------------------------------------------------------------------------\n")
         # print(f"\n{vars(obj)}")
         # print("--------------------------------------------------------------------------\n")
-        # print(f"Broker: {obj.Broker}, {type(obj.Broker)}")
-        # print(f"Exchange: {obj.Exchange}, {type(obj.Exchange)}")
-        # print(f"Mode: {obj.Mode}, {type(obj.Mode)}")
-        # print(f"Intraday: {obj.Intraday}, {type(obj.Intraday)}")
-        # print(f"Interval: {obj.Interval}, {type(obj.Interval)}")
-        # print(f"stop_loss_pct: {obj.stop_loss_pct}, {type(obj.stop_loss_pct)}")
-        # print(f"target_pct: {obj.target_pct}, {type(obj.target_pct)}")
-        # print(f"trailing_pct: {obj.trailing_pct}, {type(obj.trailing_pct)}")
-        # print(f"trailing_trigger_pct: {obj.trailing_trigger_pct}, {type(obj.trailing_trigger_pct)}")
-        # print(f"max_reentries: {obj.max_reentries}, {type(obj.max_reentries)}")
-        # print(f"capital_per_trade: {obj.capital_per_trade}, {type(obj.capital_per_trade)}")
-        # print(f"Trade count: {obj.Trade_count}, {type(obj.Trade_count)}")
-        # print(f"Trade once: {obj.Trade_once}, {type(obj.Trade_once)}")
+        # print(f"In main outside the class -- Broker: {obj.Broker}, {type(obj.Broker)}")
+        # print(f"In main outside the class -- Exchange: {obj.Exchange}, {type(obj.Exchange)}")
+        # print(f"In main outside the class -- Mode: {obj.Mode}, {type(obj.Mode)}")
+        # print(f"In main outside the class -- Intraday: {obj.Intraday}, {type(obj.Intraday)}")
+        # print(f"In main outside the class -- Interval: {obj.Interval}, {type(obj.Interval)}")
+        # print(f"In main outside the class -- stop_loss_pct: {obj.stop_loss_pct}, {type(obj.stop_loss_pct)}")
+        # print(f"In main outside the class -- target_pct: {obj.target_pct}, {type(obj.target_pct)}")
+        # print(f"In main outside the class -- trailing_pct: {obj.trailing_pct}, {type(obj.trailing_pct)}")
+        # print(f"In main outside the class -- trailing_trigger_pct: {obj.trailing_trigger_pct}, {type(obj.trailing_trigger_pct)}")
+        # print(f"In main outside the class -- max_reentries: {obj.max_reentries}, {type(obj.max_reentries)}")
+        # print(f"In main outside the class -- capital_per_trade: {obj.capital_per_trade}, {type(obj.capital_per_trade)}")
+        # print(f"In main outside the class -- Trade count: {obj.Trade_count}, {type(obj.Trade_count)}")
+        # print(f"In main outside the class -- Trade once: {obj.Trade_once}, {type(obj.Trade_once)}")
+        # print("--------------------------------------------------------------------------\n")
         obj.start_trade()
         del obj
     ###########################################################################
     else:
         # # input for BACKTEST
-        duration = 2
+        duration = 21
         from_date = (datestamp - dt.timedelta(duration)).strftime("%Y-%m-%d") # YYYY-MM-DD format
         # from_date = "2024-12-12" # YYYY-MM-DD format
         to_date = datestamp.strftime("%Y-%m-%d") # YYYY-MM-DD format
