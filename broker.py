@@ -30,8 +30,8 @@ class Broker:
 
         self.stub_obj = stub()
         mode_name = "LIVE" if (mode == 1) else ("PAPER") if (mode == 2) else ("BACKTEST") if (mode == 3) else ("USERTEST")
-        print(f"MODE VALUE: {mode}")
-        print(f"Trading bot mode: {mode_name}")
+        lg.info(f"Trading mode value: {mode}")
+        lg.info(f"Trading bot mode: {mode_name}")
 
     def __del__(self):
         del self.obj
@@ -59,7 +59,6 @@ class Broker:
         gvars.max_len = len(intraday_data)
         gvars.i = 0
 
-        print(f"\n\n{len(intraday_data)}")
         try:
             with open("../ltp.txt", "w") as file:
                 for i in intraday_data:
@@ -67,7 +66,6 @@ class Broker:
         except Exception as err: print("***", err)
 
         lg.info("Init done ... !")
-        x = input("DEBUG WAIT")
 
     def __wait_till_order_fill(self, orderid, order):
         count = 0
