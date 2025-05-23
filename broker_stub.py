@@ -59,29 +59,19 @@ def fetch_current_price(ticker_):
         print(f"Error fetching data for {ticker}: {e}")
         return None
 
-def fetch_current_price_bt():
-    global ltp
-    try:
-        ltp = float(intraday_data[gvars.i-1])
-    except Exception as err:
-        print(err)
-    return ltp
-
 def read_dummy_ltp():
     global ltp
     try:
         with open("../ltp.txt") as file:
             data = file.readlines()
-            ltp = float(data[0])
+            print(f"gvars.i value = {gvars.i}, len: {len(data)}")
+            ltp = float(data[gvars.i])
     except Exception as err: 
         print(err)
-        # ltp = float(input("Enter current price:\n"))
-        ltp = 0.001
     return ltp
 
 class stub:
     def __init__(self):
-        self.cp = None
         self.error_msg = ""
         self.__login()
 
@@ -107,9 +97,8 @@ class stub:
         return df_data
 
     def get_current_price(self, ticker, exchange):
+        global ltp
         ltp = read_dummy_ltp() 
-        # ltp = fetch_current_price(ticker)
-        self.cp = ltp
         return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
@@ -146,5 +135,6 @@ class stub:
         return True
 
     def get_entry_exit_price(self, ticker, trade_direction, exit_=False):
-        price = self.cp
+        global ltp
+        price = ltp
         return price

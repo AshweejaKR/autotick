@@ -9,6 +9,14 @@ from broker_angleone import *
 from broker_aliceblue import *
 from broker_stub import *
 
+def fetch_current_price_bt():
+    global ltp
+    try:
+        ltp = float(intraday_data[gvars.i-1])
+    except Exception as err:
+        print(err)
+    return ltp
+
 class Broker:
     def __init__(self, mode, broker_name):
         self.error_msg = "NA"
@@ -20,16 +28,19 @@ class Broker:
         elif broker_name == "NOBROKER":
             self.obj = stub()
 
+        self.stub_obj = stub()
+        mode_name = "LIVE" if (mode == 1) else ("PAPER") if (mode == 2) else ("BACKTEST") if (mode == 3) else ("USERTEST")
+        print(f"MODE VALUE: {mode}")
+        print(f"Trading bot mode: {mode_name}")
+
     def __del__(self):
         del self.obj
+        del self.stub_obj
 
     def init_test(self, ticker, exchange, datestamp):
         global intraday_data
         global ltp
-        if self.obj is None:
-            data = fetch_intraday_data(ticker, datestamp)
-        else:
-            data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+        data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
 
         intraday_data = []
         if len(data) > 0:
@@ -46,17 +57,17 @@ class Broker:
                 intraday_data.append(i)
 
         gvars.max_len = len(intraday_data)
-        gvars.i = -1
+        gvars.i = 0
 
-        ltp = self.get_current_price(ticker, exchange)
-
+        print(f"\n\n{len(intraday_data)}")
         try:
             with open("../ltp.txt", "w") as file:
-                for i in range(5):
-                    file.write(str(ltp) + "\n")
+                for i in intraday_data:
+                    file.write(str(i) + "\n")
         except Exception as err: print("***", err)
 
         lg.info("Init done ... !")
+        x = input("DEBUG WAIT")
 
     def __wait_till_order_fill(self, orderid, order):
         count = 0
@@ -68,15 +79,24 @@ class Broker:
 ###############################################################################
 
     def get_available_margin(self):
-        margin = self.obj.get_available_margin()
+        if self.mode > 3:
+            margin = self.stub_obj.get_available_margin()
+        else:
+            margin = self.obj.get_available_margin()
         return margin
 
     def get_current_price(self, ticker, exchange):
-        current_price = self.obj.get_current_price(ticker, exchange)
+        if self.mode > 2:
+            current_price = self.stub_obj.get_current_price(ticker, exchange)
+        else:
+            current_price = self.obj.get_current_price(ticker, exchange)
         return current_price
 
     def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
-        price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
+        if self.mode > 1:
+            price = self.stub_obj.get_entry_exit_price(ticker, trade_direction, _exit)
+        else:
+            price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
         return price
 
     def get_user_data(self):
@@ -92,10 +112,16 @@ class Broker:
         return df_data
 
     def place_buy_order(self, ticker, quantity, exchange):
-        orderid = self.obj.place_buy_order(ticker, quantity, exchange)
+        if self.mode > 1:
+            orderid = self.stub_obj.place_buy_order(ticker, quantity, exchange)
+        else:
+            orderid = self.obj.place_buy_order(ticker, quantity, exchange)
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "BUY")
-            status = self.obj.get_oder_status(orderid)
+            if self.mode > 1:
+                status = self.stub_obj.get_oder_status(orderid)
+            else:
+                status = self.obj.get_oder_status(orderid)
             self.error_msg = self.obj.error_msg
             if status == "complete":
                 return True
@@ -103,10 +129,16 @@ class Broker:
         return False
 
     def place_sell_order(self, ticker, quantity, exchange):
-        orderid = self.obj.place_sell_order(ticker, quantity, exchange)
+        if self.mode > 1:
+            orderid = self.stub_obj.place_sell_order(ticker, quantity, exchange)
+        else:
+            orderid = self.obj.place_sell_order(ticker, quantity, exchange)
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "SELL")
-            status = self.obj.get_oder_status(orderid)
+            if self.mode > 1:
+                status = self.stub_obj.get_oder_status(orderid)
+            else:
+                status = self.obj.get_oder_status(orderid)
             self.error_msg = self.obj.error_msg
             if status == "complete":
                 return True
@@ -114,9 +146,15 @@ class Broker:
         return False
 
     def verify_holding(self, ticker, quantity):
-        res = self.obj.verify_holding(ticker, quantity)
+        if self.mode > 1:
+            res = self.stub_obj.verify_holding(ticker, quantity)
+        else:
+            res = self.obj.verify_holding(ticker, quantity)
         return res
 
     def verify_position(self, ticker, quantity, trade_direction, exit_=False):
-        res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
+        if self.mode > 1:
+            res = self.stub_obj.verify_position(ticker, quantity, trade_direction, exit_)
+        else:
+            res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
         return res

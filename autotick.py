@@ -40,7 +40,11 @@ class autotick:
         ###########################
         self.read_config_data()
         ###########################
-        self.broker_obj = Broker(0, self.Broker)
+        self.broker_obj = Broker(self.Mode, self.Broker)
+
+        if self.Mode == 3:
+            self.Interval = 0.0001
+            self.broker_obj.init_test(self.tickers[0], self.Exchange, self.datestamp)
 
         pos_path = './data/'
         self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
@@ -253,7 +257,7 @@ class autotick:
                 else:
                     taken_time = self.Interval
                 
-                time.sleep(taken_time)
+                # time.sleep(taken_time)
 
             except KeyboardInterrupt:
                 lg.error("Bot stop request by user")

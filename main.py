@@ -46,6 +46,21 @@ def main():
     del obj
     ###########################################################################
 
+    # # input for BACKTEST
+    # duration = 2
+    # from_date = (datestamp - dt.timedelta(duration)).strftime("%Y-%m-%d") # YYYY-MM-DD format
+    # # from_date = "2024-12-12" # YYYY-MM-DD format
+    # to_date = datestamp.strftime("%Y-%m-%d") # YYYY-MM-DD format
+    # # to_date = "2024-12-14" # YYYY-MM-DD format
+    # dates = get_date_range(from_date, to_date)
+    # for date_str in dates:
+    #     datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
+    #     obj = autotick(datestamp, ["INFY-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
+    #     # obj.start_trade()
+    #     del obj
+    ###########################################################################
+    ###########################################################################
+
     end = time.time()
     diff = end - start
     lg.info("Total time taken : {} \n".format(time.strftime('%H:%M:%S', time.gmtime(diff))))
