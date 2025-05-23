@@ -50,7 +50,7 @@ def main():
     ###########################################################################
     else:
         # # input for BACKTEST
-        duration = 21
+        duration = 250
         from_date = (datestamp - dt.timedelta(duration)).strftime("%Y-%m-%d") # YYYY-MM-DD format
         # from_date = "2024-12-12" # YYYY-MM-DD format
         to_date = datestamp.strftime("%Y-%m-%d") # YYYY-MM-DD format
