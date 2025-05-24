@@ -229,8 +229,9 @@ class autotick:
             }
 
             for i in typed_mapping:
-                n = i.replace(" ", "_")
-                setattr(self, n, typed_mapping[i])
+                if (type(i) == type('str')):
+                    n = i.replace(" ", "_")
+                    setattr(self, n, typed_mapping[i])
 
             # make sl, tgt, tsl to %
             self.stop_loss_pct = self.stop_loss_pct / 100.00
