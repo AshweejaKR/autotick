@@ -72,6 +72,8 @@ class autotick:
         # print("--------------------------------------------------------------------------\n")
         self._load_state()
 
+        lg.info(f"Initialized autotick Trading Bot for Stock {self.tickers[0]} in {self.Exchange} exchange, running on {self.datestamp}")
+
     def _enter_trade(self, signal):
         # place order via your broker API
         order_status = False
