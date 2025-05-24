@@ -58,7 +58,7 @@ def main():
         dates = get_date_range(from_date, to_date)
         for date_str in dates:
             datestamp = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
-            obj = autotick(datestamp, ["NIFTYBEES-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
+            obj = autotick(datestamp, ["INFY-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
             obj.start_trade()
             del obj
     ###########################################################################

@@ -64,7 +64,6 @@ def read_dummy_ltp():
     try:
         with open("../ltp.txt") as file:
             data = file.readlines()
-            print(f"gvars.i value = {gvars.i}, len: {len(data)}")
             ltp = float(data[gvars.i])
     except Exception as err: 
         print(err)
