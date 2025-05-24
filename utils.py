@@ -160,6 +160,7 @@ def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, 
     try:
         with open(currentpos_path) as f:
             data = f.read()
+    except FileNotFoundError as err: pass
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)

@@ -211,6 +211,7 @@ class angleone:
         return res
 
     def get_available_margin(self):
+        margin = 0.0
         try:
             time.sleep(delay)
             res = self._instance.rmsLimit()
