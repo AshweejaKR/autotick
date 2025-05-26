@@ -192,7 +192,7 @@ class angleone:
         status = "NA"
         try:
             time.sleep(delay)
-            order_history_response = self._instance.orderBook()
+            order_history_response = self._instance.orderBook() #TODO there is a bug in this method
             for i in order_history_response['data']:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled

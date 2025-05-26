@@ -69,8 +69,12 @@ class Broker:
 
     def __wait_till_order_fill(self, orderid, order):
         count = 0
+        if self.mode > 1:
+            temp_obj = self.stub_obj
+        else:
+            temp_obj = self.obj
         lg.info('%s order is in open, waiting ... %d ' % (order, count))
-        while self.obj.get_oder_status(orderid) == 'open':
+        while temp_obj.get_oder_status(orderid) == 'open':
             lg.info('%s order is in open, waiting ... %d ' % (order, count))
             count = count + 1
 

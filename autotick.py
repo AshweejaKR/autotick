@@ -47,8 +47,12 @@ class autotick:
             self.broker_obj.init_test(self.tickers[0], self.Exchange, self.datestamp)
 
         pos_path = './data/'
-        self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
-        self.trade_report_file = f"{self.tickers[0]}_test"
+        if self.Mode == 3:
+            self.state_file = pos_path + f"{self.tickers[0]}_trade_backtest_state.json"
+            self.trade_report_file = f"{self.tickers[0]}_backtest"
+        else:
+            self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
+            self.trade_report_file = f"{self.tickers[0]}_live"
 
         # state
         self.open_trades = []      # list of dicts for each open position
