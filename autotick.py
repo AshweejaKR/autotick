@@ -15,8 +15,6 @@ from utils import *
 import json
 import os
 
-import gvars
-
 global no_of_order_placed
 no_of_order_placed = 0
 
@@ -136,7 +134,7 @@ class autotick:
         price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
         sig   = trade["signal"]
         # print(f"\ntrade : {trade} \n")
-        lg.info('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
+        myPrint('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
 
         # 3) trailing stop logic
         profit_pct = (price - trade["entry_price"]) / trade["entry_price"]
@@ -152,7 +150,7 @@ class autotick:
             else:
                 new_sl = price * (1 + self.trailing_pct)
                 trade["sl"] = min(trade["sl"], new_sl)
-            lg.info(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
+            myPrint(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
             self._save_state()
 
         # 4) check SL or TP hit

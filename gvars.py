@@ -14,3 +14,5 @@ sleepTime = 5
 
 i = 0
 max_len = 20
+
+debugOn = True

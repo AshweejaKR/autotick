@@ -10,6 +10,8 @@ import os, sys
 import datetime as dt
 import pytz
 
+import gvars
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -38,6 +40,10 @@ def done(message, *args, **kwargs):
 # Attach the global function to the logging module
 lg.DONE = DONE
 lg.done = done
+
+def myPrint(msg):
+    if gvars.debugOn:
+        print(msg)
 
 class MyStreamHandler(lg.Handler):
     terminator = '\n'
