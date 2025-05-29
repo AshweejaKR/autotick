@@ -12,10 +12,12 @@ def init_strategy(obj):
     global prev_high
     global prev_low
     lg.info(f"Initializing Strategy for Stock {obj.tickers[0]} in {obj.Exchange} exchange ... ")
-    duration = 4
+    duration = 10
     hist_data = obj.broker_obj.hist_data_daily(obj.tickers[0], duration, obj.Exchange, obj.datestamp)
     myPrint(hist_data)
-    prev_high = hist_data['High'].iloc[-1]
+    h1 = hist_data['High'].iloc[-1]
+    h2 = hist_data['High'].iloc[-2]
+    prev_high = max(h1, h2)
     prev_low = hist_data['Low'].iloc[-1]
     lg.info(f"High : {prev_high}, Low : {prev_low}")
 
