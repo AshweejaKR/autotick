@@ -23,7 +23,7 @@ def main():
     ###########################
     strategy_config_file = "config/test_strategy.csv"
     ###########################################################################
-    obj = autotick(datestamp, ["NIFTYBEES-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
+    obj = autotick(datestamp, ["GODREJPROP-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
     # print("--------------------------------------------------------------------------\n")
     # print(dir(obj))
     # print("--------------------------------------------------------------------------\n")
