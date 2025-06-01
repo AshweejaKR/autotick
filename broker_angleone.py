@@ -62,7 +62,7 @@ class angleone:
         self._instance = None
         self.instrument_list = load_instrument_list()
         self.ltp = None
-        self.error_msg = "NA"
+        self.error_msg = ""
         self.__login()
 
     def __del__(self):
@@ -192,7 +192,7 @@ class angleone:
         status = "NA"
         try:
             time.sleep(delay)
-            order_history_response = self._instance.orderBook()
+            order_history_response = self._instance.orderBook() #TODO there is a bug in this method
             for i in order_history_response['data']:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled
@@ -211,6 +211,7 @@ class angleone:
         return res
 
     def get_available_margin(self):
+        margin = 0.0
         try:
             time.sleep(delay)
             res = self._instance.rmsLimit()
@@ -221,18 +222,19 @@ class angleone:
             lg.error("{}".format(message))
         return margin
 
-    def verify_position(self, ticker, quantity, exit_=False):
+    def verify_position(self, ticker, quantity, trade_direction, exit_=False):
         try:
+            key = ""
+            if trade_direction == "BUY":
+                key = "sellqty" if exit_ else "buyqty"
+            if trade_direction == "SELL":
+                key = "buyqty" if exit_ else "sellqty"
             time.sleep(delay)
             res_positions = self._instance.position()
             if res_positions['data'] is not None:
                 for i in res_positions['data']:
-                    if exit_:
-                        if i['tradingsymbol'] == ticker and int(i['sellqty']) >= quantity:
-                            return True
-                    else:
-                        if i['tradingsymbol'] == ticker and int(i['buyqty']) >= quantity:
-                            return True
+                    if i['tradingsymbol'] == ticker and int(i[key]) >= quantity:
+                        return True
             else:
                 lg.error("NO POSITIONS FOUND")
 
@@ -261,25 +263,28 @@ class angleone:
             return False
         return False
 
-    def get_entry_exit_price(self, ticker, _exit=False):
+    def get_entry_exit_price(self, ticker, trade_direction, exit_=False):
+        price = None
         try:
+            key = ""
+            if trade_direction == "BUY":
+                key = "sellavgprice" if exit_ else "buyavgprice"
+            if trade_direction == "SELL":
+                key = "buyavgprice" if exit_ else "sellavgprice"
             time.sleep(delay)
             res_positions = self._instance.position()
             if res_positions['data'] is not None:
                 for i in res_positions['data']:
                     if i['tradingsymbol'] == ticker:
-                        if _exit:
-                            price = float(i['sellavgprice'])
-                        else:
-                            price = float(i['buyavgprice'])
+                        price = float(i[key])
             else:
                 lg.error("NO POSITIONS FOUND")
-                return None
+                return price
 
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
-            return None
+            return price
 
         return price

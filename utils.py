@@ -16,7 +16,7 @@ import gvars
 
 def wait_till_market_open(mode_):
     while True:
-        if mode_.value == 3 or mode_.value == 4:
+        if mode_ == 3 or mode_ == 4 or mode_ == 5:
             break
 
         cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
@@ -34,16 +34,19 @@ def wait_till_market_open(mode_):
 
 def is_market_open(mode_):
     gvars.i = gvars.i + 1
-    if mode_.value == 3 or mode_.value == 4:
+    if mode_ == 3 or mode_ == 4:
         if gvars.i > gvars.max_len - 1:
             return False
+        return True
+
+    if mode_ == 5:
         return True
 
     cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
     if gvars.startTime <= cur_time <= gvars.endTime:
         return True
     else:
-        lg.info('Market is closed. \n')
+        lg.warning('Market is closed. \n')
         return False
 
 # Function to write data to a JSON file
@@ -144,7 +147,7 @@ def remove_positions(filename, trade_count):
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
 
-def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
+def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, comment):
     # datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
     filename = filename_ + "_trade_report.csv"
     pos_path = './data/'
@@ -157,13 +160,15 @@ def save_trade_in_csv(filename_, ticker, quantity, order_type, price, datetime):
     try:
         with open(currentpos_path) as f:
             data = f.read()
+    except FileNotFoundError as err:
+        data = "datetime,ticker,quantity,order_type,price,comment\n"
     except Exception as err:
         template = "An exception of type {0} occurred. error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
-        data = "datetime,ticker,quantity,order_type,price\n"
+        data = "datetime,ticker,quantity,order_type,price,comment\n"
     
-    data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "\n"
+    data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "," + str(comment)+ "\n"
     try:
         with open(currentpos_path, "w") as f:
             f.write(data)
@@ -218,3 +223,19 @@ def get_re_entry(ticker):
         data = "datetime,ticker,quantity,order_type,price\n"
     
     return re_entry
+
+# Function to cast string values to correct type
+def cast_value(value, dtype):
+    try:
+        if dtype == 'str':
+            return str(value)
+        elif dtype == 'float':
+            return float(value)
+        elif dtype == 'int':
+            return int(value)
+        elif dtype == 'bool':
+            return str(value).strip().lower() in ['yes', 'true', '1']
+        else:
+            return value
+    except:
+        return value  # Return as-is if casting fails

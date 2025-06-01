@@ -6,14 +6,14 @@ Created on Sat Nov 30 18:21:09 2024
 """
 
 import time
+import pandas as pd
 
-from angleone_broker import *
-from aliceblue_broker import *
-from stub_broker import *
-# from broker import *
+from broker import *
 from utils import *
 
-import gvars
+## temp import
+import json
+import os
 
 global no_of_order_placed
 no_of_order_placed = 0
@@ -26,250 +26,275 @@ def KillSwitch():
         sys.exit(-1)
 
 class autotick:
-    def __init__(self, ticker, exchange, mode, broker, datestamp):
+    def __init__(self, datestamp, tickers = None, run_strategy = None, init_strategy = None, strategy_config = None):
         global no_of_order_placed
-        self.ticker = ticker
-        self.exchange = exchange
-        self.mode = mode
-        self.broker = broker
         self.datestamp = datestamp
-        self.interval = 10
-        self.stoploss_p = 0.9
-        self.target_p = 0.021
-        self.capital_per_trade = 10000.00
-        self.current_trade = "NA"
-        self.trailSL = False
-        no_of_order_placed = 0
-        self.re_entry = get_re_entry(self.ticker)
-        trade_count = load_trade_count(self.ticker)
-        lg.info(f"Initial Trade count for {self.ticker} : {trade_count}")
-        self.file_name = self.ticker + "_" + self.broker.name
+        self.tickers = tickers
+        self.strategy_config = strategy_config
+        self.__init_strategy = init_strategy
+        self.__run_strategy = run_strategy
 
-        if self.broker.name == "ANGELONE":
-            self.obj = angleone()
-        elif self.broker.name == "ALICEBLUE":
-            self.obj = aliceblue()
-        elif self.broker.name == "NOBROKER":
-            self.obj = None
+        ###########################
+        ###########################
+        self.read_config_data()
+        ###########################
+        self.broker_obj = Broker(self.Mode, self.Broker)
 
-        if self.mode.value != 1:
-            self.interval = 0.1
-            self.print_int = 10
-            if self.mode.value == 3:
-                self.interval = 0.000
-            self.obj = stub(self.mode, self.obj)
-            self.obj.init_test(self.ticker, exchange, datestamp)
+        if self.Mode == 3:
+            self.Interval = 0.0001
+            self.broker_obj.init_test(self.tickers[0], self.Exchange, self.datestamp)
 
-        cur_price = self.obj.get_current_price(self.ticker, self.exchange)
-        lg.info(f"Current Price for {self.ticker} : {cur_price}")
-        while cur_price is None:
-            cur_price = self.obj.get_current_price(self.ticker, self.exchange)
-            lg.info(f"Checking current_price : {cur_price}")
-            time.sleep(1)
+        pos_path = './data/'
+        if self.Mode == 3:
+            self.state_file = pos_path + f"{self.tickers[0]}_trade_backtest_state.json"
+            self.trade_report_file = f"{self.tickers[0]}_backtest"
+        else:
+            self.state_file = pos_path + f"{self.tickers[0]}_trade_state.json"
+            self.trade_report_file = f"{self.tickers[0]}_live"
 
-        lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {exchange} exchange, running on {self.datestamp}")
-        lg.info(f"Trading Bot Mode: {self.mode.name}, running Broker : {self.broker.name}")
+        # state
+        self.open_trades = []      # list of dicts for each open position
+        self.reentry_counts = { 'BUY': 0, 'SELL': 0 }
+        self.max_open_positions = 0
+
+        # print("--------------------------------------------------------------------------\n")
+        # print(f"Inside the class -- Broker: {self.Broker}, {type(self.Broker)}")
+        # print(f"Inside the class -- Exchange: {self.Exchange}, {type(self.Exchange)}")
+        # print(f"Inside the class -- Mode: {self.Mode}, {type(self.Mode)}")
+        # print(f"Inside the class -- Intraday: {self.Intraday}, {type(self.Intraday)}")
+        # print(f"Inside the class -- Interval: {self.Interval}, {type(self.Interval)}")
+        # print(f"Inside the class -- stop_loss_pct: {self.stop_loss_pct}, {type(self.stop_loss_pct)}")
+        # print(f"Inside the class -- target_pct: {self.target_pct}, {type(self.target_pct)}")
+        # print(f"Inside the class -- trailing_pct: {self.trailing_pct}, {type(self.trailing_pct)}")
+        # print(f"Inside the class -- trailing_trigger_pct: {self.trailing_trigger_pct}, {type(self.trailing_trigger_pct)}")
+        # print(f"Inside the class -- max_reentries: {self.max_reentries}, {type(self.max_reentries)}")
+        # print(f"Inside the class -- capital_per_trade: {self.capital_per_trade}, {type(self.capital_per_trade)}")
+        # print(f"Inside the class -- Trade count: {self.Trade_count}, {type(self.Trade_count)}")
+        # print(f"Inside the class -- Trade once: {self.Trade_once}, {type(self.Trade_once)}")
+        # print("--------------------------------------------------------------------------\n")
+        self._load_state()
+
+        lg.info(f"Initialized autotick Trading Bot for Stock {self.tickers[0]} in {self.Exchange} exchange, running on {self.datestamp}")
+
+    def _enter_trade(self, signal):
+        # place order via your broker API
+        order_status = False
+        available_cash = self.broker_obj.get_available_margin()
+        cash_for_trade = min(available_cash, self.capital_per_trade)
+        cur_price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
+        quantity = int(cash_for_trade / cur_price)
+        if quantity > 0:
+            if signal == "BUY":
+                order_status = self.broker_obj.place_buy_order(self.tickers[0], quantity, self.Exchange)
+            else:
+                order_status = self.broker_obj.place_sell_order(self.tickers[0], quantity, self.Exchange)
+
+            if order_status:
+                order_status = self.broker_obj.verify_position(self.tickers[0], quantity, signal)
+
+            if order_status:
+                trade_count = self.reentry_counts[signal] + 1
+
+                entry_price = self.broker_obj.get_entry_exit_price(self.tickers[0], signal)
+                # calculate initial SL & TP
+                if signal == "BUY":
+                    sl = entry_price * (1 - self.stop_loss_pct)
+                    tp = entry_price * (1 + self.target_pct)
+                else:  # SELL
+                    sl = entry_price * (1 + self.stop_loss_pct)
+                    tp = entry_price * (1 - self.target_pct)
+
+                # save trade
+                trade = {
+                    "signal":      signal,
+                    "entry_price": entry_price,
+                    "sl":          sl,
+                    "tp":          tp,
+                    "quantity":    quantity,
+                    "trade_count": trade_count
+                }
+                self.open_trades.append(trade)
+                self.reentry_counts[signal] += 1
+                self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
+                lg.info(f"Entered {signal} for {self.tickers[0]} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
+                self._save_state()
+                cmnt = "Entered long position" if signal == "BUY" else "Entered short position"
+                if self.Mode != 3:
+                    trade_time = dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+                else:
+                    trade_time = self.datestamp
+                save_trade_in_csv(self.trade_report_file, trade_time, self.tickers[0], quantity, signal, entry_price, cmnt)
+            else:
+                lg.error(f"Failed to Entered {signal} for {self.tickers[0]}, Reason: {self.broker_obj.error_msg}")
+        else:
+            lg.error(f"Failed to Entered {signal} for {self.tickers[0]}, Reason: Insufficient funds")
+
+    def _manage_current_trade(self):
+        trade = self.open_trades[-1]
+        price = self.broker_obj.get_current_price(self.tickers[0], self.Exchange)
+        sig   = trade["signal"]
+        # print(f"\ntrade : {trade} \n")
+        myPrint('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
+
+        # 3) trailing stop logic
+        profit_pct = (price - trade["entry_price"]) / trade["entry_price"]
+        if sig == "SELL":
+            profit_pct = -profit_pct
+
+        if profit_pct >= self.trailing_trigger_pct:
+            # update SL to lock in profit
+            old_sl = trade["sl"]
+            if sig == "BUY":
+                new_sl = price * (1 - self.trailing_pct)
+                trade["sl"] = max(trade["sl"], new_sl)
+            else:
+                new_sl = price * (1 + self.trailing_pct)
+                trade["sl"] = min(trade["sl"], new_sl)
+            myPrint(f"Trailing SL updated from {old_sl:.2f} to {trade['sl']:.2f}")
+            self._save_state()
+
+        # 4) check SL or TP hit
+        hit_sl = (price <= trade["sl"]) if sig=="BUY" else (price >= trade["sl"])
+        hit_tp = (price >= trade["tp"]) if sig=="BUY" else (price <= trade["tp"])
+        if hit_sl or hit_tp:
+            cmnt = "Target hit" if hit_tp else "Stoploss hit"            
+            self._exit_trade(trade, cmnt)
+
+    def _exit_trade(self, trade, cmnt):
+        # close via your broker API
+        # self.close_order_api(trade["trade_count"])
+        order_status = False
+        quantity = trade["quantity"]
+        signal = trade["signal"]
+        order_type = "NA"
+
+        if signal == "BUY":
+            order_status = self.broker_obj.place_sell_order(self.tickers[0], quantity, self.Exchange)
+            order_type = "SELL"
+        else:
+            order_status = self.broker_obj.place_buy_order(self.tickers[0], quantity, self.Exchange)
+            order_type = "BUY"
+
+        if order_status:
+            order_status = self.broker_obj.verify_position(self.tickers[0], quantity, signal, True)
+
+        if order_status:
+            exit_price = self.broker_obj.get_entry_exit_price(self.tickers[0], signal, True)
+            # update state
+            self.open_trades.pop()
+            self.reentry_counts[trade["signal"]] -= 1
+
+            pnl = (exit_price - trade["entry_price"]) * (1 if trade["signal"]=="BUY" else -1) * trade["quantity"]
+            lg.info(f"Closed {trade['signal']} for {self.tickers[0]} @ {exit_price:.2f}  P&L={pnl:.2f}")
+
+            self._save_state()
+            if self.Mode != 3:
+                trade_time = dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+            else:
+                trade_time = self.datestamp
+            save_trade_in_csv(self.trade_report_file, trade_time, self.tickers[0], quantity, order_type, exit_price, cmnt)
+
+    def _save_state(self):
+        state = {
+            "open_trades":        self.open_trades,
+            "reentry_counts":     self.reentry_counts,
+            "max_open_positions": self.max_reentries
+        }
+        with open(self.state_file, "w") as f:
+            json.dump(state, f, indent=2)
+
+    def _load_state(self):
+        if os.path.isfile(self.state_file):
+            with open(self.state_file, "r") as f:
+                state = json.load(f)
+            self.open_trades        = state.get("open_trades", [])
+            self.reentry_counts     = state.get("reentry_counts", {"BUY":0,"SELL":0})
+            self.max_open_positions = state.get("max_open_positions", 0)
+        else:
+            # first run
+            self.open_trades        = []
+            self.reentry_counts     = {"BUY": 0, "SELL": 0}
+            self.max_open_positions = 0
 
     def __del__(self):
         pass
 
-    def __load_positions(self):
-        trade_count = load_trade_count(self.ticker)
-        data = load_positions(self.file_name, trade_count)
-        if data is not None:
-            try:
-                if self.ticker == data['ticker']:
-                    self.quantity = data['quantity']
-                    res_h = self.obj.verify_holding(self.ticker, self.quantity)
-                    res_p = self.obj.verify_position(self.ticker, self.quantity)
+    # TODO
+    def read_config_data(self):
+        try:
+            lg.warning("Reading strategy config CSV data")
+            df = pd.read_csv(self.strategy_config)
+            # Create a dictionary with proper types
+            typed_mapping = {
+                row['NAME']: cast_value(row['VALUE'], row['TYPE'])
+                for _, row in df.iterrows()
+            }
 
-                    if res_h or res_p:
-                        self.current_trade = data['order_type']
-                        self.entry_price = data['entryprice']
-                        self.stoploss_price = data['stoploss']
-                        self.takeprofit_price = data['takeprofit']
-                        self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
+            for i in typed_mapping:
+                if (type(i) == type('str')):
+                    n = i.replace(" ", "_")
+                    setattr(self, n, typed_mapping[i])
 
-            except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
-                message = template.format(type(err).__name__, err.args)
-                lg.info("ERROR: {}".format(message))
+            # make sl, tgt, tsl to %
+            self.stop_loss_pct = self.stop_loss_pct / 100.00
+            self.target_pct = self.target_pct / 100.00
+            self.trailing_pct = self.trailing_pct / 100.00
+            self.trailing_trigger_pct = self.trailing_trigger_pct / 100.00
+        except Exception as err:
+            template = "An exception of type {0} occurred. error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
 
-    def __wait_till_order_fill(self, orderid, order):
-        count = 0
-        lg.info('%s order is in open, waiting ... %d ' % (order, count))
-        while self.obj.get_oder_status(orderid) == 'open':
-            lg.info('%s order is in open, waiting ... %d ' % (order, count))
-            count = count + 1
-
-    def set_stoploss(self, sl_p):
-        if sl_p < 1:
-            self.stoploss_p = sl_p
-        else:
-            self.stoploss_p = sl_p / 100.00
-
-    def set_takeprofit(self, tp_p):
-        if tp_p < 1:
-            self.target_p = tp_p
-        else:
-            self.target_p = tp_p / 100.00
-
-    def run_trade(self):
+    def start_trade(self, index=0):
         global no_of_order_placed
-        self.init_strategy()
-        wait_till_market_open(self.mode)
-        self.__load_positions()
-        res = "NA"
+        if self.__init_strategy is not None:
+                try:
+                    self.__init_strategy(self)
+                except Exception as err:
+                    template = "An exception of type {0} occurred while running __init_strategy. error message:{1!r}"
+                    message = template.format(type(err).__name__, err.args)
+                    lg.error("{}".format(message))
 
-        while is_market_open(self.mode):
+        wait_till_market_open(self.Mode)
+        self.__run_trade()
+
+    def __run_trade(self, index=0):
+        # If market was closed while running, reload at start
+        self._load_state()
+
+        while is_market_open(self.Mode):
             start_time = time.time()
-            no_of_order_placed = 0
-            self.__load_positions()
-            self.re_entry = get_re_entry(self.ticker)
+            signal = "NA"
+            # print(f"open_trades : {self.open_trades} ... \n")
             try:
-                trade_count = load_trade_count(self.ticker)
-                KillSwitch()
-                if self.mode.value != 3:
-                    lg.info("Running Trade For {}, Trade count {} ... {} ".format(self.ticker, trade_count, gvars.i))
-                else:
-                    if gvars.i % self.print_int == 0:
-                        lg.info("Running Trade For {} ... {} ".format(self.ticker, gvars.i))
-                cur_price = self.obj.get_current_price(self.ticker, self.exchange)
+                if self.__run_strategy is not None:
+                    try:
+                        signal = self.__run_strategy(self)
+                        # print(f"returned signal : {signal}")
+                    except Exception as err:
+                        template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
+                        message = template.format(type(err).__name__, err.args)
+                        lg.error("{}".format(message))
 
-                if trade_count > 0:
-                   self.current_trade = "BUY"
+                #########################################################################
+                # 1) handle new signals / re-entry
+                if signal in ("BUY", "SELL"):
+                    if self.reentry_counts[signal] < self.max_reentries:
+                        self._enter_trade(signal)
 
-                # if self.current_trade != "BUY":
-                if trade_count < 5:
-                    res = self.run_strategy(cur_price)
-
-                if self.current_trade == "BUY":
-                    if self.trailSL:
-                        tsl_change = self.trail_SL(self.stoploss_price, self.trigger_price, cur_price, 10)
-                    
-                    if self.mode.value != 3:
-                        lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
-                    else:
-                        if gvars.i % self.print_int == 0:
-                            lg.info('SL %.2f <-- %.2f --> %.2f TP' % (self.stoploss_price, cur_price, self.takeprofit_price))
-
-                # x = input("debug stop")
-                # if self.current_trade != "BUY" and (res == "BUY"):
-                if trade_count < 5 and (res == "BUY") and self.re_entry:
-                    order_type = "BUY"
-                    lg.info("Entering Trade")
-                    amt = self.obj.get_available_margin()
-                    lg.info("cash available: {} ".format(amt))
-                    amt_for_trade = min(amt, self.capital_per_trade)
-                    lg.info("cash using for trade: {} ".format(amt_for_trade))
-                    self.quantity = int(amt_for_trade / cur_price)
-                    lg.info("quantity: {} ".format(self.quantity))
-                    if self.quantity > 0:
-                        orderid = self.obj.place_buy_order(self.ticker, self.quantity, self.exchange)
-                        no_of_order_placed = no_of_order_placed + 1
-                        if orderid is not None:
-                            self.__wait_till_order_fill(orderid, order_type)
-                            status = self.obj.get_oder_status(orderid)
-                            lg.info("{} Order status: {} ".format(order_type, status))
-                            if status == 'complete':
-                                x = self.obj.verify_position(self.ticker, self.quantity)
-                                lg.info("Entered into Position Mode : ".format(x))
-                                self.entry_price = self.obj.get_entry_exit_price(self.ticker)
-                                self.stoploss_price = self.entry_price - (self.entry_price * self.stoploss_p)
-                                self.takeprofit_price = self.entry_price + (self.entry_price * self.target_p)
-                                self.trigger_price = self.entry_price + (self.entry_price * self.target_p * 1.5)
-                                self.current_trade = order_type
-                                trade_count = load_trade_count(self.ticker)
-                                trade_count = trade_count + 1
-                                save_trade_count(self.ticker, trade_count)
-                                save_positions(self.file_name, trade_count, self.ticker, self.quantity, self.current_trade, self.entry_price, self.stoploss_price, self.takeprofit_price)
-                                save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, self.entry_price, self.datestamp)
-                                lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
-                                                                                                self.ticker,
-                                                                                                self.quantity,
-                                                                                                self.entry_price))
-                                self.prev_high = self.obj.get_current_price(self.ticker, self.exchange)
-                            else:
-                                lg.error('Failed to Submit {} Order for {}, Reason : {} '.format(order_type,
-                                                                                                self.ticker,
-                                                                                                self.obj.error_msg))
-                        else:
-                            lg.error("Order ID is NONE")
-                    else:
-                        lg.error("Insufficient funds")
-
-                elif (self.current_trade == "BUY") and (res == "SELL"):
-                    order_type = "SELL"
-                    lg.info("Exiting Trade")
-                    orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
-                    no_of_order_placed = no_of_order_placed + 1
-                    if orderid is not None:
-                        self.__wait_till_order_fill(orderid, order_type)
-                        status = self.obj.get_oder_status(orderid)
-                        lg.info("{} Order status: {} ".format(order_type, status))
-                        if status == 'complete':
-                            x = self.obj.verify_position(self.ticker, self.quantity)
-                            exit_price = self.obj.get_entry_exit_price(self.ticker, True)
-                            self.current_trade = order_type
-                            trade_count = load_trade_count(self.ticker)
-                            remove_positions(self.file_name, trade_count)
-                            trade_count = trade_count - 1
-                            save_trade_count(self.ticker, trade_count)
-                            save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
-                            lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
-                                                                                            self.ticker,
-                                                                                            self.quantity,
-                                                                                            exit_price))
-                        else:
-                            lg.error('Failed to Submit {} Order for {}, Reason : {} '.format(order_type,
-                                                                                            self.ticker,
-                                                                                            self.obj.error_msg))
-                    else:
-                        lg.error("Order ID is NONE")
-
-                elif (self.current_trade == "BUY"):
-                    if (cur_price > self.takeprofit_price) or (cur_price < self.stoploss_price):
-                        order_type = "SELL"
-                        lg.info("Exiting Trade")
-                        orderid = self.obj.place_sell_order(self.ticker, self.quantity, self.exchange)
-                        no_of_order_placed = no_of_order_placed + 1
-                        if orderid is not None:
-                            self.__wait_till_order_fill(orderid, order_type)
-                            status = self.obj.get_oder_status(orderid)
-                            lg.info("{} Order status: {} ".format(order_type, status))
-                            if status == 'complete':
-                                x = self.obj.verify_position(self.ticker, self.quantity)
-                                exit_price = self.obj.get_entry_exit_price(self.ticker, True)
-                                self.current_trade = order_type
-                                trade_count = load_trade_count(self.ticker)
-                                remove_positions(self.file_name, trade_count)
-                                trade_count = trade_count - 1
-                                save_trade_count(self.ticker, trade_count)
-                                save_trade_in_csv(self.file_name, self.ticker, self.quantity, order_type, exit_price, self.datestamp)
-                                lg.info('Submitted {} Order for {}, Qty = {} at price: {}'.format(order_type,
-                                                                                                self.ticker,
-                                                                                                self.quantity,
-                                                                                                self.entry_price))
-                            else:
-                                lg.error('Failed to Submit {} Order for {}, Reason : {} '.format(order_type,
-                                                                                                self.ticker,
-                                                                                                self.obj.error_msg))
-                        else:
-                            lg.error("Order ID is NONE")
-
-                if self.mode.value != 3:
-                    lg.info("------------------------------------------------------\n")
-                else:
-                    if gvars.i % self.print_int == 0:
-                        lg.info("------------------------------------------------------\n")
+                # 2) manage the last placed trade (SL, TP, trailing)
+                if self.open_trades:
+                    self._manage_current_trade()
+                #########################################################################
 
                 end_time = time.time()
                 taken_time = end_time - start_time
-                if self.interval - taken_time > 0:
-                    taken_time = self.interval - taken_time
+                if self.Interval - taken_time > 0:
+                    taken_time = self.Interval - taken_time
                 else:
-                    taken_time = self.interval
-                time.sleep(taken_time)
+                    taken_time = self.Interval
+                
+                # time.sleep(taken_time)
 
             except KeyboardInterrupt:
                 lg.error("Bot stop request by user")
@@ -280,30 +305,3 @@ class autotick:
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 break
-
-###############################################################################
-    def init_strategy(self):
-        try:
-            duration = 4
-            hist_data = self.obj.hist_data_daily(self.ticker, duration, self.exchange, self.datestamp)
-            lg.info(str(hist_data))
-            lg.info("\n")
-            self.prev_high = hist_data['High'].iloc[-1]
-            self.prev_low = hist_data['Low'].iloc[-1]
-            lg.info(f"High : {self.prev_high}, Low : {self.prev_low}")
-        except Exception as err: lg.info("init_strategy Error: {}".format(err))
-
-    def run_strategy(self, cur_price):
-        buy_p = 0.99
-
-        if self.mode.value != 3:
-            lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
-        else:
-            if gvars.i % self.print_int == 0:
-                lg.info("current price: {} < prev high: {} \n".format(cur_price, (buy_p * self.prev_high)))
-
-        if cur_price < (buy_p * self.prev_high):
-            return "BUY"
-        else:
-            return "NA"
-###############################################################################
