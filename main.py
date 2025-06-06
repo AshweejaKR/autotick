@@ -12,6 +12,10 @@ import strategy
 from logger import *
 from autotick import *
 
+def read_bot_config_data(config_file):
+    #TODO
+    print(f"reading {config_file}")
+
 def main():
 
     initialize_logger()
@@ -21,9 +25,10 @@ def main():
     ###########################################################################
     datestamp = dt.date.today()
     ###########################
-    strategy_config_file = "config/test_strategy.csv"
+    config_file = "config/test_strategy.csv"
+    read_bot_config_data(config_file)
     ###########################################################################
-    obj = autotick(datestamp, ["GODREJPROP-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
+    # obj = autotick(datestamp, ["GODREJPROP-EQ"], strategy.run_strategy, strategy.init_strategy, strategy_config_file)
     # print("--------------------------------------------------------------------------\n")
     # print(dir(obj))
     # print("--------------------------------------------------------------------------\n")
@@ -43,8 +48,8 @@ def main():
     # print(f"In main outside the class -- Trade count: {obj.Trade_count}, {type(obj.Trade_count)}")
     # print(f"In main outside the class -- Trade once: {obj.Trade_once}, {type(obj.Trade_once)}")
     # print("--------------------------------------------------------------------------\n")
-    obj.start_trade()
-    del obj
+    # obj.start_trade()
+    # del obj
     ###########################################################################
     ###########################################################################
 
