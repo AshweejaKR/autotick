@@ -12,24 +12,33 @@ import time
 from broker import *
 from utils import *
 
-import threading
-import queue
-import time
-
 class BrokerThread(threading.Thread):
     def __init__(self, broker):
         super().__init__()
-        self.broker = Broker(1, "ANGELONE")  # Actual broker instance (e.g., AngleOneBroker)
+        self.bkr_name = broker
+        if self.bkr_name == "ANGELONE":
+            self.broker = angleone()
+        elif self.bkr_name == "ALICEBLUE":
+            self.broker = aliceblue()
+        elif self.bkr_name == "NOBROKER":
+            self.broker = stub()
+
+        # self.broker = Broker(1, broker)  # Actual broker instance (e.g., AngleOneBroker)
         self.request_queue = queue.Queue()
         self.response_queue = queue.Queue()
         self._stop_event = threading.Event()
 
+        print(f"{self.bkr_name} broker thread start")
+    
+    def __del__(self):
+        print(f"{self.bkr_name} broker thread end")
+
     def run(self):
-        print("[BrokerThread] Running...")
+        print("[{self.bkr_name} BrokerThread] Running...")
         while not self._stop_event.is_set():
             try:
                 request_id, action, args = self.request_queue.get(timeout=1)
-                print(f"[BrokerThread] Processing {action} with args {args}")
+                print(f"[{self.bkr_name} BrokerThread] Processing {action} with args {args}")
                 if hasattr(self.broker, action):
                     method = getattr(self.broker, action)
                     result = method(*args)
@@ -40,6 +49,7 @@ class BrokerThread(threading.Thread):
                 continue
 
     def stop(self):
+        del self.broker
         self._stop_event.set()
 
     def send_request(self, action, *args):
@@ -59,8 +69,3 @@ class BrokerThread(threading.Thread):
             except queue.Empty:
                 continue
         return "Timeout or No Response"
-
-obj = BrokerThread()
-del obj
-
-time.sleep(1)

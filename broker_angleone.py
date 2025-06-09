@@ -288,3 +288,6 @@ class angleone:
             return price
 
         return price
+
+    def get_error_msg(self):
+        return self.error_msg

@@ -21,17 +21,28 @@ class Broker:
     def __init__(self, mode, broker_name):
         self.error_msg = "NA"
         self.mode = mode
-        if broker_name == "ANGELONE":
-            self.obj = angleone()
-        elif broker_name == "ALICEBLUE":
-            self.obj = aliceblue()
-        elif broker_name == "NOBROKER":
-            self.obj = stub()
+        # if broker_name == "ANGELONE":
+        #     self.obj = angleone()
+        # elif broker_name == "ALICEBLUE":
+        #     self.obj = aliceblue()
+        # elif broker_name == "NOBROKER":
+        #     self.obj = stub()
 
-        self.stub_obj = stub()
+        self.obj = gvars.broker_threads[broker_name]
+        self.stub_obj = gvars.broker_threads["NOBROKER"]
         mode_name = "LIVE" if (mode == 1) else ("PAPER") if (mode == 2) else ("BACKTEST") if (mode == 3) else ("USERTEST")
-        lg.info(f"Trading mode value: {mode}")
-        lg.info(f"Trading bot mode: {mode_name}")
+        # lg.info(f"Broker mode value: {mode}")
+        lg.info(f"\"{broker_name}\" Broker initialized with bot mode: {mode_name}")
+
+    def __get_response(self, method, stubOn, *args):
+        if stubOn:
+            request_id = self.obj.send_request(method, *args)
+            result = self.obj.get_response(request_id)
+        else:
+            request_id = self.obj.send_request(method, *args)
+            result = self.obj.get_response(request_id)
+        
+        return result
 
     def __del__(self):
         del self.obj
@@ -40,7 +51,8 @@ class Broker:
     def init_test(self, ticker, exchange, datestamp):
         global intraday_data
         global ltp
-        data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+        # data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+        data = self.__get_response("hist_data_intraday", 1, ticker, exchange, datestamp)
 
         intraday_data = []
         if len(data) > 0:
@@ -74,7 +86,8 @@ class Broker:
         else:
             temp_obj = self.obj
         lg.info('%s order is in open, waiting ... %d ' % (order, count))
-        while temp_obj.get_oder_status(orderid) == 'open':
+        # while temp_obj.get_oder_status(orderid) == 'open':
+        while self.__get_response("get_oder_status", 1, orderid) == 'open':
             lg.info('%s order is in open, waiting ... %d ' % (order, count))
             count = count + 1
 
@@ -82,49 +95,64 @@ class Broker:
 
     def get_available_margin(self):
         if self.mode > 3:
-            margin = self.stub_obj.get_available_margin()
+            # margin = self.stub_obj.get_available_margin()
+            margin = self.__get_response("get_available_margin", 1)
         else:
-            margin = self.obj.get_available_margin()
+            # margin = self.obj.get_available_margin()
+            margin = self.__get_response("get_available_margin", 1)
         return margin
 
     def get_current_price(self, ticker, exchange):
         if self.mode > 2:
-            current_price = self.stub_obj.get_current_price(ticker, exchange)
+            # current_price = self.stub_obj.get_current_price(ticker, exchange)
+            current_price = self.__get_response("get_current_price", 1, ticker, exchange)
         else:
-            current_price = self.obj.get_current_price(ticker, exchange)
+            # current_price = self.obj.get_current_price(ticker, exchange)
+            current_price = self.__get_response("get_current_price", 1, ticker, exchange)
         return current_price
 
     def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
         if self.mode > 1:
-            price = self.stub_obj.get_entry_exit_price(ticker, trade_direction, _exit)
+            # price = self.stub_obj.get_entry_exit_price(ticker, trade_direction, _exit)
+            price = self.__get_response("get_entry_exit_price", 1, ticker, trade_direction, _exit)
         else:
-            price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
+            # price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
+            price = self.__get_response("get_entry_exit_price", 1, ticker, trade_direction, _exit)
         return price
 
     def get_user_data(self):
-        usr_data = self.obj.get_user_data()
+        # usr_data = self.obj.get_user_data()
+        usr_data = self.__get_response("get_user_data", 1)
         return usr_data
 
     def hist_data_daily(self, ticker, duration, exchange, datestamp):
-        df_data = self.obj.hist_data_daily(ticker, duration, exchange, datestamp)
+        # df_data = self.obj.hist_data_daily(ticker, duration, exchange, datestamp)
+        df_data = self.__get_response("hist_data_daily", 1, ticker, duration, exchange, datestamp)
         return df_data
 
     def hist_data_intraday(self, ticker, exchange, datestamp):
-        df_data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+        # df_data = self.obj.hist_data_intraday(ticker, exchange, datestamp)
+        df_data = self.__get_response("hist_data_intraday", 1, ticker, exchange, datestamp)
         return df_data
 
     def place_buy_order(self, ticker, quantity, exchange):
         if self.mode > 1:
-            orderid = self.stub_obj.place_buy_order(ticker, quantity, exchange)
+            # orderid = self.stub_obj.place_buy_order(ticker, quantity, exchange)
+            orderid = self.__get_response("place_buy_order", 1, ticker, quantity, exchange)
         else:
-            orderid = self.obj.place_buy_order(ticker, quantity, exchange)
+            # orderid = self.obj.place_buy_order(ticker, quantity, exchange)
+            orderid = self.__get_response("place_buy_order", 1, ticker, quantity, exchange)
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "BUY")
             if self.mode > 1:
-                status = self.stub_obj.get_oder_status(orderid)
+                # status = self.stub_obj.get_oder_status(orderid)
+                status = self.__get_response("get_oder_status", 1, orderid)
             else:
-                status = self.obj.get_oder_status(orderid)
-            self.error_msg = self.obj.error_msg
+                # status = self.obj.get_oder_status(orderid)
+                status = self.__get_response("get_oder_status", 1, orderid)
+
+            # self.error_msg = self.obj.error_msg
+            self.error_msg = self.__get_response("get_error_msg", 1)
             if status == "complete":
                 return True
 
@@ -132,16 +160,23 @@ class Broker:
 
     def place_sell_order(self, ticker, quantity, exchange):
         if self.mode > 1:
-            orderid = self.stub_obj.place_sell_order(ticker, quantity, exchange)
+            # orderid = self.stub_obj.place_sell_order(ticker, quantity, exchange)
+            orderid = self.__get_response("place_sell_order", 1, ticker, quantity, exchange)
         else:
-            orderid = self.obj.place_sell_order(ticker, quantity, exchange)
+            # orderid = self.obj.place_sell_order(ticker, quantity, exchange)
+            orderid = self.__get_response("place_sell_order", 1, ticker, quantity, exchange)
         if orderid is not None:
             self.__wait_till_order_fill(orderid, "SELL")
             if self.mode > 1:
-                status = self.stub_obj.get_oder_status(orderid)
+                # status = self.stub_obj.get_oder_status(orderid)
+                status = self.__get_response("get_oder_status", 1, orderid)
             else:
-                status = self.obj.get_oder_status(orderid)
-            self.error_msg = self.obj.error_msg
+                # status = self.obj.get_oder_status(orderid)
+                status = self.__get_response("get_oder_status", 1, orderid)
+
+            # self.error_msg = self.obj.error_msg
+            self.error_msg = self.__get_response("get_error_msg", 1)
+            
             if status == "complete":
                 return True
 
@@ -149,14 +184,18 @@ class Broker:
 
     def verify_holding(self, ticker, quantity):
         if self.mode > 1:
-            res = self.stub_obj.verify_holding(ticker, quantity)
+            # res = self.stub_obj.verify_holding(ticker, quantity)
+            res = self.__get_response("verify_holding", 1, ticker, quantity)
         else:
-            res = self.obj.verify_holding(ticker, quantity)
+            # res = self.obj.verify_holding(ticker, quantity)
+            res = self.__get_response("verify_holding", 1, ticker, quantity)
         return res
 
     def verify_position(self, ticker, quantity, trade_direction, exit_=False):
         if self.mode > 1:
-            res = self.stub_obj.verify_position(ticker, quantity, trade_direction, exit_)
+            # res = self.stub_obj.verify_position(ticker, quantity, trade_direction, exit_)
+            res = self.__get_response("verify_position", 1, ticker, quantity, trade_direction, exit_)
         else:
-            res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
+            # res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
+            res = self.__get_response("verify_position", 1, ticker, quantity, trade_direction, exit_)
         return res

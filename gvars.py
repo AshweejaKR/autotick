@@ -16,3 +16,10 @@ i = 0
 max_len = 20
 
 debugOn = True
+
+
+# bot config data variables
+strategy_threads = []
+broker_threads = {}
+brokers = []
+objs = []
