@@ -183,6 +183,9 @@ class Broker:
             if status == "complete":
                 return True
 
+            if status == "cancelled":
+                self.error_msg = "cancelled"
+
         return False
 
     def verify_holding(self, ticker, quantity):
@@ -201,4 +204,9 @@ class Broker:
         else:
             # res = self.obj.verify_position(ticker, quantity, trade_direction, exit_)
             res = self.__get_response("verify_position", 1, ticker, quantity, trade_direction, exit_)
+        return res
+
+    def get_error_msg(self):
+        res = self.__get_response("get_error_msg", 1)
+        print(f"\n****************************************\nERROR MSG: {res}\n****************************************\n")
         return res

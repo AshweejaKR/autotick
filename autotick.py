@@ -125,7 +125,9 @@ class autotick:
                     trade_time = self.datestamp
                 save_trade_in_csv(self.trade_report_file, trade_time, self.ticker, quantity, signal, entry_price, cmnt)
             else:
-                lg.error(f"Failed to Entered {signal} for {self.ticker}, Reason: {self.broker_obj.error_msg}")
+                # error_msg = self.broker_obj.get_error_msg()
+                # lg.error(f"Failed to Entered {signal} for {self.ticker}, Reason: {self.broker_obj.error_msg}")
+                lg.error(f"Failed to Entered {signal} for {self.ticker}")
         else:
             lg.error(f"Failed to Entered {signal} for {self.ticker}, Reason: Insufficient funds")
 

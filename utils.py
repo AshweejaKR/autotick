@@ -33,6 +33,7 @@ def wait_till_market_open(mode_):
     return True
 
 def is_market_open(mode_):
+    mode_ = 5
     gvars.i = gvars.i + 1
     if mode_ == 3 or mode_ == 4:
         if gvars.i > gvars.max_len - 1:
@@ -40,7 +41,17 @@ def is_market_open(mode_):
         return True
 
     if mode_ == 5:
-        return True
+        try:
+            with open("../markettime.txt") as file:
+                data = file.readlines()
+                print(f"markettime.txt : {data}")
+                op = int(data[0])
+                if op == 5:
+                    return False
+                else:
+                    return True
+        except Exception as err: 
+            return True
 
     cur_time = dt.datetime.now(pytz.timezone("Asia/Kolkata")).time()
     if gvars.startTime <= cur_time <= gvars.endTime:

@@ -95,14 +95,14 @@ def main():
     run_broker_thread()
 
     ###########################################################################
-    # try:
-    #     for strat in strategies:
-    #         run_strategy_thread(datestamp, strat["strategy_id"], strat["broker"], strat["mode"], 
-    #                     strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
-    # except Exception as err:
-    #     template = "An exception of type {0} occurred. error message:{1!r}"
-    #     message = template.format(type(err).__name__, err.args)
-    #     lg.error("{}".format(message))
+    try:
+        for strat in strategies:
+            run_strategy_thread(datestamp, strat["strategy_id"], strat["broker"], strat["mode"], 
+                        strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
 
     # broker_name = "ANGELONE"
     # broker_obj = Broker(0, broker_name)
@@ -161,10 +161,8 @@ def main():
     # lg.info(f"{broker_name}: {ticker} Exit Price: {exit_price}")
     # lg.info("---------------------------------------------------------\n")
 
-    # broker = "NOBROKER"
-    # broker_obj = BrokerThread(broker)
-    # broker_obj.start()
-    time.sleep(5)
+    for thread in gvars.strategy_threads:
+        thread.join()
 
     for broker in gvars.brokers:
         gvars.broker_threads[broker].stop()

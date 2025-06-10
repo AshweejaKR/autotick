@@ -66,7 +66,7 @@ def read_dummy_ltp():
             data = file.readlines()
             ltp = float(data[gvars.i])
     except Exception as err: 
-        print(err)
+        print("ERROR in read_dummy_ltp : ", err)
     return ltp
 
 class stub:
