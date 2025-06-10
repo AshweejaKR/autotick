@@ -5,6 +5,7 @@ Created on Sat Nov 30 18:11:42 2024
 @author: ashwe
 """
 
+import threading
 import sys
 import csv
 
@@ -16,7 +17,6 @@ from logger import *
 from autotick import *
 
 def read_master_config(config_file):
-    print(f"reading {config_file}")
     strategies = []
     try:
         with open(config_file, newline='') as csvfile:
@@ -47,7 +47,7 @@ def run_broker_thread():
     for broker in gvars.brokers:
         broker_obj = BrokerThread(broker)
         gvars.broker_threads[broker] = broker_obj
-    
+
     for broker in gvars.brokers:
         gvars.broker_threads[broker].start()
 
@@ -55,10 +55,10 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     gvars.objs = []
     gvars.strategy_threads = []
-    print(f"running the ...")
-    tickers = ["GODREJPROP-EQ", "INFY-EQ", "SBIN-EQ"]
+    # tickers = ["GODREJPROP-EQ", "INFY-EQ", "SBIN-EQ"]
+    tickers = ["GODREJPROP-EQ"]
     for ticker in tickers:
-        obj = autotick(datestamp, strategy_id, broker, mode, ticker, run_strategy, init_strategy, strategy_config_file)
+        obj = autotick(datestamp, strategy_id, broker, 1, ticker, run_strategy, init_strategy, strategy_config_file)
         gvars.objs.append(obj)
         threads = threading.Thread(target=obj.start_trade, args=(10,))
         gvars.strategy_threads.append(threads)
@@ -95,19 +95,76 @@ def main():
     run_broker_thread()
 
     ###########################################################################
-    try:
-        for strat in strategies:
-            print(strat["strategy_id"])
-            print(strat["strategy_file"])
-            print(strat["broker"])
-            print(strat["mode"])
-            run_strategy_thread(datestamp, strat["strategy_id"], strat["broker"], strat["mode"], 
-                        strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
-    except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
-        message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+    # try:
+    #     for strat in strategies:
+    #         run_strategy_thread(datestamp, strat["strategy_id"], strat["broker"], strat["mode"], 
+    #                     strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
+    # except Exception as err:
+    #     template = "An exception of type {0} occurred. error message:{1!r}"
+    #     message = template.format(type(err).__name__, err.args)
+    #     lg.error("{}".format(message))
 
+    # broker_name = "ANGELONE"
+    # broker_obj = Broker(0, broker_name)
+    # Exchange = "NSE"
+    # ticker = "NIFTYBEES-EQ"
+    # datestamp = dt.date.today()
+    # quantity = 1
+    # duration = 30
+    # trade_direction = "SELL"
+
+    # user_data = broker_obj.get_user_data()
+    # lg.info(f"{broker_name}: user data : {user_data}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # user_amt = broker_obj.get_available_margin()
+    # lg.info(f"{broker_name}: available margin: {user_amt}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # current_price = broker_obj.get_current_price(ticker, Exchange)
+    # lg.info(f"{broker_name}: {ticker} current_price: {current_price}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # data1 = broker_obj.hist_data_daily(ticker, duration, Exchange, datestamp)
+    # lg.info(f"{broker_name}: {ticker} historical data 1D: {data1}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # data2 = broker_obj.hist_data_intraday(ticker, Exchange, datestamp)
+    # lg.info(f"{broker_name}: {ticker} historical data 1m: {data2}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # status = broker_obj.place_buy_order(ticker, quantity, Exchange)
+    # lg.info(f"{broker_name}: buy order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # status = broker_obj.place_sell_order(ticker, quantity, Exchange)
+    # lg.info(f"{broker_name}: sell order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # status = broker_obj.verify_position(ticker, quantity, trade_direction)
+    # lg.info(f"{broker_name}: Position status for {ticker}, {quantity} qty: {status}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # status = broker_obj.verify_position(ticker, quantity, trade_direction, True)
+    # lg.info(f"{broker_name}: Position status for {ticker}, {quantity} qty: {status}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # status = broker_obj.verify_holding(ticker, quantity)
+    # lg.info(f"{broker_name}: holding status for {ticker}, {quantity} qty: {status}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # entry_price = broker_obj.get_entry_exit_price(ticker, trade_direction)
+    # lg.info(f"{broker_name}: {ticker} Entry Price: {entry_price}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # exit_price = broker_obj.get_entry_exit_price(ticker, trade_direction, True)
+    # lg.info(f"{broker_name}: {ticker} Exit Price: {exit_price}")
+    # lg.info("---------------------------------------------------------\n")
+
+    # broker = "NOBROKER"
+    # broker_obj = BrokerThread(broker)
+    # broker_obj.start()
+    time.sleep(5)
 
     for broker in gvars.brokers:
         gvars.broker_threads[broker].stop()

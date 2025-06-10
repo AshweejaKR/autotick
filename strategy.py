@@ -13,6 +13,7 @@ def init_strategy(obj):
     global prev_low
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     duration = 10
+    # hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
     hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
     myPrint(hist_data)
     h1 = hist_data['High'].iloc[-1]
@@ -26,6 +27,7 @@ def run_strategy(obj):
     global prev_high
     myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     buy_p = 0.985
+    # cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     myPrint("current price: {} < prev high: {} \n".format(cur_price, (buy_p * prev_high)))
 

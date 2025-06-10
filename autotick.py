@@ -64,7 +64,6 @@ class autotick:
         # print(f"Inside the class -- Broker: {self.Broker}, {type(self.Broker)}")
         # print(f"Inside the class -- Exchange: {self.Exchange}, {type(self.Exchange)}")
         # print(f"Inside the class -- Mode: {self.Mode}, {type(self.Mode)}")
-        # print(f"Inside the class -- Intraday: {self.Intraday}, {type(self.Intraday)}") *** #TODO remove
         # print(f"Inside the class -- Interval: {self.Interval}, {type(self.Interval)}")
         # print(f"Inside the class -- stop_loss_pct: {self.stop_loss_pct}, {type(self.stop_loss_pct)}")
         # print(f"Inside the class -- target_pct: {self.target_pct}, {type(self.target_pct)}")
@@ -72,8 +71,6 @@ class autotick:
         # print(f"Inside the class -- trailing_trigger_pct: {self.trailing_trigger_pct}, {type(self.trailing_trigger_pct)}")
         # print(f"Inside the class -- max_reentries: {self.max_reentries}, {type(self.max_reentries)}")
         # print(f"Inside the class -- capital_per_trade: {self.capital_per_trade}, {type(self.capital_per_trade)}")
-        # print(f"Inside the class -- Trade count: {self.Trade_count}, {type(self.Trade_count)}") *** #TODO remove
-        # print(f"Inside the class -- Trade once: {self.Trade_once}, {type(self.Trade_once)}") *** #TODO remove
         # print("--------------------------------------------------------------------------\n")
         self._load_state()
 

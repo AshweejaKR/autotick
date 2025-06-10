@@ -5,9 +5,12 @@ Created on Tue May  6 21:01:16 2025
 @author: ashwe
 """
 
-from broker_angleone import *
-from broker_aliceblue import *
-from broker_stub import *
+# from broker_angleone import *
+# from broker_aliceblue import *
+# from broker_stub import *
+
+import gvars
+from logger import *
 
 def fetch_current_price_bt():
     global ltp
