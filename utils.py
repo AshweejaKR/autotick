@@ -44,7 +44,6 @@ def is_market_open(mode_):
         try:
             with open("../markettime.txt") as file:
                 data = file.readlines()
-                print(f"markettime.txt : {data}")
                 op = int(data[0])
                 if op == 5:
                     return False

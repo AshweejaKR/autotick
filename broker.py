@@ -38,13 +38,14 @@ class Broker:
         lg.info(f"\"{broker_name}\" Broker initialized with bot mode: {mode_name}")
 
     def __get_response(self, method, stubOn, *args):
+        lg.info(f"Sending request {method} with args {args}")
         if stubOn:
             request_id = self.obj.send_request(method, *args)
             result = self.obj.get_response(request_id)
         else:
             request_id = self.obj.send_request(method, *args)
             result = self.obj.get_response(request_id)
-        
+
         return result
 
     def __del__(self):
@@ -139,6 +140,7 @@ class Broker:
         return df_data
 
     def place_buy_order(self, ticker, quantity, exchange):
+        status = "failed"
         if self.mode > 1:
             # orderid = self.stub_obj.place_buy_order(ticker, quantity, exchange)
             orderid = self.__get_response("place_buy_order", 1, ticker, quantity, exchange)
@@ -159,9 +161,13 @@ class Broker:
             if status == "complete":
                 return True
 
+        print(f"BUY ORDER ID: {orderid}")
+        print(f"BUY ORDER STATUS: {status}")
+        print(f"BUY ERROR MSG: {self.error_msg}")
         return False
 
     def place_sell_order(self, ticker, quantity, exchange):
+        status = "failed"
         if self.mode > 1:
             # orderid = self.stub_obj.place_sell_order(ticker, quantity, exchange)
             orderid = self.__get_response("place_sell_order", 1, ticker, quantity, exchange)
@@ -178,14 +184,13 @@ class Broker:
                 status = self.__get_response("get_oder_status", 1, orderid)
 
             # self.error_msg = self.obj.error_msg
-            self.error_msg = self.__get_response("get_error_msg", 1)
-            
+            self.error_msg = self.__get_response("get_error_msg", 1)            
             if status == "complete":
                 return True
 
-            if status == "cancelled":
-                self.error_msg = "cancelled"
-
+        print(f"SELL ORDER ID: {orderid}")
+        print(f"SELL ORDER STATUS: {status}")
+        print(f"SELL ERROR MSG: {self.error_msg}")
         return False
 
     def verify_holding(self, ticker, quantity):

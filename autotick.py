@@ -18,6 +18,60 @@ import os
 global no_of_order_placed
 no_of_order_placed = 0
 
+def run_test(broker_obj, Broker, ticker, Exchange, datestamp):
+    # run the test
+    quantity = 10
+    duration = 30
+    trade_direction = "SELL"
+
+    user_data = broker_obj.get_user_data()
+    lg.info(f"{Broker}: user data : {user_data}")
+    lg.info("---------------------------------------------------------\n")
+
+    user_amt = broker_obj.get_available_margin()
+    lg.info(f"{Broker}: available margin: {user_amt}")
+    lg.info("---------------------------------------------------------\n")
+
+    current_price = broker_obj.get_current_price(ticker, Exchange)
+    lg.info(f"{Broker}: {ticker} current_price: {current_price}")
+    lg.info("---------------------------------------------------------\n")
+
+    data1 = broker_obj.hist_data_daily(ticker, duration, Exchange, datestamp)
+    lg.info(f"{Broker}: {ticker} historical data 1D: {data1}")
+    lg.info("---------------------------------------------------------\n")
+
+    data2 = broker_obj.hist_data_intraday(ticker, Exchange, datestamp)
+    lg.info(f"{Broker}: {ticker} historical data 1m: {data2}")
+    lg.info("---------------------------------------------------------\n")
+
+    status = broker_obj.place_buy_order(ticker, quantity, Exchange)
+    lg.info(f"{Broker}: buy order status for {ticker}, qty: {quantity}, status: {status}, err: {broker_obj.error_msg}")
+    lg.info("---------------------------------------------------------\n")
+
+    status = broker_obj.place_sell_order(ticker, quantity, Exchange)
+    lg.info(f"{Broker}: sell order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+    lg.info("---------------------------------------------------------\n")
+
+    status = broker_obj.verify_position(ticker, quantity, trade_direction)
+    lg.info(f"{Broker}: Position status for {ticker}, {quantity} qty: {status}")
+    lg.info("---------------------------------------------------------\n")
+
+    status = broker_obj.verify_position(ticker, quantity, trade_direction, True)
+    lg.info(f"{Broker}: Position status for {ticker}, {quantity} qty: {status}")
+    lg.info("---------------------------------------------------------\n")
+
+    status = broker_obj.verify_holding(ticker, quantity)
+    lg.info(f"{Broker}: holding status for {ticker}, {quantity} qty: {status}")
+    lg.info("---------------------------------------------------------\n")
+
+    entry_price = broker_obj.get_entry_exit_price(ticker, trade_direction)
+    lg.info(f"{Broker}: {ticker} Entry Price: {entry_price}")
+    lg.info("---------------------------------------------------------\n")
+
+    exit_price = broker_obj.get_entry_exit_price(ticker, trade_direction, True)
+    lg.info(f"{Broker}: {ticker} Exit Price: {exit_price}")
+    lg.info("---------------------------------------------------------\n")
+
 def KillSwitch():
     global no_of_order_placed
     if no_of_order_placed > 5:
@@ -75,6 +129,9 @@ class autotick:
         self._load_state()
 
         lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {self.Exchange} exchange, running on {self.datestamp}")
+
+        # running the test
+        # run_test(self.broker_obj, self.Broker, self.ticker, self.Exchange, self.datestamp)
 
     def _enter_trade(self, signal):
         # place order via your broker API
@@ -275,6 +332,8 @@ class autotick:
                     try:
                         signal = self.__run_strategy(self)
                         # print(f"returned signal : {signal}")
+                        # running the test
+                        # run_test(self.broker_obj, self.Broker, self.ticker, self.Exchange, self.datestamp)
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)

@@ -55,12 +55,23 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     gvars.objs = []
     gvars.strategy_threads = []
-    # tickers = ["GODREJPROP-EQ", "INFY-EQ", "SBIN-EQ"]
-    tickers = ["GODREJPROP-EQ"]
+    tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ", "ITC-EQ", "ASIANPAINT-EQ"]
+    # tickers = ["GODREJPROP-EQ"]
+    # tickers = ["ADANIENT-EQ", "ADANIPORTS-EQ", "ASIANPAINT-EQ", "AXISBANK-EQ", "BAJAJFINSV-EQ", "BEL-EQ",
+    #        "BHARTIARTL-EQ", "CIPLA-EQ", "COALINDIA-EQ", "DRREDDY-EQ", "ETERNAL-EQ", "GRASIM-EQ"]
+    
+    #        "HCLTECH-EQ", "HDFCBANK-EQ", "HDFCLIFE-EQ", "HEROMOTOCO-EQ", "HINDALCO-EQ", "HINDUNILVR-EQ", 
+    #        "ICICIBANK-EQ", "ITC-EQ", "INDUSINDBK-EQ", "INFY-EQ", "JSWSTEEL-EQ", "JIOFIN-EQ", "KOTAKBANK-EQ", 
+    #        "LT-EQ", "M&M-EQ", "NTPC-EQ", "NESTLEIND-EQ", "ONGC-EQ", "POWERGRID-EQ", "RELIANCE-EQ", 
+    #        "SBILIFE-EQ", "SHRIRAMFIN-EQ", "SBIN-EQ", "SUNPHARMA-EQ", "TCS-EQ", "TATACONSUM-EQ", 
+    #        "TATAMOTORS-EQ", "TATASTEEL-EQ", "TECHM-EQ", "TITAN-EQ", "WIPRO-EQ"]
+
     for ticker in tickers:
-        obj = autotick(datestamp, strategy_id, broker, 1, ticker, run_strategy, init_strategy, strategy_config_file)
+        obj = autotick(datestamp, strategy_id, broker, mode, ticker, run_strategy, init_strategy, strategy_config_file)
         gvars.objs.append(obj)
-        threads = threading.Thread(target=obj.start_trade, args=(10,))
+        # th_name = "Thread_" + strategy_id + "_" + ticker
+        # threads = threading.Thread(target=obj.start_trade, name=th_name,args=())
+        threads = threading.Thread(target=obj.start_trade, args=())
         gvars.strategy_threads.append(threads)
         # print("--------------------------------------------------------------------------\n")
         # print(dir(obj))
@@ -105,11 +116,13 @@ def main():
         lg.error("{}".format(message))
 
     # broker_name = "ANGELONE"
-    # broker_obj = Broker(0, broker_name)
+    # broker_obj = Broker(0, broker_name)    
     # Exchange = "NSE"
-    # ticker = "NIFTYBEES-EQ"
+    # Exchange = "NCO"
+    # ticker = "SBIN-EQ"
+    # ticker = "GOLDM25JULFUT"
     # datestamp = dt.date.today()
-    # quantity = 1
+    # quantity = 10
     # duration = 30
     # trade_direction = "SELL"
 
@@ -134,7 +147,7 @@ def main():
     # lg.info("---------------------------------------------------------\n")
 
     # status = broker_obj.place_buy_order(ticker, quantity, Exchange)
-    # lg.info(f"{broker_name}: buy order status for {ticker}, {quantity} qty: {status}, err: {broker_obj.error_msg}")
+    # lg.info(f"{broker_name}: buy order status for {ticker}, qty: {quantity}, status: {status}, err: {broker_obj.error_msg}")
     # lg.info("---------------------------------------------------------\n")
 
     # status = broker_obj.place_sell_order(ticker, quantity, Exchange)
@@ -164,6 +177,7 @@ def main():
     for thread in gvars.strategy_threads:
         thread.join()
 
+    time.sleep(2)
     for broker in gvars.brokers:
         gvars.broker_threads[broker].stop()
         gvars.broker_threads[broker].join()

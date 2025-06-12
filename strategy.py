@@ -13,9 +13,9 @@ def init_strategy(obj):
     global prev_low
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     duration = 10
-    # hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
+    # # hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
     hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
-    myPrint(hist_data)
+    print(f"{obj.ticker} hist_data: {hist_data}")
     h1 = hist_data['High'].iloc[-1]
     h2 = hist_data['High'].iloc[-2]
     prev_high = max(h1, h2)
@@ -33,7 +33,7 @@ def run_strategy(obj):
 
     if cur_price < (buy_p * prev_high):
         prev_high = cur_price
-        return "BUY"
+        return "NA"
     else:
         return "NA"
 

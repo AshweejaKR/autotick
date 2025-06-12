@@ -137,3 +137,6 @@ class stub:
         global ltp
         price = ltp
         return price
+
+    def get_error_msg(self):
+        return self.error_msg

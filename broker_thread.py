@@ -50,7 +50,7 @@ class BrokerThread(threading.Thread):
         while not self._stop_event.is_set():
             try:
                 lg.info(f"[{self.bkr_name} BrokerThread] Running...")
-                request_id, action, args = self.request_queue.get(timeout=3)
+                request_id, action, args = self.request_queue.get(timeout=20)
                 lg.info(f"[{self.bkr_name} BrokerThread] Processing {action} with args {args}")
                 if hasattr(self.broker, action):
                     method = getattr(self.broker, action)
@@ -76,11 +76,11 @@ class BrokerThread(threading.Thread):
         self.request_queue.put((request_id, action, args))
         return request_id
 
-    def get_response(self, request_id, timeout=5):
+    def get_response(self, request_id, timeout=20):
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
-                res_id, result = self.response_queue.get(timeout=3)
+                res_id, result = self.response_queue.get(timeout=20)
                 if res_id == request_id:
                     return result
                 else:
@@ -88,4 +88,4 @@ class BrokerThread(threading.Thread):
             except queue.Empty:
                 continue
         lg.error("Timeout or No Response")
-        return "Timeout or No Response"
+        return None

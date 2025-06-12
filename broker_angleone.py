@@ -189,7 +189,7 @@ class angleone:
         return orderid
 
     def get_oder_status(self, orderid):
-        status = "NA"
+        status = "failed"
         try:
             time.sleep(delay)
             order_history_response = self._instance.orderBook() #TODO there is a bug in this method
@@ -197,6 +197,8 @@ class angleone:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled
                     self.error_msg = i['text']
+                    if status == "rejected" or status == "cancelled":
+                        self.error_msg = status + " " + i['text']
                     break
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
