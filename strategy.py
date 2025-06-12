@@ -11,9 +11,9 @@ global prev_low
 def init_strategy(obj):
     global prev_high
     global prev_low
-    lg.info(f"Initializing Strategy for Stock {obj.tickers[0]} in {obj.Exchange} exchange ... ")
+    lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     duration = 10
-    hist_data = obj.broker_obj.hist_data_daily(obj.tickers[0], duration, obj.Exchange, obj.datestamp)
+    hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
     myPrint(hist_data)
     h1 = hist_data['High'].iloc[-1]
     h2 = hist_data['High'].iloc[-2]
@@ -24,9 +24,9 @@ def init_strategy(obj):
 def run_strategy(obj):
     # actual strategy
     global prev_high
-    myPrint(f"Running Strategy for Stock {obj.tickers[0]} in {obj.Exchange} exchange ... ")
+    myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     buy_p = 0.985
-    cur_price = obj.broker_obj.get_current_price(obj.tickers[0], obj.Exchange)
+    cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     myPrint("current price: {} < prev high: {} \n".format(cur_price, (buy_p * prev_high)))
 
     if cur_price < (buy_p * prev_high):
@@ -36,8 +36,8 @@ def run_strategy(obj):
         return "NA"
 
     # for testing only
-    # lg.info(f"Running Strategy for Stock {obj.tickers[0]} in {obj.Exchange} exchange ... ")
-    # cur_price = obj.broker_obj.get_current_price(obj.tickers[0], obj.Exchange)
+    # lg.info(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
+    # cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     # lg.info("current price: {} \n".format(cur_price))
     # filename = "C:\\user\\ashwee\\stub_test.txt"
     # signal = None

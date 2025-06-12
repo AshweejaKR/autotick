@@ -67,6 +67,7 @@ def read_dummy_ltp():
             ltp = float(data[gvars.i])
     except Exception as err: 
         print(err)
+        ltp = 100.25
     return ltp
 
 class stub:

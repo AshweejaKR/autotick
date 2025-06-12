@@ -88,9 +88,12 @@ class angleone:
             sys.exit(-1)
 
     def __logout(self):
+        print("Inside AGL logout")
         try:
             time.sleep(delay)
+            print("BFR terminateSession")
             data = self._instance.terminateSession(CLIENT_ID)
+            print("AFR terminateSession")
             if data['status'] and data['message'] == 'SUCCESS':
                 lg.done('Logout success ... !')
             else:
@@ -155,6 +158,7 @@ class angleone:
         return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
+        orderid = None
         try:
             params = {
                 "variety" : "NORMAL",
@@ -193,10 +197,13 @@ class angleone:
         try:
             time.sleep(delay)
             order_history_response = self._instance.orderBook() #TODO there is a bug in this method
+            print(f"order_history_response: {order_history_response}")
             for i in order_history_response['data']:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled
                     self.error_msg = i['text']
+                    if status == "rejected" or status == "cancelled":
+                        self.error_msg = status + " " + i['text']
                     break
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
