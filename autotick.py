@@ -60,21 +60,21 @@ class autotick:
         self.max_open_positions = 0
 
 
-        print(dir(self))
-        print("--------------------------------------------------------------------------\n")
-        print(f"Inside the class -- Strategy ID: {self.strategy_id}, {type(self.strategy_id)}")
-        print(f"Inside the class -- Broker Obj: {self.broker_obj}, {type(self.broker_obj)}")
-        print(f"Inside the class -- Ticker: {self.ticker}, {type(self.ticker)}")
-        print(f"Inside the class -- Exchange: {self.Exchange}, {type(self.Exchange)}")
-        print(f"Inside the class -- Mode: {self.Mode}, {type(self.Mode)}")
-        print(f"Inside the class -- Interval: {self.Interval}, {type(self.Interval)}")
-        print(f"Inside the class -- stop_loss_pct: {self.stop_loss_pct}, {type(self.stop_loss_pct)}")
-        print(f"Inside the class -- target_pct: {self.target_pct}, {type(self.target_pct)}")
-        print(f"Inside the class -- trailing_pct: {self.trailing_pct}, {type(self.trailing_pct)}")
-        print(f"Inside the class -- trailing_trigger_pct: {self.trailing_trigger_pct}, {type(self.trailing_trigger_pct)}")
-        print(f"Inside the class -- max_reentries: {self.max_reentries}, {type(self.max_reentries)}")
-        print(f"Inside the class -- capital_per_trade: {self.capital_per_trade}, {type(self.capital_per_trade)}")
-        print("--------------------------------------------------------------------------\n")
+        # print(dir(self))
+        # print("--------------------------------------------------------------------------\n")
+        # print(f"Inside the class -- Strategy ID: {self.strategy_id}, {type(self.strategy_id)}")
+        # print(f"Inside the class -- Broker Obj: {self.broker_obj}, {type(self.broker_obj)}")
+        # print(f"Inside the class -- Ticker: {self.ticker}, {type(self.ticker)}")
+        # print(f"Inside the class -- Exchange: {self.Exchange}, {type(self.Exchange)}")
+        # print(f"Inside the class -- Mode: {self.Mode}, {type(self.Mode)}")
+        # print(f"Inside the class -- Interval: {self.Interval}, {type(self.Interval)}")
+        # print(f"Inside the class -- stop_loss_pct: {self.stop_loss_pct}, {type(self.stop_loss_pct)}")
+        # print(f"Inside the class -- target_pct: {self.target_pct}, {type(self.target_pct)}")
+        # print(f"Inside the class -- trailing_pct: {self.trailing_pct}, {type(self.trailing_pct)}")
+        # print(f"Inside the class -- trailing_trigger_pct: {self.trailing_trigger_pct}, {type(self.trailing_trigger_pct)}")
+        # print(f"Inside the class -- max_reentries: {self.max_reentries}, {type(self.max_reentries)}")
+        # print(f"Inside the class -- capital_per_trade: {self.capital_per_trade}, {type(self.capital_per_trade)}")
+        # print("--------------------------------------------------------------------------\n")
         self._load_state()
 
         lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {self.Exchange} exchange, running on {self.datestamp}")
@@ -269,7 +269,7 @@ class autotick:
 
         c = 0
         # while is_market_open(self.Mode):
-        while c < 2:
+        while c < 10:
             c = c + 1
             start_time = time.time()
             signal = "NA"

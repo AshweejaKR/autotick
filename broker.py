@@ -34,6 +34,9 @@ class Broker:
         lg.info(f"Trading bot mode: {mode_name}")
 
     def __del__(self):
+        pass
+
+    def logout(self):
         del self.obj
         del self.stub_obj
 

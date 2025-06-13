@@ -21,4 +21,4 @@ debugOn = True
 strategy_threads = []
 # broker_threads = {}
 brokers = []
-objs = []
+# objs = []

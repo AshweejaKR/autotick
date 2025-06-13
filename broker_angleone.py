@@ -88,12 +88,9 @@ class angleone:
             sys.exit(-1)
 
     def __logout(self):
-        print("Inside AGL logout")
         try:
             time.sleep(delay)
-            print("BFR terminateSession")
             data = self._instance.terminateSession(CLIENT_ID)
-            print("AFR terminateSession")
             if data['status'] and data['message'] == 'SUCCESS':
                 lg.done('Logout success ... !')
             else:

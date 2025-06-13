@@ -53,10 +53,10 @@ def run_broker_thread(mode):
 
 def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init_strategy, strategy_config_file):
 
-    gvars.objs = []
     gvars.strategy_threads = []
+    tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ"]
     # tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ", "ITC-EQ", "ASIANPAINT-EQ"]
-    tickers = ["SBIN-EQ"]
+    # tickers = ["SBIN-EQ"]
     # tickers = ["ADANIENT-EQ", "ADANIPORTS-EQ", "ASIANPAINT-EQ", "AXISBANK-EQ", "BAJAJFINSV-EQ", "BEL-EQ",
     #        "BHARTIARTL-EQ", "CIPLA-EQ", "COALINDIA-EQ", "DRREDDY-EQ", "ETERNAL-EQ", "GRASIM-EQ"]
     
@@ -68,13 +68,12 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     for ticker in tickers:
         obj = autotick(datestamp, strategy_id, broker, mode, ticker, run_strategy, init_strategy, strategy_config_file)
-        gvars.objs.append(obj)
         # th_name = "Thread_" + strategy_id + "_" + ticker
         # threads = threading.Thread(target=obj.start_trade, name=th_name,args=())
         threads = threading.Thread(target=obj.start_trade, args=())
         gvars.strategy_threads.append(threads)
 
-        print(gvars.strategy_threads)
+    #     print(gvars.strategy_threads)
         # print("--------------------------------------------------------------------------\n")
         # print(dir(obj))
         # print("--------------------------------------------------------------------------\n")
@@ -108,10 +107,8 @@ def main():
 
     broker_threads = run_broker_thread(mode)
 
-    print(f"strategies: {strategies}")
     try:
         for strat in strategies:
-            print(f"strat: {strat}")
             run_strategy_thread(datestamp, strat["strategy_id"], broker_threads[strat["broker"]], strat["mode"], 
                         strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
     except Exception as err:
@@ -125,8 +122,8 @@ def main():
     # # broker_obj = Broker(mode, "NOBROKER")
     # broker_obj = Broker(mode, "ANGELONE")
     # strategy_config_file = "config/test_strategy.csv"
-    ###########################################################################
-    # obj = autotick(datestamp, strategy_id, broker_obj, mode, "GODREJPROP-EQ", strategy.run_strategy, strategy.init_strategy, strategy_config_file)
+    ##########################################################################
+    # obj = autotick(datestamp, strategies[0]["strategy_id"], strategies[0]["broker"], mode, "GODREJPROP-EQ", strategy.run_strategy, strategy.init_strategy, strategy_config_file)
     # print("--------------------------------------------------------------------------\n")
     # print(dir(obj))
     # print("--------------------------------------------------------------------------\n")
@@ -145,18 +142,15 @@ def main():
     # print(f"In main outside the class -- capital_per_trade: {obj.capital_per_trade}, {type(obj.capital_per_trade)}")
     # print(f"In main outside the class -- Trade count: {obj.Trade_count}, {type(obj.Trade_count)}")
     # print(f"In main outside the class -- Trade once: {obj.Trade_once}, {type(obj.Trade_once)}")
-    print("--------------------------------------------------------------------------\n")
+    # print("--------------------------------------------------------------------------\n")
     # obj.start_trade()
     # del obj
 
     for thread in gvars.strategy_threads:
         thread.join()
-    time.sleep(1.2)
 
     for key, value in list(broker_threads.items()):
-        del broker_threads[key]
-    del broker_threads
-    time.sleep(1.2)
+        broker_threads[key].logout()
     ###########################################################################
     ###########################################################################
 
