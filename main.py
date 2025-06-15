@@ -54,23 +54,23 @@ def run_broker_thread(mode):
 def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init_strategy, strategy_config_file):
 
     gvars.strategy_threads = []
-    tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ"]
-    # tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ", "ITC-EQ", "ASIANPAINT-EQ"]
+    # tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ"]
+    tickers = ["SUNTV-EQ", "INFY-EQ", "SBIN-EQ", "ITC-EQ", "ASIANPAINT-EQ"]
     # tickers = ["SBIN-EQ"]
-    # tickers = ["ADANIENT-EQ", "ADANIPORTS-EQ", "ASIANPAINT-EQ", "AXISBANK-EQ", "BAJAJFINSV-EQ", "BEL-EQ",
-    #        "BHARTIARTL-EQ", "CIPLA-EQ", "COALINDIA-EQ", "DRREDDY-EQ", "ETERNAL-EQ", "GRASIM-EQ"]
-    
-    #        "HCLTECH-EQ", "HDFCBANK-EQ", "HDFCLIFE-EQ", "HEROMOTOCO-EQ", "HINDALCO-EQ", "HINDUNILVR-EQ", 
-    #        "ICICIBANK-EQ", "ITC-EQ", "INDUSINDBK-EQ", "INFY-EQ", "JSWSTEEL-EQ", "JIOFIN-EQ", "KOTAKBANK-EQ", 
-    #        "LT-EQ", "M&M-EQ", "NTPC-EQ", "NESTLEIND-EQ", "ONGC-EQ", "POWERGRID-EQ", "RELIANCE-EQ", 
-    #        "SBILIFE-EQ", "SHRIRAMFIN-EQ", "SBIN-EQ", "SUNPHARMA-EQ", "TCS-EQ", "TATACONSUM-EQ", 
-    #        "TATAMOTORS-EQ", "TATASTEEL-EQ", "TECHM-EQ", "TITAN-EQ", "WIPRO-EQ"]
+    tickers = ["ADANIENT-EQ", "ADANIPORTS-EQ", "ASIANPAINT-EQ", "AXISBANK-EQ", "BAJAJFINSV-EQ", "BEL-EQ",
+           "BHARTIARTL-EQ", "CIPLA-EQ", "COALINDIA-EQ", "DRREDDY-EQ", "ETERNAL-EQ", "GRASIM-EQ",
+           "HCLTECH-EQ", "HDFCBANK-EQ", "HDFCLIFE-EQ", "HEROMOTOCO-EQ", "HINDALCO-EQ", "HINDUNILVR-EQ", 
+           "ICICIBANK-EQ", "ITC-EQ", "INDUSINDBK-EQ", "INFY-EQ", "JSWSTEEL-EQ", "JIOFIN-EQ", "KOTAKBANK-EQ", 
+           "LT-EQ", "M&M-EQ", "NTPC-EQ", "NESTLEIND-EQ", "ONGC-EQ", "POWERGRID-EQ", "RELIANCE-EQ", 
+           "SBILIFE-EQ", "SHRIRAMFIN-EQ", "SBIN-EQ", "SUNPHARMA-EQ", "TCS-EQ", "TATACONSUM-EQ", 
+           "TATAMOTORS-EQ", "TATASTEEL-EQ", "TECHM-EQ", "TITAN-EQ", "WIPRO-EQ"]
 
     for ticker in tickers:
         obj = autotick(datestamp, strategy_id, broker, mode, ticker, run_strategy, init_strategy, strategy_config_file)
-        # th_name = "Thread_" + strategy_id + "_" + ticker
-        # threads = threading.Thread(target=obj.start_trade, name=th_name,args=())
-        threads = threading.Thread(target=obj.start_trade, args=())
+        th_name = "Thread_" + strategy_id + "_" + ticker
+        th_name = th_name.replace("-EQ", "")
+        threads = threading.Thread(target=obj.start_trade, name=th_name,args=())
+        # threads = threading.Thread(target=obj.start_trade, args=())
         gvars.strategy_threads.append(threads)
 
     #     print(gvars.strategy_threads)
@@ -91,6 +91,7 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     for thread in gvars.strategy_threads:
         thread.start()
+        time.sleep(1.2)
 
 def main():
 

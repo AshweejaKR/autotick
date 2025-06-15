@@ -194,11 +194,9 @@ class angleone:
         try:
             time.sleep(delay)
             order_history_response = self._instance.orderBook() #TODO there is a bug in this method
-            print(f"order_history_response: {order_history_response}")
             for i in order_history_response['data']:
                 if i['orderid'] == orderid:
                     status = i['status']  # complete/rejected/open/cancelled
-                    self.error_msg = i['text']
                     if status == "rejected" or status == "cancelled":
                         self.error_msg = status + " " + i['text']
                     break
