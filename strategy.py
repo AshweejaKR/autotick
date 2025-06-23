@@ -18,7 +18,10 @@ def init_strategy(obj):
     # myPrint(hist_data)
     h1 = hist_data['High'].iloc[-1]
     h2 = hist_data['High'].iloc[-2]
-    prev_high[obj.ticker] = max(h1, h2)
+    h3 = hist_data['High'].iloc[-3]
+    h4 = hist_data['High'].iloc[-4]
+    h5 = hist_data['High'].iloc[-5]
+    prev_high[obj.ticker] = max(h1, h2, h3, h4, h5)
     prev_low = hist_data['Low'].iloc[-1]
     lg.info(f"High : {prev_high[obj.ticker]}, Low : {prev_low}")
 

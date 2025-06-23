@@ -27,7 +27,6 @@ def KillSwitch():
 
 class autotick:
     def __init__(self, datestamp, strategy_id, broker_obj, mode, ticker, run_strategy = None, init_strategy = None, strategy_config = None):
-        global no_of_order_placed
         self.datestamp = datestamp
         self.strategy_id = strategy_id
         self.ticker = ticker
@@ -80,6 +79,7 @@ class autotick:
         lg.info(f"Initialized autotick Trading Bot for Stock {self.ticker} in {self.Exchange} exchange, running on {self.datestamp}")
 
     def _enter_trade(self, signal):
+        global no_of_order_placed
         # place order via your broker API
         order_status = False
         available_cash = self.broker_obj.get_available_margin()
@@ -103,6 +103,7 @@ class autotick:
                 if signal == "BUY":
                     sl = entry_price * (1 - self.stop_loss_pct)
                     tp = entry_price * (1 + self.target_pct)
+                    no_of_order_placed = no_of_order_placed + 1
                 else:  # SELL
                     sl = entry_price * (1 + self.stop_loss_pct)
                     tp = entry_price * (1 - self.target_pct)
@@ -251,7 +252,6 @@ class autotick:
             lg.error("{}".format(message))
 
     def start_trade(self, index=0):
-        global no_of_order_placed
         if self.__init_strategy is not None:
                 try:
                     self.__init_strategy(self)
@@ -269,7 +269,7 @@ class autotick:
 
         c = 0
         while is_market_open(self.Mode):
-        # while c < 10:
+        # while c < 2:
             c = c + 1
             start_time = time.time()
             signal = "NA"
@@ -279,12 +279,12 @@ class autotick:
                     try:
                         signal = self.__run_strategy(self)
                         print(f"returned signal : {signal}")
-                        signal = "NA"
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)
                         lg.error("{}".format(message))
 
+                KillSwitch()
                 #########################################################################
                 # 1) handle new signals / re-entry
                 if signal in ("BUY", "SELL"):
@@ -303,7 +303,7 @@ class autotick:
                 else:
                     taken_time = self.Interval
                 
-                # time.sleep(taken_time)
+                time.sleep(taken_time)
 
             except KeyboardInterrupt:
                 lg.error("Bot stop request by user")
