@@ -16,20 +16,18 @@ def init_strategy(obj):
     duration = 10
     hist_data = obj.broker_obj.hist_data_daily(obj.ticker, duration, obj.Exchange, obj.datestamp)
     # myPrint(hist_data)
-    h1 = hist_data['High'].iloc[-1]
-    h2 = hist_data['High'].iloc[-2]
-    h3 = hist_data['High'].iloc[-3]
-    h4 = hist_data['High'].iloc[-4]
-    h5 = hist_data['High'].iloc[-5]
-    prev_high[obj.ticker] = max(h1, h2, h3, h4, h5)
+    h1 = hist_data['Close'].iloc[-1]
+    h2 = hist_data['Close'].iloc[-2]
+    h3 = hist_data['Close'].iloc[-3]
+    prev_high[obj.ticker] = max(h1, h2, h3)
     prev_low = hist_data['Low'].iloc[-1]
-    lg.info(f"High : {prev_high[obj.ticker]}, Low : {prev_low}")
+    lg.info(f"High Close : {prev_high[obj.ticker]}, Low : {prev_low}")
 
 def run_strategy(obj):
     # actual strategy
     global prev_high
     myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
-    buy_p = 0.985
+    buy_p = 0.975
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     myPrint("current price for Stock {} = {} < prev high: {} \n".format(obj.ticker, cur_price, (buy_p * prev_high[obj.ticker])))
     # return "NA"

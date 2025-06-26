@@ -114,6 +114,7 @@ class angleone:
             "todate" : todate
                     }
         try:
+            #TODO need to fix data error bug
             time.sleep(delay / 3)
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
@@ -153,7 +154,9 @@ class angleone:
     def get_current_price(self, ticker, exchange):
         global test_lock
         with test_lock:
+            lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
             try:
+                #TODO need to fix data error bug
                 time.sleep(delay / 10)
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
                 ltp = float(data['data']['ltp'])
@@ -163,6 +166,7 @@ class angleone:
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 ltp = self.ltp
+            lg.done(f"API request done for {ticker}")
             return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
@@ -180,6 +184,7 @@ class angleone:
                 "quantity" : quantity
             }
 
+            #TODO need to fix data error bug
             time.sleep(delay / 10)
             orderid = self._instance.placeOrder(params)
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
@@ -209,6 +214,7 @@ class angleone:
         with test_lock:
             status = "NA"
             try:
+                #TODO need to fix data error bug
                 time.sleep(delay)
                 order_history_response = self._instance.orderBook() #TODO there is a bug in this method
                 for i in order_history_response['data']:
