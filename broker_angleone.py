@@ -165,13 +165,14 @@ class angleone:
             # Handle rate limiting delay
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
-            minInterval = delay / 10
+            minInterval = delay / 5
             leftToWait = minInterval - elapsed
             if leftToWait > 0:
                 time.sleep(leftToWait)
 
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
             try:
+                # x = input(f"DEBUG WAIT @ {ticker}")
                 #TODO need to fix data error bug
                 # time.sleep(delay / 10)
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
