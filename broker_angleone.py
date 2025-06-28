@@ -128,9 +128,15 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 1.5
-            leftToWait = minInterval - elapsed
-            if leftToWait > 0:
+            leftToWait = 0.0
+            print("minInterval: ", minInterval)
+            print("elapsed: ", elapsed)
+            if elapsed > 0:
+                leftToWait = minInterval - elapsed
+                print("leftToWait: ", leftToWait)
                 time.sleep(leftToWait)
+            else:
+                print("leftToWait: ", leftToWait)
 
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
@@ -180,8 +186,8 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 1.5
-            leftToWait = minInterval - elapsed
-            if leftToWait > 0:
+            if elapsed > 0:
+                leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
@@ -220,8 +226,8 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 4
-            leftToWait = minInterval - elapsed
-            if leftToWait > 0:
+            if elapsed > 0:
+                leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
             orderid = self._instance.placeOrder(params)
@@ -259,8 +265,8 @@ class angleone:
                 last_time = last_called_time.get(key, 0)
                 elapsed = current_time - last_time
                 minInterval = 1
-                leftToWait = minInterval - elapsed
-                if leftToWait > 0:
+                if elapsed > 0:
+                    leftToWait = minInterval - elapsed
                     time.sleep(leftToWait)
 
                 order_history_response = self._instance.orderBook() #TODO there is a bug in this method
