@@ -168,7 +168,6 @@ class angleone:
             minInterval = delay / 10
             leftToWait = minInterval - elapsed
             if leftToWait > 0:
-                lg.info(f"Rate limiting: waiting {leftToWait:.2f}s for {key}")
                 time.sleep(leftToWait)
 
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
@@ -177,12 +176,12 @@ class angleone:
                 # time.sleep(delay / 10)
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
                 ltp = float(data['data']['ltp'])
-                self.ltp = ltp
+                # self.ltp = ltp
             except Exception as err:
                 template = "An exception of type {0} occurred. error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
-                ltp = self.ltp
+                # ltp = self.ltp
             last_called_time[key] = time.time()
             lg.done(f"API request done for {ticker}")
             return ltp
