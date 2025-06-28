@@ -21,7 +21,7 @@ def init_strategy(obj):
     h3 = hist_data['Close'].iloc[-3]
     prev_high[obj.ticker] = max(h1, h2, h3)
     prev_low = hist_data['Low'].iloc[-1]
-    lg.info(f"High Close : {prev_high[obj.ticker]}, Low : {prev_low}")
+    lg.info(f"{obj.ticker}: High Close : {prev_high[obj.ticker]}, Low : {prev_low}")
 
 def run_strategy(obj):
     # actual strategy
