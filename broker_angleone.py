@@ -28,6 +28,10 @@ TOTP_TOKEN = get_keys(key_file)[4]
 
 global test_lock
 test_lock = threading.Lock()
+last_called_time = {}
+key = f"get_current_price"
+current_time = time.time()
+last_called_time[key] = time.time()
 
 def load_instrument_list():
     filename = "config/instrument_list_file.json"
@@ -152,8 +156,21 @@ class angleone:
             return df_data
 
     def get_current_price(self, ticker, exchange):
-        global test_lock
+        global test_lock, last_called_time
+
         with test_lock:
+            key = f"get_current_price"
+            current_time = time.time()
+
+            # Handle rate limiting delay
+            last_time = last_called_time.get(key, 0)
+            elapsed = current_time - last_time
+            minInterval = delay / 10
+            leftToWait = minInterval - elapsed
+            if leftToWait > 0:
+                lg.info(f"Rate limiting: waiting {leftToWait:.2f}s for {key}")
+                time.sleep(leftToWait)
+
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
             try:
                 #TODO need to fix data error bug
@@ -166,6 +183,7 @@ class angleone:
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 ltp = self.ltp
+            last_called_time[key] = time.time()
             lg.done(f"API request done for {ticker}")
             return ltp
 
