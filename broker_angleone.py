@@ -155,7 +155,6 @@ class angleone:
         global test_lock
         with test_lock:
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
-            x = input(f"DEBUG STOP AT {ticker}")
             try:
                 #TODO need to fix data error bug
                 # time.sleep(delay / 10)
