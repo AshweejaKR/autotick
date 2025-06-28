@@ -35,7 +35,6 @@ class autotick:
         self.__run_strategy = run_strategy
 
         ###########################
-        ###########################
         self.read_config_data()
         ###########################
         self.Mode = mode
@@ -142,7 +141,6 @@ class autotick:
         trade = self.open_trades[-1]
         price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
         sig   = trade["signal"]
-        # print(f"\ntrade : {trade} \n")
         myPrint('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
 
         # 3) trailing stop logic
@@ -171,7 +169,6 @@ class autotick:
 
     def _exit_trade(self, trade, cmnt):
         # close via your broker API
-        # self.close_order_api(trade["trade_count"])
         order_status = False
         quantity = trade["quantity"]
         signal = trade["signal"]
@@ -259,10 +256,7 @@ class autotick:
     def start_trade(self, index=0):
         if self.__init_strategy is not None:
                 try:
-                    for i in range(0, 10):
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        lg.info("current price for Stock {} = {} \n".format(self.ticker, cur_price))
-                    # self.__init_strategy(self)
+                    self.__init_strategy(self)
                 except Exception as err:
                     template = "An exception of type {0} occurred while running __init_strategy. error message:{1!r}"
                     message = template.format(type(err).__name__, err.args)
@@ -276,8 +270,8 @@ class autotick:
         self._load_state()
 
         c = 0
-        # while is_market_open(self.Mode):
-        while c < 10:
+        while is_market_open(self.Mode):
+        # while c < 1:
             c = c + 1
             start_time = time.time()
             signal = "NA"
@@ -285,14 +279,8 @@ class autotick:
             try:
                 if self.__run_strategy is not None:
                     try:
-                        # signal = self.__run_strategy(self)
-                        # print(f"returned signal : {signal}")
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
-                        lg.info("current price for Stock {} = {} \n".format(self.ticker, cur_price))
+                        signal = self.__run_strategy(self)
+                        print(f"returned signal : {signal}")
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)
