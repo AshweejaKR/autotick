@@ -134,7 +134,7 @@ class angleone:
             if leftToWait > 0:
                 time.sleep(leftToWait)
 
-            time.sleep(delay / 3)
+            # time.sleep(delay / 3)
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
@@ -225,13 +225,13 @@ class angleone:
             current_time = time.time()
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
-            minInterval = 1.5
+            minInterval = 4
             leftToWait = minInterval - elapsed
             if leftToWait > 0:
                 time.sleep(leftToWait)
 
             #TODO need to fix data error bug
-            time.sleep(4)
+            # time.sleep(4)
             orderid = self._instance.placeOrder(params)
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
@@ -272,7 +272,7 @@ class angleone:
                     time.sleep(leftToWait)
 
                 #TODO need to fix data error bug
-                time.sleep(delay)
+                # time.sleep(delay)
                 order_history_response = self._instance.orderBook() #TODO there is a bug in this method
                 for i in order_history_response['data']:
                     if i['orderid'] == orderid:
