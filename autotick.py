@@ -277,7 +277,7 @@ class autotick:
 
         c = 0
         # while is_market_open(self.Mode):
-        while c < 20:
+        while c < 2:
             c = c + 1
             start_time = time.time()
             signal = "NA"
