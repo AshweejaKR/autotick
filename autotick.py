@@ -288,6 +288,10 @@ class autotick:
                         # signal = self.__run_strategy(self)
                         # print(f"returned signal : {signal}")
                         cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
                         lg.info("current price for Stock {} = {} \n".format(self.ticker, cur_price))
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
