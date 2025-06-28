@@ -29,9 +29,6 @@ class Broker:
             self.obj = stub()
 
         self.stub_obj = stub()
-        mode_name = "LIVE" if (mode == 1) else ("PAPER") if (mode == 2) else ("BACKTEST") if (mode == 3) else ("USERTEST")
-        lg.info(f"Trading mode value: {mode}")
-        lg.info(f"Trading bot mode: {mode_name}")
 
     def __del__(self):
         pass
@@ -100,6 +97,8 @@ class Broker:
     def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
         if self.mode > 1:
             price = self.stub_obj.get_entry_exit_price(ticker, trade_direction, _exit)
+        if self.mode == 2:
+            price = self.obj.get_current_price(ticker, "NSE")
         else:
             price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)
         return price

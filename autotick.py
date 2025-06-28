@@ -41,16 +41,21 @@ class autotick:
         self.Mode = mode
         self.broker_obj = broker_obj
 
+        mode_name = self.Mode
+        self.Mode = 1 if (mode_name == "LIVE") else (2) if (mode_name == "PAPER") else (3) if (mode_name == "BACKTEST") else (4)
+        lg.info(f"Trading mode value: {mode}")
+        lg.info(f"Trading bot mode: {mode_name}")
+
         if self.Mode == 3:
             self.Interval = 0.0001
             self.broker_obj.init_test(self.ticker, self.Exchange, self.datestamp)
 
         pos_path = './data/'
-        if self.Mode == 3:
-            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_backtest.json"
-            self.trade_report_file = f"{strategy_id}_trade_report_backtest"
+        if self.Mode > 1:
+            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_{mode_name.lower()}.json"
+            self.trade_report_file = f"{strategy_id}_trade_report_{mode_name.lower()}"
         else:
-            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_backtest.json"
+            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state.json"
             self.trade_report_file = f"{strategy_id}_trade_report"
 
         # state
@@ -254,7 +259,10 @@ class autotick:
     def start_trade(self, index=0):
         if self.__init_strategy is not None:
                 try:
-                    self.__init_strategy(self)
+                    for i in range(0, 10):
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        lg.info("current price for Stock {} = {} \n".format(self.ticker, cur_price))
+                    # self.__init_strategy(self)
                 except Exception as err:
                     template = "An exception of type {0} occurred while running __init_strategy. error message:{1!r}"
                     message = template.format(type(err).__name__, err.args)
@@ -268,8 +276,8 @@ class autotick:
         self._load_state()
 
         c = 0
-        while is_market_open(self.Mode):
-        # while c < 2:
+        # while is_market_open(self.Mode):
+        while c < 20:
             c = c + 1
             start_time = time.time()
             signal = "NA"
@@ -277,8 +285,10 @@ class autotick:
             try:
                 if self.__run_strategy is not None:
                     try:
-                        signal = self.__run_strategy(self)
-                        print(f"returned signal : {signal}")
+                        # signal = self.__run_strategy(self)
+                        # print(f"returned signal : {signal}")
+                        cur_price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
+                        lg.info("current price for Stock {} = {} \n".format(self.ticker, cur_price))
                     except Exception as err:
                         template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
                         message = template.format(type(err).__name__, err.args)

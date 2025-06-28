@@ -90,7 +90,7 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     for thread in gvars.strategy_threads:
         thread.start()
-        time.sleep(1.2)
+        # time.sleep(1.2)
 
 def main():
 
