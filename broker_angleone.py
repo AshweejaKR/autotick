@@ -124,19 +124,15 @@ class angleone:
             "todate" : todate
                     }
         key = f"get_hist_data"
+        current_time = time.time()
         try:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 1.5
             leftToWait = 0.0
-            print("minInterval: ", minInterval)
-            print("elapsed: ", elapsed)
             if elapsed > 0:
                 leftToWait = minInterval - elapsed
-                print("leftToWait: ", leftToWait)
                 time.sleep(leftToWait)
-            else:
-                print("leftToWait: ", leftToWait)
 
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
