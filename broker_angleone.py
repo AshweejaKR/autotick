@@ -182,11 +182,17 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 1.5
+            leftToWait = 0.0
             if minInterval > elapsed:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
             lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
+            print(f"last_time: {last_time}")
+            print(f"current_time: {current_time}")
+            print(f"elapsed: {elapsed}")
+            print(f"minInterval: {minInterval}")
+            print(f"leftToWait: {leftToWait}")
             try:
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
                 ltp = float(data['data']['ltp'])
@@ -222,6 +228,7 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 4
+            leftToWait = 0.0
             if minInterval > elapsed:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
@@ -261,6 +268,7 @@ class angleone:
                 last_time = last_called_time.get(key, 0)
                 elapsed = current_time - last_time
                 minInterval = 1
+                leftToWait = 0.0
                 if minInterval > elapsed:
                     leftToWait = minInterval - elapsed
                     time.sleep(leftToWait)

@@ -30,7 +30,7 @@ def run_strategy(obj):
     buy_p = 0.975
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     myPrint("current price for Stock {} = {} < prev high: {} \n".format(obj.ticker, cur_price, (buy_p * prev_high[obj.ticker])))
-    # return "NA"
+    return "NA"
 
     if cur_price < (buy_p * prev_high[obj.ticker]):
         prev_high[obj.ticker] = cur_price
