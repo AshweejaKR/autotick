@@ -130,7 +130,7 @@ class angleone:
             elapsed = current_time - last_time
             minInterval = 1.5
             leftToWait = 0.0
-            if elapsed > 0:
+            if minInterval > elapsed:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
@@ -182,7 +182,7 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 1.5
-            if elapsed > 0:
+            if minInterval > elapsed:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
@@ -222,7 +222,7 @@ class angleone:
             last_time = last_called_time.get(key, 0)
             elapsed = current_time - last_time
             minInterval = 4
-            if elapsed > 0:
+            if minInterval > elapsed:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
@@ -261,7 +261,7 @@ class angleone:
                 last_time = last_called_time.get(key, 0)
                 elapsed = current_time - last_time
                 minInterval = 1
-                if elapsed > 0:
+                if minInterval > elapsed:
                     leftToWait = minInterval - elapsed
                     time.sleep(leftToWait)
 
