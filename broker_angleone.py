@@ -187,7 +187,7 @@ class angleone:
                 leftToWait = minInterval - elapsed
                 time.sleep(leftToWait)
 
-            lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
+            # lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
             try:
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
                 ltp = float(data['data']['ltp'])
@@ -199,7 +199,7 @@ class angleone:
                 ltp = self.ltp
 
             last_called_time[key] = time.time()
-            lg.done(f"API request done for {ticker}")
+            # lg.done(f"API request done for {ticker}")
             return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
