@@ -16,7 +16,8 @@ def init_strategy(obj):
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     high_data = get_highPrice_from_csv(obj.ticker)
     prev_high[obj.ticker] = high_data
-    lg.info(f"High Close : {prev_high[obj.ticker]} ")
+    cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
+    lg.info(f"High price for stock: {obj.ticker} : {prev_high[obj.ticker]} and Current price: {cur_price} ")
 
 def run_strategy(obj):
     # actual strategy
