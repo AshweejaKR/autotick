@@ -35,22 +35,26 @@ class autotick:
         self.__run_strategy = run_strategy
 
         ###########################
-        ###########################
         self.read_config_data()
         ###########################
         self.Mode = mode
         self.broker_obj = broker_obj
+
+        mode_name = self.Mode
+        self.Mode = 1 if (mode_name == "LIVE") else (2) if (mode_name == "PAPER") else (3) if (mode_name == "BACKTEST") else (4)
+        lg.info(f"Trading mode value: {mode}")
+        lg.info(f"Trading bot mode: {mode_name}")
 
         if self.Mode == 3:
             self.Interval = 0.0001
             self.broker_obj.init_test(self.ticker, self.Exchange, self.datestamp)
 
         pos_path = './data/'
-        if self.Mode == 3:
-            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_backtest.json"
-            self.trade_report_file = f"{strategy_id}_trade_report_backtest"
+        if self.Mode > 1:
+            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_{mode_name.lower()}.json"
+            self.trade_report_file = f"{strategy_id}_trade_report_{mode_name.lower()}"
         else:
-            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state_backtest.json"
+            self.state_file = pos_path + f"{strategy_id}_{self.ticker}_trade_state.json"
             self.trade_report_file = f"{strategy_id}_trade_report"
 
         # state
@@ -137,7 +141,6 @@ class autotick:
         trade = self.open_trades[-1]
         price = self.broker_obj.get_current_price(self.ticker, self.Exchange)
         sig   = trade["signal"]
-        # print(f"\ntrade : {trade} \n")
         myPrint('%d: SL %.2f <-- %.2f --> %.2f TP' % (trade["trade_count"], trade["sl"], price, trade["tp"]))
 
         # 3) trailing stop logic
@@ -166,7 +169,6 @@ class autotick:
 
     def _exit_trade(self, trade, cmnt):
         # close via your broker API
-        # self.close_order_api(trade["trade_count"])
         order_status = False
         quantity = trade["quantity"]
         signal = trade["signal"]
@@ -269,7 +271,7 @@ class autotick:
 
         c = 0
         while is_market_open(self.Mode):
-        # while c < 2:
+        # while c < 1:
             c = c + 1
             start_time = time.time()
             signal = "NA"

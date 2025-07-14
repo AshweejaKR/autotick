@@ -71,10 +71,9 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
         th_name = "Thread_" + strategy_id + "_" + ticker
         th_name = th_name.replace("-EQ", "")
         threads = threading.Thread(target=obj.start_trade, name=th_name,args=())
-        # threads = threading.Thread(target=obj.start_trade, args=())
         gvars.strategy_threads.append(threads)
 
-    #     print(gvars.strategy_threads)
+        # print(gvars.strategy_threads)
         # print("--------------------------------------------------------------------------\n")
         # print(dir(obj))
         # print("--------------------------------------------------------------------------\n")
@@ -92,7 +91,6 @@ def run_strategy_thread(datestamp, strategy_id, broker, mode, run_strategy, init
 
     for thread in gvars.strategy_threads:
         thread.start()
-        time.sleep(1.2)
 
 def main():
 

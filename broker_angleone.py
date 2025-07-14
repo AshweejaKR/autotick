@@ -28,6 +28,16 @@ TOTP_TOKEN = get_keys(key_file)[4]
 
 global test_lock
 test_lock = threading.Lock()
+last_called_time = {}
+current_time = time.time()
+key = f"get_hist_data"
+last_called_time[key] = current_time
+key = f"get_current_price"
+last_called_time[key] = current_time
+key = f"place_order"
+last_called_time[key] = current_time
+key = f"get_oder_status"
+last_called_time[key] = current_time
 
 def load_instrument_list():
     filename = "config/instrument_list_file.json"
@@ -113,14 +123,24 @@ class angleone:
             "fromdate" : fromdate,
             "todate" : todate
                     }
+        key = f"get_hist_data"
+        current_time = time.time()
         try:
-            #TODO need to fix data error bug
-            time.sleep(delay / 3)
+            last_time = last_called_time.get(key, 0)
+            elapsed = current_time - last_time
+            minInterval = 1.5
+            leftToWait = 0.0
+            if minInterval > elapsed:
+                leftToWait = minInterval - elapsed
+                time.sleep(leftToWait)
+
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
             template = "An exception of type {0} occurred. error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+
+        last_called_time[key] = time.time()
         return hist_data
 
     def hist_data_daily(self, ticker, duration, exchange, datestamp):
@@ -152,12 +172,23 @@ class angleone:
             return df_data
 
     def get_current_price(self, ticker, exchange):
-        global test_lock
+        global test_lock, last_called_time
+
         with test_lock:
-            lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
+            key = f"get_current_price"
+            current_time = time.time()
+
+            # Handle rate limiting delay
+            last_time = last_called_time.get(key, 0)
+            elapsed = current_time - last_time
+            minInterval = 1.5
+            leftToWait = 0.0
+            if minInterval > elapsed:
+                leftToWait = minInterval - elapsed
+                time.sleep(leftToWait)
+
+            # lg.warning(f"API request for getting the current price for {ticker} in {exchange}")
             try:
-                #TODO need to fix data error bug
-                time.sleep(delay / 10)
                 data = self._instance.ltpData(exchange=exchange, tradingsymbol=ticker, symboltoken=token_lookup(ticker, self.instrument_list, exchange))
                 ltp = float(data['data']['ltp'])
                 self.ltp = ltp
@@ -166,11 +197,14 @@ class angleone:
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
                 ltp = self.ltp
-            lg.done(f"API request done for {ticker}")
+
+            last_called_time[key] = time.time()
+            # lg.done(f"API request done for {ticker}")
             return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
         orderid = None
+        key = f"place_order"
         try:
             params = {
                 "variety" : "NORMAL",
@@ -184,8 +218,16 @@ class angleone:
                 "quantity" : quantity
             }
 
-            #TODO need to fix data error bug
-            time.sleep(delay / 10)
+            # Handle rate limiting delay
+            current_time = time.time()
+            last_time = last_called_time.get(key, 0)
+            elapsed = current_time - last_time
+            minInterval = 4
+            leftToWait = 0.0
+            if minInterval > elapsed:
+                leftToWait = minInterval - elapsed
+                time.sleep(leftToWait)
+
             orderid = self._instance.placeOrder(params)
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
@@ -193,6 +235,7 @@ class angleone:
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
 
+        last_called_time[key] = time.time()
         return orderid
 
     def place_buy_order(self, ticker, quantity, exchange):
@@ -211,11 +254,20 @@ class angleone:
 
     def get_oder_status(self, orderid):
         global test_lock
+        key = f"get_oder_status"
         with test_lock:
             status = "NA"
             try:
-                #TODO need to fix data error bug
-                time.sleep(delay)
+                # Handle rate limiting delay
+                current_time = time.time()
+                last_time = last_called_time.get(key, 0)
+                elapsed = current_time - last_time
+                minInterval = 1
+                leftToWait = 0.0
+                if minInterval > elapsed:
+                    leftToWait = minInterval - elapsed
+                    time.sleep(leftToWait)
+
                 order_history_response = self._instance.orderBook() #TODO there is a bug in this method
                 for i in order_history_response['data']:
                     if i['orderid'] == orderid:
@@ -228,6 +280,7 @@ class angleone:
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
             
+            last_called_time[key] = time.time()
             return status
 
     def get_user_data(self):
