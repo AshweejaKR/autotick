@@ -10,6 +10,7 @@ import os
 import datetime as dt
 import pytz
 import time
+import csv
 
 from logger import *
 import gvars
@@ -239,3 +240,77 @@ def cast_value(value, dtype):
             return value
     except:
         return value  # Return as-is if casting fails
+
+def get_stock_list():
+    CSV_FILE = 'stocks.csv'
+    config_path = './config/'
+    currentstocklist_path = config_path + CSV_FILE
+    stock_list = []
+    try:
+        with open(currentstocklist_path, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                stock_list.append(row['stock_name'])
+        return stock_list
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+
+def get_highPrice_from_csv(stock_name):
+    CSV_FILE = 'stocks.csv'
+    config_path = './config/'
+    currentstocklist_path = config_path + CSV_FILE
+    try:
+        with open(currentstocklist_path, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['stock_name'].strip().upper() == stock_name.strip().upper():
+                # Parse the date and check age
+                    date_added = dt.datetime.strptime(row['date_added'], "%Y-%m-%d")
+                    days_diff = (dt.datetime.today() - date_added).days
+                    print(f"days_diff for stock {stock_name}: {days_diff}")
+                    if days_diff > 10:
+                        return None
+                    print(f"high price for stock {stock_name}: {row['high_price']}")
+                    return float(row['high_price']) if row['high_price'] else None
+    except Exception as err:
+        template = "An exception of type {0} occurred. error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        return None  # if stock not found
+
+def update_highPrice_in_csv(stock_name, price=None):
+    today_str = dt.datetime.today().strftime("%Y-%m-%d")
+    updated = False
+    updated_rows = []
+
+    CSV_FILE = 'stocks.csv'
+    config_path = './config/'
+    currentstocklist_path = config_path + CSV_FILE
+    try:
+        with open(currentstocklist_path, mode='r') as file:
+            reader = csv.DictReader(file)
+            updated_rows = list(reader)
+    except FileNotFoundError:
+        print("CSV file not found.")
+        return
+
+    for row in updated_rows:
+        if row['stock_name'].strip().upper() == stock_name.strip().upper():
+            row['high_price'] = "" if price is None else str(price)
+            row['date_added'] = today_str
+            updated = True
+            break
+
+    if not updated:
+        print(f"Stock '{stock_name}' not found in CSV.")
+        return
+
+    with open(CSV_FILE, mode='w', newline='') as file:
+        fieldnames = ['stock_name', 'high_price', 'date_added']
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(updated_rows)
+
+    print(f"High price for '{stock_name}' updated to: {price if price is not None else 'None'}")
