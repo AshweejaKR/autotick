@@ -56,9 +56,8 @@ def write_to_json(data, filename):
         with open(filename, 'w') as json_file:
             json.dump(data, json_file, indent=4)
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
-        message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+        lg.error(f"Error writing to JSON file {filename}: {err}")
+        log_error()
 
 # Function to read data from a JSON file
 def read_from_json(filename):
@@ -67,9 +66,8 @@ def read_from_json(filename):
         with open(filename, 'r') as json_file:
             data = json.load(json_file)
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
-        message = template.format(type(err).__name__, err.args)
-        lg.error("{}".format(message))
+        lg.error(f"Error reading from JSON file {filename}: {err}")
+        log_error()
     return data
 
 def save_trade_count(ticker, trade_count):
@@ -144,9 +142,8 @@ def remove_positions(filename, trade_count):
     try:
         os.remove(currentpos_path)
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
-        message = template.format(type(err).__name__, err.args)
-        lg.debug("{}".format(message))
+        lg.error(f"Error removing file {currentpos_path}: {err}")
+        log_error()
 
 def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, comment):
     # datetime =  dt.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -267,7 +264,7 @@ def get_highPrice_from_csv(stock_name):
             for row in reader:
                 if row['stock_name'].strip().upper() == stock_name.strip().upper():
                 # Parse the date and check age
-                    date_added = dt.datetime.strptime(row['date_added'], "%Y-%m-%d")
+                    date_added = dt.datetime.strptime(row['date_added'], "%d-%m-%Y")
                     days_diff = (dt.datetime.today() - date_added).days
                     print(f"days_diff for stock {stock_name}: {days_diff}")
                     if days_diff > 10:
@@ -281,7 +278,7 @@ def get_highPrice_from_csv(stock_name):
         return None  # if stock not found
 
 def update_highPrice_in_csv(stock_name, price=None):
-    today_str = dt.datetime.today().strftime("%Y-%m-%d")
+    today_str = dt.datetime.today().strftime("%d-%m-%Y")
     updated = False
     updated_rows = []
 

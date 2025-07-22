@@ -7,9 +7,13 @@ Created on Sat Nov 30 18:21:09 2024
 
 import time
 import pandas as pd
+import sys
+import argparse
+import pytz
 
 from broker import *
 from utils import *
+from logger import log_error
 
 ## temp import
 import json
@@ -25,8 +29,34 @@ def KillSwitch():
         lg.error("Stopping the Trading Bot")
         sys.exit(-1)
 
+def get_mode_from_cli_or_config(config_mode=None):
+    """
+    Get trading mode with CLI arguments as priority, config file as fallback
+    CLI arguments take precedence over config file values
+    """
+    parser = argparse.ArgumentParser(description='AutoTick Trading Bot')
+    parser.add_argument('--mode', '-m', 
+                       choices=['LIVE', 'PAPER', 'BACKTEST'], 
+                       help='Trading mode: LIVE, PAPER, or BACKTEST')
+    
+    # Parse known args to avoid conflicts with other CLI usage
+    args, unknown = parser.parse_known_args()
+    
+    # Priority: CLI argument > config file > default
+    if args.mode:
+        selected_mode = args.mode.upper()
+        lg.info(f"Mode selected from CLI: {selected_mode}")
+    elif config_mode:
+        selected_mode = config_mode.upper()
+        lg.info(f"Mode selected from config: {selected_mode}")
+    else:
+        selected_mode = "PAPER"  # Default fallback
+        lg.warning(f"No mode specified, using default: {selected_mode}")
+    
+    return selected_mode
+
 class autotick:
-    def __init__(self, datestamp, strategy_id, broker_obj, mode, ticker, run_strategy = None, init_strategy = None, strategy_config = None):
+    def __init__(self, datestamp, strategy_id, broker_obj, mode, ticker, run_strategy = None, init_strategy = None, strategy_config = None, config_mode = None):
         self.datestamp = datestamp
         self.strategy_id = strategy_id
         self.ticker = ticker
@@ -37,12 +67,15 @@ class autotick:
         ###########################
         self.read_config_data()
         ###########################
-        self.Mode = mode
+        
+        # Get mode with CLI priority over config
+        final_mode = get_mode_from_cli_or_config(config_mode or mode)
+        self.Mode = final_mode
         self.broker_obj = broker_obj
 
         mode_name = self.Mode
         self.Mode = 1 if (mode_name == "LIVE") else (2) if (mode_name == "PAPER") else (3) if (mode_name == "BACKTEST") else (4)
-        lg.info(f"Trading mode value: {mode}")
+        lg.info(f"Trading mode value: {self.Mode}")
         lg.info(f"Trading bot mode: {mode_name}")
 
         if self.Mode == 3:
@@ -204,7 +237,7 @@ class autotick:
         state = {
             "open_trades":        self.open_trades,
             "reentry_counts":     self.reentry_counts,
-            "max_open_positions": self.max_reentries
+            "max_open_positions": self.max_open_positions
         }
         with open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
@@ -249,18 +282,16 @@ class autotick:
             self.trailing_pct = self.trailing_pct / 100.00
             self.trailing_trigger_pct = self.trailing_trigger_pct / 100.00
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
-            message = template.format(type(err).__name__, err.args)
-            lg.error("{}".format(message))
+            lg.error(f"Error in read_config_data: {err}")
+            log_error()
 
     def start_trade(self, index=0):
         if self.__init_strategy is not None:
                 try:
                     self.__init_strategy(self)
                 except Exception as err:
-                    template = "An exception of type {0} occurred while running __init_strategy. error message:{1!r}"
-                    message = template.format(type(err).__name__, err.args)
-                    lg.error("{}".format(message))
+                    lg.error(f"Error in __init_strategy: {err}")
+                    log_error()
 
         wait_till_market_open(self.Mode)
         self.__run_trade()
@@ -282,9 +313,8 @@ class autotick:
                         signal = self.__run_strategy(self)
                         print(f"returned signal : {signal}")
                     except Exception as err:
-                        template = "An exception of type {0} occurred while running __run_strategy. error message:{1!r}"
-                        message = template.format(type(err).__name__, err.args)
-                        lg.error("{}".format(message))
+                        lg.error(f"Error in __run_strategy: {err}")
+                        log_error()
 
                 KillSwitch()
                 #########################################################################
@@ -312,7 +342,6 @@ class autotick:
                 break
 
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
-                message = template.format(type(err).__name__, err.args)
-                lg.error("{}".format(message))
+                lg.error(f"Error in main trading loop: {err}")
+                log_error()
                 break

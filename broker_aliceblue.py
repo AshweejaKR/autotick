@@ -8,6 +8,7 @@ Created on Sun Dec  1 21:10:57 2024
 from pya3 import *
 
 import pandas as pd
+from logger import log_error, lg
 from datetime import datetime, timedelta
 import time
 

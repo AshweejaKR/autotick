@@ -7,6 +7,7 @@ Created on Sun Dec  1 21:10:29 2024
 from SmartApi import SmartConnect
 from pyotp import TOTP
 import urllib
+from logger import log_error, lg
 
 import pandas as pd
 import datetime as dt

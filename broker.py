@@ -8,13 +8,15 @@ Created on Tue May  6 21:01:16 2025
 from broker_angleone import *
 from broker_aliceblue import *
 from broker_stub import *
+from logger import log_error
 
 def fetch_current_price_bt():
     global ltp
     try:
         ltp = float(intraday_data[gvars.i-1])
     except Exception as err:
-        print(err)
+        lg.error(f"Error fetching current price: {err}")
+        log_error()
     return ltp
 
 class Broker:
@@ -63,7 +65,9 @@ class Broker:
             with open("../ltp.txt", "w") as file:
                 for i in intraday_data:
                     file.write(str(i) + "\n")
-        except Exception as err: print("***", err)
+        except Exception as err:
+            lg.error(f"Error writing to ltp.txt: {err}")
+            log_error()
 
         lg.info("Init done ... !")
 

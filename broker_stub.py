@@ -8,6 +8,7 @@ Created on Sat Nov 30 22:07:10 2024
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+from logger import log_error, lg
 import datetime as dt
 
 from logger import *
