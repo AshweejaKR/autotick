@@ -321,7 +321,7 @@ def update_highPrice_in_csv(stock_name, price=None):
         print(f"Stock '{stock_name}' not found in CSV.")
         return
 
-    with open(CSV_FILE, mode='w', newline='') as file:
+    with open(currentstocklist_path, mode='w', newline='') as file:
         fieldnames = ['stock_name', 'high_price', 'date_added']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()

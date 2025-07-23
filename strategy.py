@@ -7,31 +7,49 @@ Created on Sat May 17 16:48:59 2025
 from logger import *
 from utils import *
 
-global prev_high
-global prev_low
+global trigger_prices
+trigger_prices = {}
 
-prev_high = {}
 def init_strategy(obj):
-    global prev_high
+    """Initialize strategy by reading trigger prices from stocks.csv"""
+    global trigger_prices
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
-    high_data = get_highPrice_from_csv(obj.ticker)
-    prev_high[obj.ticker] = high_data
+    
+    # Get trigger price from stocks.csv
+    trigger_price = get_highPrice_from_csv(obj.ticker)
+    trigger_prices[obj.ticker] = trigger_price
+    
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
-    lg.info(f"High price for stock: {obj.ticker} : {prev_high[obj.ticker]} and Current price: {cur_price} ")
+    lg.info(f"Trigger price for stock: {obj.ticker} : {trigger_prices[obj.ticker]} and Current price: {cur_price} ")
 
 def run_strategy(obj):
-    # actual strategy
-    global prev_high
+    """
+    Trading Strategy:
+    - BUY if current price > trigger price
+    - After BUY, reset trigger price to None
+    - Return NA if trigger price is None or empty
+    """
+    global trigger_prices
     myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
-    cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
-    myPrint("current price for Stock {} = {} > prev high: {} \n".format(obj.ticker, cur_price, (prev_high[obj.ticker])))
-    # return "NA"
-
-    if cur_price > (prev_high[obj.ticker]):
-        prev_high[obj.ticker] = update_highPrice_in_csv(obj.ticker)
-        return "BUY"
-    else:
+    
+    # Get current trigger price
+    trigger_price = trigger_prices.get(obj.ticker)
+    
+    # Return NA if trigger price is None or empty
+    if not trigger_price:
         return "NA"
+    
+    # Get current market price
+    cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
+    myPrint(f"Current price for Stock {obj.ticker} = {cur_price} > Trigger price: {trigger_price} \n")
+
+    # Check if price crosses trigger price
+    if cur_price > trigger_price:
+        # Reset trigger price to None
+        trigger_prices[obj.ticker] = update_highPrice_in_csv(obj.ticker)
+        return "BUY"
+    
+    return "NA"
 
     # for testing only
     # lg.info(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
