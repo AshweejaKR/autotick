@@ -46,9 +46,10 @@ class aliceblue:
             else:
                 lg.error('Login failed ... !')
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __login(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
 
     def __logout(self):
         lg.done('Logout success ... !')
@@ -60,9 +61,10 @@ class aliceblue:
             indices = False
             hist_data = self._instance.get_historical(instrument, fromdate, todate, interval, indices)
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __get_hist_data(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
         return hist_data
 
     def hist_data_daily(self, ticker, duration, exchange, datestamp):
@@ -99,9 +101,10 @@ class aliceblue:
             ltp = float(data['Ltp'])
             self.ltp = ltp
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function get_current_price(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
             ltp = self.ltp
 
         return ltp
@@ -130,9 +133,10 @@ class aliceblue:
 
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __place_order(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
 
         return orderid
 
@@ -157,9 +161,10 @@ class aliceblue:
                     self.error_msg = i['RejReason']
                     break
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function get_oder_status(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
         
         return status
 
@@ -174,9 +179,10 @@ class aliceblue:
             res = self._instance.get_balance()
             margin = float(res[0]['net'])
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function get_available_margin(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
         return margin
 
     def verify_position(self, ticker, quantity, trade_direction, exit_=False):
@@ -200,9 +206,10 @@ class aliceblue:
                 lg.error("NO POSITIONS FOUND")
 
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function verify_position(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
             return False
         return False
 
@@ -219,9 +226,10 @@ class aliceblue:
                     lg.error("NO HOLDINGS FOUND")
 
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function verify_holding(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
             return False
         return False
 
@@ -246,9 +254,10 @@ class aliceblue:
                 lg.error("NO POSITIONS FOUND")
 
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function get_entry_exit_price(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
             return None
 
         return price

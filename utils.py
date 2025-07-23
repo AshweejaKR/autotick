@@ -56,7 +56,9 @@ def write_to_json(data, filename):
         with open(filename, 'w') as json_file:
             json.dump(data, json_file, indent=4)
     except Exception as err:
-        lg.error(f"Error writing to JSON file {filename}: {err}")
+        template = "An exception of type {0} occurred in function write_to_json(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
 
 # Function to read data from a JSON file
@@ -66,7 +68,9 @@ def read_from_json(filename):
         with open(filename, 'r') as json_file:
             data = json.load(json_file)
     except Exception as err:
-        lg.error(f"Error reading from JSON file {filename}: {err}")
+        template = "An exception of type {0} occurred in function read_from_json(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
     return data
 
@@ -84,9 +88,10 @@ def save_trade_count(ticker, trade_count):
             f.write(str(trade_count))
             f.flush()
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function save_trade_count(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
+        log_error()
     
 def load_trade_count(ticker):
     trade_count_filename = ticker.upper().split("-")[0] + "_COUNT.TXT"
@@ -97,9 +102,10 @@ def load_trade_count(ticker):
         count = open(currentpos_path, "r").read()
         trade_count = int(count)
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function load_trade_count(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
+        log_error()
     
     return trade_count
 
@@ -142,7 +148,9 @@ def remove_positions(filename, trade_count):
     try:
         os.remove(currentpos_path)
     except Exception as err:
-        lg.error(f"Error removing file {currentpos_path}: {err}")
+        template = "An exception of type {0} occurred in function remove_positions(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
 
 def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, comment):
@@ -161,9 +169,10 @@ def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, 
     except FileNotFoundError as err:
         data = "datetime,ticker,quantity,order_type,price,comment\n"
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function save_trade_in_csv(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
+        log_error()
         data = "datetime,ticker,quantity,order_type,price,comment\n"
     
     data = data + str(datetime) + "," + str(ticker) + "," + str(quantity) + "," + str(order_type) + "," + str(price) + "," + str(comment)+ "\n"
@@ -172,9 +181,10 @@ def save_trade_in_csv(filename_, datetime, ticker, quantity, order_type, price, 
             f.write(data)
             f.flush()
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function save_trade_in_csv(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
+        log_error()
 
 # Function to extract values from a specific column
 def extract_column_value(df, attrb_column_name, value_in_list=False):
@@ -215,9 +225,10 @@ def get_re_entry(ticker):
         with open(currentpos_path, "w") as f:
             f.write(str(re_entry))
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function get_re_entry(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.debug("{}".format(message))
+        log_error()
         data = "datetime,ticker,quantity,order_type,price\n"
     
     return re_entry
@@ -235,7 +246,11 @@ def cast_value(value, dtype):
             return str(value).strip().lower() in ['yes', 'true', '1']
         else:
             return value
-    except:
+    except Exception as err:
+        template = "An exception of type {0} occurred in function cast_value(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
         return value  # Return as-is if casting fails
 
 def get_stock_list():
@@ -250,9 +265,10 @@ def get_stock_list():
                 stock_list.append(row['stock_name'])
         return stock_list
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function get_stock_list(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
+        log_error()
 
 def get_highPrice_from_csv(stock_name):
     CSV_FILE = 'stocks.csv'
@@ -272,9 +288,10 @@ def get_highPrice_from_csv(stock_name):
                     print(f"high price for stock {stock_name}: {row['high_price']}")
                     return float(row['high_price']) if row['high_price'] else None
     except Exception as err:
-        template = "An exception of type {0} occurred. error message:{1!r}"
+        template = "An exception of type {0} occurred in function get_highPrice_from_csv(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
+        log_error()
         return None  # if stock not found
 
 def update_highPrice_in_csv(stock_name, price=None):

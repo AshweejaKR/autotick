@@ -15,7 +15,9 @@ def fetch_current_price_bt():
     try:
         ltp = float(intraday_data[gvars.i-1])
     except Exception as err:
-        lg.error(f"Error fetching current price: {err}")
+        template = "An exception of type {0} occurred in function get_ltp_data_temp(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
     return ltp
 
@@ -66,7 +68,9 @@ class Broker:
                 for i in intraday_data:
                     file.write(str(i) + "\n")
         except Exception as err:
-            lg.error(f"Error writing to ltp.txt: {err}")
+            template = "An exception of type {0} occurred in function __init__(). error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
             log_error()
 
         lg.info("Init done ... !")

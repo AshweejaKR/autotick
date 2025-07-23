@@ -282,7 +282,9 @@ class autotick:
             self.trailing_pct = self.trailing_pct / 100.00
             self.trailing_trigger_pct = self.trailing_trigger_pct / 100.00
         except Exception as err:
-            lg.error(f"Error in read_config_data: {err}")
+            template = "An exception of type {0} occurred in function __init__(). error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
             log_error()
 
     def start_trade(self, index=0):
@@ -290,7 +292,9 @@ class autotick:
                 try:
                     self.__init_strategy(self)
                 except Exception as err:
-                    lg.error(f"Error in __init_strategy: {err}")
+                    template = "An exception of type {0} occurred in function start_trade() calling __init_strategy. error message:{1!r}"
+                    message = template.format(type(err).__name__, err.args)
+                    lg.error("{}".format(message))
                     log_error()
 
         wait_till_market_open(self.Mode)
@@ -313,7 +317,9 @@ class autotick:
                         signal = self.__run_strategy(self)
                         print(f"returned signal : {signal}")
                     except Exception as err:
-                        lg.error(f"Error in __run_strategy: {err}")
+                        template = "An exception of type {0} occurred in function start_trade() calling __run_strategy. error message:{1!r}"
+                        message = template.format(type(err).__name__, err.args)
+                        lg.error("{}".format(message))
                         log_error()
 
                 KillSwitch()
@@ -342,6 +348,8 @@ class autotick:
                 break
 
             except Exception as err:
-                lg.error(f"Error in main trading loop: {err}")
+                template = "An exception of type {0} occurred in function start_trade() main trading loop. error message:{1!r}"
+                message = template.format(type(err).__name__, err.args)
+                lg.error("{}".format(message))
                 log_error()
                 break

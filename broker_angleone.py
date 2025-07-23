@@ -98,9 +98,10 @@ class angleone:
                 lg.error('Login failed, ERROR: ', data['message'])
                 sys.exit(-1)
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __login(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
             sys.exit(-1)
 
     def __logout(self):
@@ -112,9 +113,10 @@ class angleone:
             else:
                 lg.error('Logout failed, ERROR: ', data['message'])
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __logout(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
 
     def __get_hist_data(self, ticker, interval, fromdate, todate, exchange):
         params = {
@@ -137,9 +139,10 @@ class angleone:
 
             hist_data = self._instance.getCandleData(params)
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __get_hist_data(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
 
         last_called_time[key] = time.time()
         return hist_data
@@ -194,9 +197,10 @@ class angleone:
                 ltp = float(data['data']['ltp'])
                 self.ltp = ltp
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function get_current_price(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
                 ltp = self.ltp
 
             last_called_time[key] = time.time()
@@ -232,9 +236,10 @@ class angleone:
             orderid = self._instance.placeOrder(params)
             lg.info("{} orderid: {} for {}".format(buy_sell, orderid, ticker))
         except Exception as err:
-            template = "An exception of type {0} occurred. error message:{1!r}"
+            template = "An exception of type {0} occurred in function __place_order(). error message:{1!r}"
             message = template.format(type(err).__name__, err.args)
             lg.error("{}".format(message))
+            log_error()
 
         last_called_time[key] = time.time()
         return orderid
@@ -277,9 +282,10 @@ class angleone:
                             self.error_msg = status + " " + i['text']
                         break
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function get_oder_status(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
             
             last_called_time[key] = time.time()
             return status
@@ -300,9 +306,10 @@ class angleone:
                 res = self._instance.rmsLimit()
                 margin = float(res['data']['net'])
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function get_available_margin(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
             return margin
 
     def verify_position(self, ticker, quantity, trade_direction, exit_=False):
@@ -324,9 +331,10 @@ class angleone:
                     lg.error("NO POSITIONS FOUND")
 
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function verify_position(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
                 return False
             return False
 
@@ -344,9 +352,10 @@ class angleone:
                     lg.error("NO HOLDINGS FOUND")
 
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function verify_holding(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
                 return False
             return False
 
@@ -371,9 +380,10 @@ class angleone:
                     return price
 
             except Exception as err:
-                template = "An exception of type {0} occurred. error message:{1!r}"
+                template = "An exception of type {0} occurred in function get_entry_exit_price(). error message:{1!r}"
                 message = template.format(type(err).__name__, err.args)
                 lg.error("{}".format(message))
+                log_error()
                 return price
 
             return price

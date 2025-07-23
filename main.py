@@ -33,7 +33,9 @@ def read_master_config(config_file):
                     gvars.brokers.append(row["broker"])
 
     except Exception as err:
-        lg.error(f"Error reading master config: {err}")
+        template = "An exception of type {0} occurred in function read_master_config(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
     
     return strategies
@@ -113,7 +115,9 @@ def main():
             run_strategy_thread(datestamp, strat["strategy_id"], broker_threads[strat["broker"]], strat["mode"], 
                         strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
     except Exception as err:
-        lg.error(f"Error in strategy execution: {err}")
+        template = "An exception of type {0} occurred in function main(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
         log_error()
 
     ###########################################################################

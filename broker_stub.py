@@ -29,7 +29,10 @@ def fetch_historical_data(ticker_, start, end):
         historical_data = ticker_data.history(start=start, end=end)
         return historical_data
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_historical_data(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
 # Function to fetch intraday data for a specific date
@@ -46,7 +49,10 @@ def fetch_intraday_data(ticker_, date):
         intraday_data = ticker_data.history(interval="1m", start=start_date, end=end_date)
         return intraday_data
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_intraday_data(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
 # Function to fetch the current price of a stock
@@ -57,7 +63,10 @@ def fetch_current_price(ticker_):
         current_price = ticker_data.info["currentPrice"]
         return current_price
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_current_price(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
 def read_dummy_ltp():
@@ -66,8 +75,11 @@ def read_dummy_ltp():
         with open("../ltp.txt") as file:
             data = file.readlines()
             ltp = float(data[gvars.i])
-    except Exception as err: 
-        print(err)
+    except Exception as err:
+        template = "An exception of type {0} occurred in function read_dummy_ltp(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
         ltp = 100.25
     return ltp
 
