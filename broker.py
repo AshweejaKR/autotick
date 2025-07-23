@@ -64,7 +64,9 @@ class Broker:
         gvars.i = 0
 
         try:
-            with open("../ltp.txt", "w") as file:
+            ticker_temp = ticker.replace("-", "_")
+            filename = "../" + ticker_temp + "_ltp.txt"
+            with open(filename, "w") as file:
                 for i in intraday_data:
                     file.write(str(i) + "\n")
         except Exception as err:

@@ -69,10 +69,12 @@ def fetch_current_price(ticker_):
         log_error()
         return None
 
-def read_dummy_ltp():
+def read_dummy_ltp(ticker):
     global ltp
+    ticker_temp = ticker.replace("-", "_")
+    filename = "../" + ticker_temp + "_ltp.txt"
     try:
-        with open("../ltp.txt") as file:
+        with open(filename) as file:
             data = file.readlines()
             ltp = float(data[gvars.i])
     except Exception as err:
@@ -111,7 +113,7 @@ class stub:
 
     def get_current_price(self, ticker, exchange):
         global ltp
-        ltp = read_dummy_ltp() 
+        ltp = read_dummy_ltp(ticker) 
         return ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):

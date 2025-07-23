@@ -106,13 +106,22 @@ def main():
     ###########################
     master_config_file = "config/master_config.csv"
     strategies = read_master_config(master_config_file)
-    mode = 1
+    
+    # Get mode from CLI or config file (CLI takes priority)
+    config_mode = strategies[0]["mode"] if strategies else None
+    mode = get_mode_from_cli_or_config(config_mode)
+    
+    # Convert mode string to numeric value for broker
+    mode_mapping = {"LIVE": 1, "PAPER": 2, "BACKTEST": 3}
+    broker_mode = mode_mapping.get(mode, 2)  # Default to PAPER (2)
 
-    broker_threads = run_broker_thread(mode)
+    broker_threads = run_broker_thread(broker_mode)
 
     try:
         for strat in strategies:
-            run_strategy_thread(datestamp, strat["strategy_id"], broker_threads[strat["broker"]], strat["mode"], 
+            # Use the mode from CLI or strategy-specific mode from config
+            strategy_mode = get_mode_from_cli_or_config(strat["mode"])
+            run_strategy_thread(datestamp, strat["strategy_id"], broker_threads[strat["broker"]], strategy_mode, 
                         strategy.run_strategy, strategy.init_strategy, strat["strategy_file"])
     except Exception as err:
         template = "An exception of type {0} occurred in function main(). error message:{1!r}"
