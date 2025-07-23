@@ -305,7 +305,7 @@ class autotick:
         self._load_state()
 
         c = 0
-        while is_market_open(self.Mode):
+        while is_market_open(self.Mode, self.ticker):
         # while c < 1:
             c = c + 1
             start_time = time.time()

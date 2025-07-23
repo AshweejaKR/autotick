@@ -33,10 +33,14 @@ def wait_till_market_open(mode_):
     lg.info("Market is Opened ...")
     return True
 
-def is_market_open(mode_):
-    gvars.i = gvars.i + 1
+def is_market_open(mode_, ticker):
+    # Increment ticker-specific index
+    current_index = gvars.ticker_index.get(ticker, 0)
+    gvars.ticker_index[ticker] = current_index + 1
+    
     if mode_ == 3 or mode_ == 4:
-        if gvars.i > gvars.max_len - 1:
+        max_len = gvars.ticker_max_len.get(ticker, 0)
+        if gvars.ticker_index[ticker] > max_len - 1:
             return False
         return True
 

@@ -10,6 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from logger import log_error, lg
 import datetime as dt
+import gvars
 
 from logger import *
 from config import *
@@ -76,7 +77,11 @@ def read_dummy_ltp(ticker):
     try:
         with open(filename) as file:
             data = file.readlines()
-            ltp = float(data[gvars.i])
+            current_index = gvars.ticker_index.get(ticker, 0)
+            if current_index < len(data):
+                ltp = float(data[current_index])
+            else:
+                ltp = 100.25  # Default if index out of range
     except Exception as err:
         template = "An exception of type {0} occurred in function read_dummy_ltp(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
