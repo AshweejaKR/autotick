@@ -35,14 +35,14 @@ def run_strategy(obj):
     # Get current trigger price
     trigger_price = trigger_prices.get(obj.ticker)
     
-    # Return NA if trigger price is None or empty
-    if not trigger_price:
-        return "NA"
-    
     # Get current market price
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
     myPrint(f"Current price for Stock {obj.ticker} = {cur_price} > Trigger price: {trigger_price} \n")
 
+    # Return NA if trigger price is None or empty
+    if not trigger_price:
+        return "NA"
+    
     # Check if price crosses trigger price
     if cur_price > trigger_price:
         # Reset trigger price to None

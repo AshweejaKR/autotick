@@ -18,7 +18,8 @@ from utils import *
 
 import gvars
 global intraday_data
-global ltp
+# Use ticker-specific LTP dictionary instead of global ltp
+ticker_ltp = {}
 intraday_data = []
 
 # Fetch historical data using yfinance
@@ -71,7 +72,7 @@ def fetch_current_price(ticker_):
         return None
 
 def read_dummy_ltp(ticker):
-    global ltp
+    global ticker_ltp
     ticker_temp = ticker.replace("-", "_")
     filename = "../" + ticker_temp + "_ltp.txt"
     try:
@@ -79,16 +80,16 @@ def read_dummy_ltp(ticker):
             data = file.readlines()
             current_index = gvars.ticker_index.get(ticker, 0)
             if current_index < len(data):
-                ltp = float(data[current_index])
+                ticker_ltp[ticker] = float(data[current_index])
             else:
-                ltp = 100.25  # Default if index out of range
+                ticker_ltp[ticker] = 100.25  # Default if index out of range
     except Exception as err:
         template = "An exception of type {0} occurred in function read_dummy_ltp(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
         log_error()
-        ltp = 100.25
-    return ltp
+        ticker_ltp[ticker] = 100.25
+    return ticker_ltp[ticker]
 
 class stub:
     def __init__(self):
@@ -117,9 +118,9 @@ class stub:
         return df_data
 
     def get_current_price(self, ticker, exchange):
-        global ltp
-        ltp = read_dummy_ltp(ticker) 
-        return ltp
+        global ticker_ltp
+        current_ltp = read_dummy_ltp(ticker)
+        return current_ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
         orderid = "TEST1_" + buy_sell
@@ -155,6 +156,9 @@ class stub:
         return True
 
     def get_entry_exit_price(self, ticker, trade_direction, exit_=False):
-        global ltp
-        price = ltp
+        global ticker_ltp
+        if ticker in ticker_ltp:
+            price = ticker_ltp[ticker]
+        else:
+            price = read_dummy_ltp(ticker)
         return price
