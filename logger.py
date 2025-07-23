@@ -114,7 +114,7 @@ def log_error():
         os.makedirs(error_logs_path, exist_ok=True)
     except OSError as e:
         lg.error(f'Error creating error_logs directory: {e}')
-        return
+        sys.exit(-1)
 
     # Create error log file with timestamp
     timestamp = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
@@ -145,6 +145,8 @@ def log_error():
 
         # Log through lg.error
         lg.error("\n" + error_text)
+        sys.exit(-1)
 
     except Exception as e:
         lg.error(f"Failed to write error log: {e}")
+        sys.exit(-1)
