@@ -105,6 +105,15 @@ def main():
 
     start = time.time()
     ###########################################################################
+    
+    # Update stock list from daily trading files before starting backtest
+    lg.info("Updating stock list from daily trading files for backtest...")
+    from strategy import update_stock_list
+    if update_stock_list():
+        lg.info("Stock list updated successfully for backtest")
+    else:
+        lg.warning("Failed to update stock list, continuing with existing data for backtest")
+    
     ###########################
     master_config_file = "config/master_config.csv"
     strategies = read_master_config(master_config_file)

@@ -159,12 +159,18 @@ class autotick:
                 self.max_open_positions = max(self.max_open_positions, len(self.open_trades))
                 lg.info(f"Entered {signal} for {self.ticker} @ {entry_price:.2f}  SL={sl:.2f} TP={tp:.2f}")
                 self._save_state()
+                
                 cmnt = "Entered long position" if signal == "BUY" else "Entered short position"
                 if self.Mode != 3:
                     trade_time = dt.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
                 else:
                     trade_time = self.datestamp
                 save_trade_in_csv(self.trade_report_file, trade_time, self.ticker, quantity, signal, entry_price, cmnt)
+                
+                # Mark stock as TRIGGERED in master_data.csv after successful buy order and CSV logging
+                if signal == "BUY":
+                    from utils import mark_stock_as_triggered
+                    mark_stock_as_triggered(self.ticker)
             else:
                 lg.error(f"Failed to Entered {signal} for {self.ticker}, Reason: {self.broker_obj.error_msg}")
         else:
@@ -232,6 +238,11 @@ class autotick:
             else:
                 trade_time = self.datestamp
             save_trade_in_csv(self.trade_report_file, trade_time, self.ticker, quantity, order_type, exit_price, cmnt)
+            
+            # Remove stock from master_data.csv after successful sell order completion
+            if trade["signal"] == "BUY" and order_type == "SELL":  # Closing a BUY position with SELL
+                from utils import remove_stock_from_list
+                remove_stock_from_list(self.ticker)
 
     def _save_state(self):
         state = {

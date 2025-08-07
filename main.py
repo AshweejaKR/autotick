@@ -103,6 +103,15 @@ def main():
     start = time.time()
     ###########################################################################
     datestamp = dt.date.today()
+    
+    # Update stock list from daily trading files before starting trading
+    lg.info("Updating stock list from daily trading files...")
+    from strategy import update_stock_list
+    if update_stock_list():
+        lg.info("Stock list updated successfully")
+    else:
+        lg.warning("Failed to update stock list, continuing with existing data")
+    
     ###########################
     master_config_file = "config/master_config.csv"
     strategies = read_master_config(master_config_file)
