@@ -61,11 +61,18 @@ def test_update_stock_list():
     print("\n=== Testing update_stock_list() Function ===")
     
     try:
-        from strategy import update_stock_list
+        from strategy import update_stock_list, force_update_trigger_prices
+        
+        print("\n1. Testing standard update_stock_list():")
         result = update_stock_list()
         print(f"update_stock_list() result: {result}")
+        
+        print("\n2. Testing force_update_trigger_prices():")
+        result = force_update_trigger_prices()
+        print(f"force_update_trigger_prices() result: {result}")
+        
     except Exception as e:
-        print(f"Error testing update_stock_list(): {e}")
+        print(f"Error testing stock list functions: {e}")
 
 if __name__ == "__main__":
     # Change working directory to autotick root for correct file paths
