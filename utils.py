@@ -259,8 +259,8 @@ def cast_value(value, dtype):
 
 def get_stock_list():
     CSV_FILE = 'stocks.csv'
-    config_path = './config/'
-    currentstocklist_path = config_path + CSV_FILE
+    strategy_data_path = './strategy_data/'
+    currentstocklist_path = strategy_data_path + CSV_FILE
     stock_list = []
     try:
         with open(currentstocklist_path, mode='r') as file:
@@ -276,8 +276,8 @@ def get_stock_list():
 
 def get_highPrice_from_csv(stock_name):
     CSV_FILE = 'stocks.csv'
-    config_path = './config/'
-    currentstocklist_path = config_path + CSV_FILE
+    strategy_data_path = './strategy_data/'
+    currentstocklist_path = strategy_data_path + CSV_FILE
     try:
         with open(currentstocklist_path, mode='r') as file:
             reader = csv.DictReader(file)
@@ -304,8 +304,8 @@ def update_highPrice_in_csv(stock_name, price=None):
     updated_rows = []
 
     CSV_FILE = 'stocks.csv'
-    config_path = './config/'
-    currentstocklist_path = config_path + CSV_FILE
+    strategy_data_path = './strategy_data/'
+    currentstocklist_path = strategy_data_path + CSV_FILE
     try:
         with open(currentstocklist_path, mode='r') as file:
             reader = csv.DictReader(file)

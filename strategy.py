@@ -11,11 +11,11 @@ global trigger_prices
 trigger_prices = {}
 
 def init_strategy(obj):
-    """Initialize strategy by reading trigger prices from stocks.csv"""
+    """Initialize strategy by reading trigger prices from strategy_data/stocks.csv"""
     global trigger_prices
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     
-    # Get trigger price from stocks.csv
+    # Get trigger price from strategy_data/stocks.csv
     trigger_price = get_highPrice_from_csv(obj.ticker)
     trigger_prices[obj.ticker] = trigger_price
     
