@@ -12,8 +12,9 @@ startTime = dt.time(9, 15)
 endTime = dt.time(15, 15)
 sleepTime = 5
 
-i = 0
-max_len = 20
+# Per-ticker tracking using dictionaries
+ticker_index = {}  # Track current index for each ticker
+ticker_max_len = {}  # Track max length for each ticker
 
 debugOn = True
 

@@ -163,3 +163,5 @@ instrument_list_file.json
 /data
 /logs
 NSE.csv
+*.json
+/strategy_data

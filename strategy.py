@@ -6,32 +6,325 @@ Created on Sat May 17 16:48:59 2025
 """
 from logger import *
 from utils import *
+import csv
+import os
+import datetime as dt
 
-global prev_high
-global prev_low
+global trigger_prices
+trigger_prices = {}
 
-prev_high = {}
+def update_stock_list():
+    """
+    Update stock list by reading from daily trading file and updating master_data.csv
+    - Reads CSV file: trading_stocks_%d%m%Y (e.g., trading_stocks_05082025)
+    - Updates master_data.csv with columns: Symbol, Total_Lists, Trigger_price, date_added, status
+    - Default values: date_added=today, status=NOT_TRIGGERED
+    - Logic: If symbol exists and status=NOT_TRIGGERED, update date_added; if TRIGGERED, ignore
+    """
+    try:
+        # Calculate previous trading day (assuming previous day for now)
+        yesterday = dt.date.today() - dt.timedelta(days=1)
+        trading_file_date = yesterday.strftime("%d%m%Y")
+        trading_filename = f"trading_stocks_{trading_file_date}.csv"
+        
+        strategy_data_path = './strategy_data/'
+        trading_file_path = strategy_data_path + trading_filename
+        master_file_path = strategy_data_path + 'master_data.csv'
+        
+        lg.info(f"Reading trading stocks from: {trading_filename}")
+        
+        # Check if trading file exists
+        if not os.path.isfile(trading_file_path):
+            lg.error(f"Trading stocks file not found: {trading_filename}")
+            return False
+        
+        # Read trading stocks data
+        trading_stocks = []
+        with open(trading_file_path, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                trading_stocks.append({
+                    'Symbol': row.get('Symbol', '').strip(),
+                    'Total_Lists': row.get('Total_Lists', '').strip(),
+                    'Trigger_price': row.get('Trigger_Price', '').strip()  # Note: CSV has 'Trigger_Price' (capital P)
+                })
+        
+        lg.info(f"Read {len(trading_stocks)} stocks from trading file")
+        
+        # Read existing master data if file exists
+        existing_master_data = {}
+        fieldnames = ['Symbol', 'Total_Lists', 'Trigger_price', 'date_added', 'status']
+        
+        if os.path.isfile(master_file_path):
+            with open(master_file_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    existing_master_data[row['Symbol']] = {
+                        'Total_Lists': row['Total_Lists'],
+                        'Trigger_price': row['Trigger_price'],
+                        'date_added': row['date_added'],
+                        'status': row['status']
+                    }
+        
+        # Today's date string
+        today_str = dt.date.today().strftime("%d-%m-%Y")
+        
+        # Process trading stocks and update master data
+        updated_count = 0
+        ignored_count = 0
+        new_count = 0
+        trigger_price_updated_count = 0
+        
+        for stock in trading_stocks:
+            symbol = stock['Symbol']
+            total_lists = stock['Total_Lists']
+            
+            if not symbol:  # Skip empty symbols
+                continue
+            
+            # Check if Total_Lists is greater than 3, if not skip this stock
+            try:
+                total_lists_int = int(total_lists) if total_lists else 0
+                if total_lists_int <= 3:
+                    lg.info(f"Skipping stock {symbol}: Total_Lists ({total_lists_int}) <= 3")
+                    continue
+            except ValueError:
+                lg.warning(f"Skipping stock {symbol}: Invalid Total_Lists value ({total_lists})")
+                continue
+                
+            if symbol in existing_master_data:
+                # Symbol exists, check status
+                if existing_master_data[symbol]['status'] == 'NOT_TRIGGERED':
+                    # Check if trigger price is different and log the change
+                    old_trigger_price = existing_master_data[symbol]['Trigger_price']
+                    new_trigger_price = stock['Trigger_price']
+                    
+                    # Update all fields for NOT_TRIGGERED stocks
+                    existing_master_data[symbol]['Total_Lists'] = stock['Total_Lists']
+                    existing_master_data[symbol]['Trigger_price'] = new_trigger_price
+                    existing_master_data[symbol]['date_added'] = today_str
+                    updated_count += 1
+                    
+                    # Log trigger price changes specifically
+                    if old_trigger_price != new_trigger_price:
+                        trigger_price_updated_count += 1
+                        lg.info(f"Updated trigger price for {symbol}: {old_trigger_price} → {new_trigger_price}")
+                    else:
+                        lg.info(f"Updated NOT_TRIGGERED stock: {symbol} (trigger price unchanged: {new_trigger_price})")
+                        
+                else:  # status is TRIGGERED
+                    # Ignore this stock but log the details
+                    ignored_count += 1
+                    trading_trigger_price = stock['Trigger_price']
+                    current_trigger_price = existing_master_data[symbol]['Trigger_price']
+                    lg.info(f"Ignored TRIGGERED stock: {symbol} (current: {current_trigger_price}, trading file: {trading_trigger_price})")
+            else:
+                # New symbol, add to master data with trigger price from trading file
+                new_trigger_price = stock['Trigger_price']
+                existing_master_data[symbol] = {
+                    'Total_Lists': stock['Total_Lists'],
+                    'Trigger_price': new_trigger_price,
+                    'date_added': today_str,
+                    'status': 'NOT_TRIGGERED'
+                }
+                new_count += 1
+                lg.info(f"Added new stock: {symbol} with trigger price: {new_trigger_price}")
+        
+        # Write updated master data back to file
+        with open(master_file_path, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for symbol, data in existing_master_data.items():
+                writer.writerow({
+                    'Symbol': symbol,
+                    'Total_Lists': data['Total_Lists'],
+                    'Trigger_price': data['Trigger_price'],
+                    'date_added': data['date_added'],
+                    'status': data['status']
+                })
+        
+        lg.info(f"Stock list update completed: {new_count} new, {updated_count} updated, {ignored_count} ignored")
+        lg.info(f"Trigger price updates: {trigger_price_updated_count} stocks had trigger price changes")
+        return True
+        
+    except Exception as err:
+        template = "An exception of type {0} occurred in function update_stock_list(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
+        return False
+
+def force_update_trigger_prices():
+    """
+    Force update trigger prices for ALL stocks (including TRIGGERED ones) from daily trading file.
+    Use this function when you want to update trigger prices regardless of status.
+    """
+    try:
+        # Calculate previous trading day
+        yesterday = dt.date.today() - dt.timedelta(days=1)
+        trading_file_date = yesterday.strftime("%d%m%Y")
+        trading_filename = f"trading_stocks_{trading_file_date}.csv"
+        
+        strategy_data_path = './strategy_data/'
+        trading_file_path = strategy_data_path + trading_filename
+        master_file_path = strategy_data_path + 'master_data.csv'
+        
+        lg.info(f"Force updating trigger prices from: {trading_filename}")
+        
+        # Check if trading file exists
+        if not os.path.isfile(trading_file_path):
+            lg.error(f"Trading stocks file not found: {trading_filename}")
+            return False
+        
+        # Read trading stocks data
+        trading_stocks = []
+        with open(trading_file_path, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                trading_stocks.append({
+                    'Symbol': row.get('Symbol', '').strip(),
+                    'Total_Lists': row.get('Total_Lists', '').strip(),
+                    'Trigger_price': row.get('Trigger_Price', '').strip()  # Note: CSV has 'Trigger_Price' (capital P)
+                })
+        
+        # Read existing master data
+        existing_master_data = {}
+        fieldnames = ['Symbol', 'Total_Lists', 'Trigger_price', 'date_added', 'status']
+        
+        if os.path.isfile(master_file_path):
+            with open(master_file_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    existing_master_data[row['Symbol']] = {
+                        'Total_Lists': row['Total_Lists'],
+                        'Trigger_price': row['Trigger_price'],
+                        'date_added': row['date_added'],
+                        'status': row['status']
+                    }
+        
+        # Today's date string
+        today_str = dt.date.today().strftime("%d-%m-%Y")
+        
+        # Force update trigger prices for all stocks
+        updated_count = 0
+        
+        for stock in trading_stocks:
+            symbol = stock['Symbol']
+            total_lists = stock['Total_Lists']
+            
+            if not symbol:
+                continue
+            
+            # Check if Total_Lists is greater than 3, if not skip this stock
+            try:
+                total_lists_int = int(total_lists) if total_lists else 0
+                if total_lists_int <= 3:
+                    lg.info(f"Force update: Skipping stock {symbol}: Total_Lists ({total_lists_int}) <= 3")
+                    continue
+            except ValueError:
+                lg.warning(f"Force update: Skipping stock {symbol}: Invalid Total_Lists value ({total_lists})")
+                continue
+                
+            if symbol in existing_master_data:
+                old_trigger_price = existing_master_data[symbol]['Trigger_price']
+                new_trigger_price = stock['Trigger_price']
+                
+                # Force update trigger price regardless of status
+                existing_master_data[symbol]['Trigger_price'] = new_trigger_price
+                existing_master_data[symbol]['Total_Lists'] = stock['Total_Lists']
+                existing_master_data[symbol]['date_added'] = today_str
+                
+                if old_trigger_price != new_trigger_price:
+                    lg.info(f"Force updated trigger price for {symbol} ({existing_master_data[symbol]['status']}): {old_trigger_price} → {new_trigger_price}")
+                    updated_count += 1
+                else:
+                    lg.info(f"Trigger price unchanged for {symbol}: {new_trigger_price}")
+            else:
+                # Stock not found in master data, add it if Total_Lists > 3
+                new_trigger_price = stock['Trigger_price']
+                existing_master_data[symbol] = {
+                    'Total_Lists': stock['Total_Lists'],
+                    'Trigger_price': new_trigger_price,
+                    'date_added': today_str,
+                    'status': 'NOT_TRIGGERED'
+                }
+                lg.info(f"Force update: Added new stock {symbol} with trigger price: {new_trigger_price}")
+                updated_count += 1
+        
+        # Write updated master data back to file
+        with open(master_file_path, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for symbol, data in existing_master_data.items():
+                writer.writerow({
+                    'Symbol': symbol,
+                    'Total_Lists': data['Total_Lists'],
+                    'Trigger_price': data['Trigger_price'],
+                    'date_added': data['date_added'],
+                    'status': data['status']
+                })
+        
+        lg.info(f"Force trigger price update completed: {updated_count} stocks processed")
+        return True
+        
+    except Exception as err:
+        template = "An exception of type {0} occurred in function update_stock_list(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
+        return False
+
 def init_strategy(obj):
-    global prev_high
+    """Initialize strategy by reading trigger prices from strategy_data/master_data.csv"""
+    global trigger_prices
     lg.info(f"Initializing Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
-    high_data = get_highPrice_from_csv(obj.ticker)
-    prev_high[obj.ticker] = high_data
+    
+    # Get trigger price from strategy_data/master_data.csv
+    trigger_price = get_highPrice_from_csv(obj.ticker)
+    trigger_prices[obj.ticker] = trigger_price
+    
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
-    lg.info(f"High price for stock: {obj.ticker} : {prev_high[obj.ticker]} and Current price: {cur_price} ")
+    lg.info(f"Trigger price for stock: {obj.ticker} : {trigger_prices[obj.ticker]} and Current price: {cur_price} ")
 
 def run_strategy(obj):
-    # actual strategy
-    global prev_high
+    """
+    Trading Strategy:
+    - BUY if current price > trigger price
+    - After BUY, reset trigger price to None
+    - Return NA if trigger price is None or empty
+    """
+    global trigger_prices
     myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
+    
+    # Get current trigger price
+    trigger_price = trigger_prices.get(obj.ticker)
+    
+    # Get current market price
     cur_price = obj.broker_obj.get_current_price(obj.ticker, obj.Exchange)
-    myPrint("current price for Stock {} = {} > prev high: {} \n".format(obj.ticker, cur_price, (prev_high[obj.ticker])))
-    # return "NA"
+    myPrint(f"Current price for Stock {obj.ticker} = {cur_price} > Trigger price: {trigger_price} \n")
 
-    if cur_price > (prev_high[obj.ticker]):
-        prev_high[obj.ticker] = update_highPrice_in_csv(obj.ticker)
-        return "BUY"
-    else:
+    # Return NA if trigger price is None or empty
+    if not trigger_price:
         return "NA"
+    
+    # Check if price crosses trigger price
+    if cur_price > trigger_price:
+        # Reset trigger price to None and mark as TRIGGERED
+        from utils import update_stock_status_in_csv
+        
+        # Mark stock as TRIGGERED in master_data.csv when buy signal is generated
+        success = update_stock_status_in_csv(obj.ticker, new_status='TRIGGERED')
+        if success:
+            lg.info(f"Stock {obj.ticker} marked as TRIGGERED in master_data.csv")
+            trigger_prices[obj.ticker] = None  # Reset trigger price in memory
+        else:
+            lg.error(f"Failed to update status for {obj.ticker} in master_data.csv")
+        
+        return "BUY"
+    
+    return "NA"
 
     # for testing only
     # lg.info(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")

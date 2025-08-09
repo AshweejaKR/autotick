@@ -8,7 +8,9 @@ Created on Sat Nov 30 22:07:10 2024
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+from logger import log_error, lg
 import datetime as dt
+import gvars
 
 from logger import *
 from config import *
@@ -16,7 +18,8 @@ from utils import *
 
 import gvars
 global intraday_data
-global ltp
+# Use ticker-specific LTP dictionary instead of global ltp
+ticker_ltp = {}
 intraday_data = []
 
 # Fetch historical data using yfinance
@@ -28,7 +31,10 @@ def fetch_historical_data(ticker_, start, end):
         historical_data = ticker_data.history(start=start, end=end)
         return historical_data
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_historical_data(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
 # Function to fetch intraday data for a specific date
@@ -45,7 +51,10 @@ def fetch_intraday_data(ticker_, date):
         intraday_data = ticker_data.history(interval="1m", start=start_date, end=end_date)
         return intraday_data
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_intraday_data(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
 # Function to fetch the current price of a stock
@@ -56,19 +65,31 @@ def fetch_current_price(ticker_):
         current_price = ticker_data.info["currentPrice"]
         return current_price
     except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+        template = "An exception of type {0} occurred in function fetch_current_price(). error message:{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        lg.error("{}".format(message))
+        log_error()
         return None
 
-def read_dummy_ltp():
-    global ltp
+def read_dummy_ltp(ticker):
+    global ticker_ltp
+    ticker_temp = ticker.replace("-", "_")
+    filename = "../" + ticker_temp + "_ltp.txt"
     try:
-        with open("../ltp.txt") as file:
+        with open(filename) as file:
             data = file.readlines()
-            ltp = float(data[gvars.i])
-    except Exception as err: 
-        print(err)
-        ltp = 100.25
-    return ltp
+            current_index = gvars.ticker_index.get(ticker, 0)
+            if current_index < len(data):
+                ticker_ltp[ticker] = float(data[current_index])
+            else:
+                ticker_ltp[ticker] = 100.25  # Default if index out of range
+    except Exception as err:
+        template = "An exception of type {0} occurred in function read_dummy_ltp(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
+        ticker_ltp[ticker] = 100.25
+    return ticker_ltp[ticker]
 
 class stub:
     def __init__(self):
@@ -97,9 +118,9 @@ class stub:
         return df_data
 
     def get_current_price(self, ticker, exchange):
-        global ltp
-        ltp = read_dummy_ltp() 
-        return ltp
+        global ticker_ltp
+        current_ltp = read_dummy_ltp(ticker)
+        return current_ltp
 
     def __place_order(self, ticker, quantity, buy_sell, exchange):
         orderid = "TEST1_" + buy_sell
@@ -135,6 +156,9 @@ class stub:
         return True
 
     def get_entry_exit_price(self, ticker, trade_direction, exit_=False):
-        global ltp
-        price = ltp
+        global ticker_ltp
+        if ticker in ticker_ltp:
+            price = ticker_ltp[ticker]
+        else:
+            price = read_dummy_ltp(ticker)
         return price

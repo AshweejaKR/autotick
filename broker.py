@@ -8,13 +8,22 @@ Created on Tue May  6 21:01:16 2025
 from broker_angleone import *
 from broker_aliceblue import *
 from broker_stub import *
+from logger import log_error
+import gvars
 
-def fetch_current_price_bt():
+def fetch_current_price_bt(ticker):
     global ltp
     try:
-        ltp = float(intraday_data[gvars.i-1])
+        current_index = gvars.ticker_index.get(ticker, 0)
+        if current_index > 0:
+            ltp = float(intraday_data[current_index-1])
+        else:
+            ltp = 100.0  # Default value if no data
     except Exception as err:
-        print(err)
+        template = "An exception of type {0} occurred in function fetch_current_price_bt(). error message:{1!r}"
+        message = template.format(type(err).__name__, err.args)
+        lg.error("{}".format(message))
+        log_error()
     return ltp
 
 class Broker:
@@ -56,14 +65,21 @@ class Broker:
             for i in data['Close']:
                 intraday_data.append(i)
 
-        gvars.max_len = len(intraday_data)
-        gvars.i = 0
+        # Initialize ticker-specific tracking
+        gvars.ticker_max_len[ticker] = len(intraday_data)
+        gvars.ticker_index[ticker] = 0
 
         try:
-            with open("../ltp.txt", "w") as file:
+            ticker_temp = ticker.replace("-", "_")
+            filename = "../" + ticker_temp + "_ltp.txt"
+            with open(filename, "w") as file:
                 for i in intraday_data:
                     file.write(str(i) + "\n")
-        except Exception as err: print("***", err)
+        except Exception as err:
+            template = "An exception of type {0} occurred in function init_test(). error message:{1!r}"
+            message = template.format(type(err).__name__, err.args)
+            lg.error("{}".format(message))
+            log_error()
 
         lg.info("Init done ... !")
 
@@ -97,7 +113,7 @@ class Broker:
     def get_entry_exit_price(self, ticker, trade_direction, _exit=False):
         if self.mode > 1:
             price = self.stub_obj.get_entry_exit_price(ticker, trade_direction, _exit)
-        if self.mode == 2:
+        elif self.mode == 2:
             price = self.obj.get_current_price(ticker, "NSE")
         else:
             price = self.obj.get_entry_exit_price(ticker, trade_direction, _exit)

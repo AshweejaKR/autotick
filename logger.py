@@ -99,3 +99,54 @@ def initialize_logger():
 
     # init message
     lg.info('Log initialized \n')
+
+def log_error():
+    """
+    Enhanced error logging function that captures full traceback and stack trace
+    """
+    import traceback
+    import datetime as dt
+    import io
+
+    # Create error logs directory if it doesn't exist
+    error_logs_path = './logs/tracedata/'
+    try:
+        os.makedirs(error_logs_path, exist_ok=True)
+    except OSError as e:
+        lg.error(f'Error creating error_logs directory: {e}')
+        sys.exit(-1)
+
+    # Create error log file with timestamp
+    timestamp = dt.datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y%m%d_%H%M%S")
+    error_log_file = f'{error_logs_path}error_trace_{timestamp}.log'
+
+    try:
+        # Use StringIO to capture the error details
+        error_details = io.StringIO()
+        error_details.write("="*60 + "\n")
+        error_details.write("Exception Traceback:\n")
+        traceback.print_exc(file=error_details)
+        error_details.write("="*60 + "\n")
+        error_details.write("\n" + "="*60 + "\n")
+
+        # Get stack trace
+        error_details.write("Stack Trace:\n")
+        error_details.write("="*60 + "\n")
+        traceback.print_stack(file=error_details)
+        error_details.write("="*60 + "\n")
+
+        # Get the complete error details
+        error_text = error_details.getvalue()
+        error_details.close()
+
+        # Write to file
+        with open(error_log_file, 'w') as f:
+            f.write(error_text)
+
+        # Log through lg.error
+        lg.error("\n" + error_text)
+        sys.exit(-1)
+
+    except Exception as e:
+        lg.error(f"Failed to write error log: {e}")
+        sys.exit(-1)
