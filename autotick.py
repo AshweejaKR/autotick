@@ -317,8 +317,9 @@ class autotick:
 
         c = 0
         while is_market_open(self.Mode, self.ticker):
-        # while c < 1:
+        # while c < 10:
             c = c + 1
+            lg.info(f"Running Trade for Stock {self.ticker} in {self.Exchange} exchange ... count = {c}")
             start_time = time.time()
             signal = "NA"
             # print(f"open_trades : {self.open_trades} ... \n")

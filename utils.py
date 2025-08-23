@@ -262,6 +262,27 @@ def get_stock_list():
     strategy_data_path = './strategy_data/'
     currentstocklist_path = strategy_data_path + CSV_FILE
     stock_list = []
+    
+    # Create strategy_data directory if it doesn't exist
+    try:
+        os.makedirs(strategy_data_path, exist_ok=True)
+    except Exception as err:
+        lg.error(f"Failed to create strategy_data directory: {err}")
+    
+    # Check if master_data.csv exists, create empty one if not
+    if not os.path.isfile(currentstocklist_path):
+        lg.warning(f"Master data file not found: {currentstocklist_path}")
+        lg.info("Creating empty master_data.csv file")
+        try:
+            with open(currentstocklist_path, mode='w', newline='') as file:
+                fieldnames = ['Symbol', 'Total_Lists', 'Trigger_price', 'date_added', 'status']
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+            lg.info(f"Created empty master_data.csv at {currentstocklist_path}")
+        except Exception as err:
+            lg.error(f"Failed to create master_data.csv: {err}")
+            return stock_list  # Return empty list
+    
     try:
         with open(currentstocklist_path, mode='r') as file:
             reader = csv.DictReader(file)
@@ -269,17 +290,25 @@ def get_stock_list():
                 # Only include stocks with NOT_TRIGGERED status
                 if row['status'] == 'NOT_TRIGGERED':
                     stock_list.append(row['Symbol'])
+        lg.info(f"Loaded {len(stock_list)} stocks with NOT_TRIGGERED status from master_data.csv")
         return stock_list
     except Exception as err:
         template = "An exception of type {0} occurred in function get_stock_list(). error message:{1!r}"
         message = template.format(type(err).__name__, err.args)
         lg.error("{}".format(message))
         log_error()
+        return stock_list  # Return empty list instead of None
 
 def get_highPrice_from_csv(stock_name):
     CSV_FILE = 'master_data.csv'
     strategy_data_path = './strategy_data/'
     currentstocklist_path = strategy_data_path + CSV_FILE
+    
+    # Check if file exists
+    if not os.path.isfile(currentstocklist_path):
+        lg.warning(f"Master data file not found: {currentstocklist_path}")
+        return None
+    
     try:
         with open(currentstocklist_path, mode='r') as file:
             reader = csv.DictReader(file)

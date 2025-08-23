@@ -31,11 +31,19 @@ def update_stock_list():
         trading_file_path = strategy_data_path + trading_filename
         master_file_path = strategy_data_path + 'master_data.csv'
         
+        # Create strategy_data directory if it doesn't exist
+        try:
+            os.makedirs(strategy_data_path, exist_ok=True)
+        except Exception as err:
+            lg.error(f"Failed to create strategy_data directory: {err}")
+            return False
+        
         lg.info(f"Reading trading stocks from: {trading_filename}")
         
         # Check if trading file exists
         if not os.path.isfile(trading_file_path):
-            lg.error(f"Trading stocks file not found: {trading_filename}")
+            lg.warning(f"Trading stocks file not found: {trading_file_path}")
+            lg.info("Creating empty trading stocks file is not recommended - please add your trading data")
             return False
         
         # Read trading stocks data
@@ -65,6 +73,11 @@ def update_stock_list():
                         'date_added': row['date_added'],
                         'status': row['status']
                     }
+        else:
+            lg.warning(f"Master data file not found: {master_file_path}")
+            lg.info("Will create new master_data.csv file")
+        
+        lg.info(f"Loaded {len(existing_master_data)} existing stocks from master data")
         
         # Today's date string
         today_str = dt.date.today().strftime("%d-%m-%Y")
@@ -85,7 +98,7 @@ def update_stock_list():
             # Check if Total_Lists is greater than 3, if not skip this stock
             try:
                 total_lists_int = int(total_lists) if total_lists else 0
-                if total_lists_int <= 3:
+                if total_lists_int < 3:
                     lg.info(f"Skipping stock {symbol}: Total_Lists ({total_lists_int}) <= 3")
                     continue
             except ValueError:
@@ -296,7 +309,6 @@ def run_strategy(obj):
     - Return NA if trigger price is None or empty
     """
     global trigger_prices
-    myPrint(f"Running Strategy for Stock {obj.ticker} in {obj.Exchange} exchange ... ")
     
     # Get current trigger price
     trigger_price = trigger_prices.get(obj.ticker)

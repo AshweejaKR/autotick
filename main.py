@@ -110,7 +110,14 @@ def main():
     if update_stock_list():
         lg.info("Stock list updated successfully")
     else:
-        lg.warning("Failed to update stock list, continuing with existing data")
+        lg.warning("Failed to update stock list from trading files")
+        # Check if we have any existing master data
+        from utils import get_stock_list
+        existing_stocks = get_stock_list()
+        if not existing_stocks:
+            lg.warning("No existing stock data found.")
+        else:
+            lg.info(f"Continuing with {len(existing_stocks)} existing stocks from master data")
     
     ###########################
     master_config_file = "config/master_config.csv"
