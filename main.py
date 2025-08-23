@@ -14,6 +14,11 @@ import strategy
 from logger import *
 from autotick import *
 
+# from debug_mngr import DebugManager
+# import threading
+# debug_mngr = DebugManager()
+# debug_mngr.start_debug_server(globals())
+
 def read_master_config(config_file):
     strategies = []
     try:
