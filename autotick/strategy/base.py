@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from autotick.models.market import MarketBar, MarketTick
 from autotick.models.order import Order
-from autotick.models.position import Position
 from autotick.models.signal import Signal
 from autotick.strategy.context import StrategyContext
 
@@ -43,20 +42,5 @@ class Strategy:
     def on_order_filled(self, order: Order) -> None:
         """Handle a filled order."""
 
-    def on_order_rejected(self, order: Order) -> None:
-        """Handle a rejected order."""
-
-    def on_order_cancelled(self, order: Order) -> None:
-        """Handle a cancelled order."""
-
-    def on_position_open(self, position: Position) -> None:
-        """Handle a newly opened position."""
-
-    def on_position_close(self, position: Position) -> None:
-        """Handle a closed position."""
-
     def on_market_close(self) -> None:
         """Handle market-close lifecycle event."""
-
-    def shutdown(self) -> None:
-        """Release strategy-owned resources during shutdown."""
