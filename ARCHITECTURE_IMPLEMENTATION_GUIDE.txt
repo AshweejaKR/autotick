@@ -91,6 +91,7 @@ autotick/
 ├── indicators/                # base, moving_average
 ├── strategy/
 │   ├── base.py
+│   ├── context.py
 │   └── sample_strategy.py
 ├── providers/
 │   ├── factory.py
@@ -299,6 +300,6 @@ Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
 Completed phases: Phase 1 through Phase 10
 Current milestone: Milestone 3 - Strategy Framework
 Current phase: Phase 11 - Strategy base, context, and lifecycle callbacks
-Next: Begin Phase 11 implementation after explicit approval.
+Next: Review Phase 11 implementation before marking it complete.
 
 Last Updated: 2026-08-24
