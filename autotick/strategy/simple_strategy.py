@@ -28,11 +28,24 @@ class SimpleStrategy(Strategy):
         if self.context is None:
             raise RuntimeError("Strategy is not initialized")
 
-        bars = self.context.market_data.get_bars(self.context.symbol, "1d")
-        if not bars:
-            raise RuntimeError(f"No historical daily bars available for {self.context.symbol}")
+        reference_tick = self.context.tick or self.context.market_data.get_tick(self.context.symbol)
+        if reference_tick is None or reference_tick.timestamp is None:
+            raise RuntimeError(
+                f"Current market timestamp is unavailable for {self.context.symbol}"
+            )
 
-        self.previous_close = bars[-1].close
+        bars = self.context.market_data.get_bars(self.context.symbol, "1d")
+        completed_bars = [
+            bar
+            for bar in bars
+            if bar.timestamp.date() < reference_tick.timestamp.date()
+        ]
+        if not completed_bars:
+            raise RuntimeError(
+                f"No completed historical daily bars available for {self.context.symbol}"
+            )
+
+        self.previous_close = max(completed_bars, key=lambda bar: bar.timestamp).close
 
     def on_tick(self, tick: MarketTick) -> Signal | None:
         """Generate a long BUY signal when the breakout condition is met."""
