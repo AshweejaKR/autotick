@@ -293,11 +293,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Status: Foundation completed
+Status: Mode-Neutral Core in progress
 Completed milestone: Milestone 1 - Foundation
-Completed phases: Phase 1 through Phase 4
+Completed phases: Phase 1 through Phase 5
 Current milestone: Milestone 2 - Mode-Neutral Core
-Current phase: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
-Next: Begin Phase 5 after explicit implementation approval.
+Current phase: Phase 6 - SessionPool and broker-session lifecycle
+Next: Begin Phase 6 implementation after explicit approval.
 
 Last Updated: 2026-08-23
