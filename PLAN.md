@@ -23,9 +23,9 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 ## Current Status
 
 - Current milestone: Mode-Neutral Core
-- Completed phase: Phase 4 - MarketData, Account, and Execution interfaces
-- Current phase: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
-- Status: Phases 1-4 completed; Foundation milestone completed
+- Completed phase: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
+- Current phase: Phase 6 - SessionPool and broker-session lifecycle
+- Status: Phases 1-5 completed; Foundation milestone completed; Mode-Neutral Core in progress
 
 ## Development Rule
 
