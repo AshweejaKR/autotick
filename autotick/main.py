@@ -14,15 +14,6 @@ from autotick.utils.logger import configure_logging, get_logger, log_call
 logger = get_logger(__name__)
 CONFIG_PATH = Path("config/config.yaml")
 
-
-@log_call(log_args=True, log_result=True)
-def place_order(name, qty):
-    logger.info("placing order for %s, quantity = %s", name, qty)
-    logger.debug("debug: placing order for %s, quantity = %s", name, qty)
-    logger.warning("placing order for %s, quantity = %s", name, qty)
-    return True
-
-
 def _first_symbol(symbols: str | list[str]) -> str:
     return symbols[0] if isinstance(symbols, list) else symbols
 
@@ -57,8 +48,6 @@ def main():
     logger.debug("Signal model initialized: %s", signal)
     logger.debug("Account model initialized: %s", account)
     logger.info("Algo Trading BOT running ...")
-
-    place_order(symbol, quantity)
 
 
 if __name__ == "__main__":

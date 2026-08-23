@@ -1,6 +1,13 @@
-"""YAML configuration loader for AutoTick."""
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Aug 23 18:15:19 2026
+
+@author: ashwe
+"""
 
 from __future__ import annotations
+
+"""YAML configuration loader for AutoTick."""
 
 from pathlib import Path
 from typing import Any

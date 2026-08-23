@@ -1,6 +1,13 @@
-"""Common trade models for AutoTick."""
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Aug 23 18:15:19 2026
+
+@author: ashwe
+"""
 
 from __future__ import annotations
+
+"""Common trade models for AutoTick."""
 
 from dataclasses import dataclass
 from datetime import datetime
