@@ -18,13 +18,28 @@ Foundation is complete through Phase 4:
 - Phase 3: Common market, signal, order, position, trade, account, and event models.
 - Phase 4: MarketData, Account, and Execution interfaces.
 
+## Mode-Neutral Core
+
+- Phase 5: ProviderFactory, ProviderBundle, and mode mapping — completed.
+- Phase 6: SessionPool and broker-session lifecycle — current.
+
+## Running
+
+Use the default repository configuration:
+
+`autotick`
+
+Or pass an explicit configuration path:
+
+`autotick --config path/to/config.yaml`
+
 ## Status
 
 - Version: 0.1.0
 - Completed milestone: Foundation
-- Completed: Phases 1-4
+- Completed: Phases 1-5
 - Current milestone: Mode-Neutral Core
-- Next: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
+- Current: Phase 6 - SessionPool and broker-session lifecycle
 
 ## Plan
 
