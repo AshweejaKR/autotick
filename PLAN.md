@@ -8,7 +8,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 
 - [x] Foundation: project structure, configuration, models, and interfaces.
 - [x] Mode-Neutral Core: providers, sessions, events, and TradingEngine.
-- [ ] Strategy Framework: indicators, Strategy contract, simple strategy, and signal validation.
+- [x] Strategy Framework: indicators, Strategy contract, simple strategy, and signal validation.
 - [ ] Provider Layer: historical, simulated, and broker adapters.
 - [ ] Execution and Risk: orders, positions, P&L, limits, and kill switch.
 - [ ] Trading Modes: Paper, Backtest, Replay, and Live.
@@ -22,15 +22,18 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 
 ## Current Status
 
-- Current milestone: Strategy Framework
-- Completed phase: Phase 10 - Indicator base and simple moving average (default period 20)
-- Phase 11: Strategy base, context, lifecycle callbacks, and simple long strategy committed for review
-- Current phase: Phase 12 - Signal validation
-- SignalValidator ownership: engine layer; Strategy only generates signals
-- Signal validation: validates symbol, exchange, signal type, and positive quantity/price when provided
+- Completed milestone: Strategy Framework
+- Completed phases: Phase 1 through Phase 12
+- Phase 10: Indicator base and simple moving average (default period 20)
+- Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
+- Phase 12: Engine-layer SignalValidator for structural signal validation
+- Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
+- Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid; RiskManager/TradeManager decides sizing from configuration
-- Risk, target, stop loss, duplicate-entry, and re-entry checks stay outside signal validation
-- Status: Phases 1-10 completed; Phases 11-12 implementation committed for review
+- Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy/SignalValidator
+- Current milestone: Provider Layer
+- Current phase: Phase 13 - Shared HistoricalProvider
+- Status: Milestones 1-3 and Phases 1-12 completed
 
 ## Development Rule
 
