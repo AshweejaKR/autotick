@@ -31,6 +31,7 @@ Foundation is complete through Phase 4:
 - Phase 10: Indicator base and simple moving average (SMA) — completed.
 - SMA default period: 20.
 - Additional indicators are deferred until a strategy needs them.
+- Phase 11: Strategy base, StrategyContext, and lifecycle callbacks — committed for review.
 
 ## Running
 
