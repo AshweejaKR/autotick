@@ -295,9 +295,9 @@ CURRENT STATUS
 Version: 0.1.0
 Status: Mode-Neutral Core in progress
 Completed milestone: Milestone 1 - Foundation
-Completed phases: Phase 1 through Phase 6
+Completed phases: Phase 1 through Phase 7
 Current milestone: Milestone 2 - Mode-Neutral Core
-Current phase: Phase 7 - Mode-aware CalendarSessionManager
-Next: Begin Phase 7 implementation after explicit approval.
+Current phase: Phase 8 - EventDispatcher and normalized events
+Next: Begin Phase 8 implementation after explicit approval.
 
 Last Updated: 2026-08-23
