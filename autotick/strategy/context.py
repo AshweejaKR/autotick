@@ -11,13 +11,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from autotick.interfaces.market_data import MarketDataProvider
 from autotick.models.market import MarketBar, MarketTick
 
 
 @dataclass(slots=True)
 class StrategyContext:
-    """Hold the latest market inputs and calculated indicator values."""
+    """Hold strategy dependencies, latest market inputs, and indicator values."""
 
+    market_data: MarketDataProvider
+    symbol: str
     tick: MarketTick | None = None
     bar: MarketBar | None = None
     indicators: dict[str, float | None] = field(default_factory=dict)
