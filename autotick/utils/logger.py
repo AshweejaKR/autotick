@@ -5,6 +5,8 @@ Created on Sun Aug 23 15:50:13 2026
 @author: ashwe
 """
 
+from __future__ import annotations
+
 """Centralized logging utilities for AutoTick.
 
 Provides:
@@ -15,9 +17,7 @@ Provides:
 - Reusable log_call decorator
 """
 
-from __future__ import annotations
-
-import datetime as dt
+import pendulum as pdlm
 import logging
 import time
 from functools import wraps
@@ -25,7 +25,6 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Callable, TypeVar, cast
 
-import pytz
 
 DEFAULT_LOG_DIR = Path("logs")
 DEFAULT_TIMEZONE = "Asia/Kolkata"
@@ -40,9 +39,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 def _create_log_file_name() -> Path:
     """Create a timestamped log filename using Asia/Kolkata time."""
-    date_time = dt.datetime.now(
-        pytz.timezone(DEFAULT_TIMEZONE)
-    ).strftime("%Y%m%d_%H%M%S")
+    date_time = pdlm.now(DEFAULT_TIMEZONE).strftime("%Y%m%d_%H%M%S")
 
     return DEFAULT_LOG_DIR / f"logger_file_{date_time}.log"
 
