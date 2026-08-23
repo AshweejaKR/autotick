@@ -24,7 +24,7 @@ Foundation is complete through Phase 4:
 - Phase 6: SessionPool and broker-session lifecycle — completed.
 - Phase 7: Mode-aware CalendarSessionManager — completed.
 - Phase 8: EventDispatcher and normalized events — completed.
-- Phase 9: TradingEngine lifecycle and event loop — current.
+- Phase 9: TradingEngine lifecycle and event loop — completed.
 
 ## Running
 
@@ -39,10 +39,10 @@ Or pass an explicit configuration path:
 ## Status
 
 - Version: 0.1.0
-- Completed milestone: Foundation
-- Completed: Phases 1-8
-- Current milestone: Mode-Neutral Core
-- Current: Phase 9 - TradingEngine lifecycle and event loop
+- Completed milestones: Foundation, Mode-Neutral Core
+- Completed: Phases 1-9
+- Current milestone: Strategy Framework
+- Current: Phase 10 - Indicator base and initial indicators
 
 ## Plan
 
