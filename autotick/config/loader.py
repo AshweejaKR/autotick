@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
+"""YAML configuration loader for AutoTick.
+
 Created on Sun Aug 23 18:15:19 2026
 
 @author: ashwe
