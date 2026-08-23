@@ -296,9 +296,9 @@ CURRENT STATUS
 Version: 0.1.0
 Status: Strategy Framework in progress
 Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
-Completed phases: Phase 1 through Phase 9
+Completed phases: Phase 1 through Phase 10
 Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 10 - Indicator base and simple moving average (default period 20)
-Next: Review Phase 10 implementation before marking it complete.
+Current phase: Phase 11 - Strategy base, context, and lifecycle callbacks
+Next: Begin Phase 11 implementation after explicit approval.
 
 Last Updated: 2026-08-24
