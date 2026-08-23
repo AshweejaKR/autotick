@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Configuration validation for AutoTick.
-
+"""
 Created on Sun Aug 23 18:15:19 2026
 
 @author: ashwe
+
+Configuration validation for AutoTick.
 """
 
 from __future__ import annotations

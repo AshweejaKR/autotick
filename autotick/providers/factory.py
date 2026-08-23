@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Provider bundle definitions and mode mapping for AutoTick.
-
+"""
 Created on Sun Aug 23 23:02:28 2026
 
 @author: ashwe
+
+Provider bundle definitions and mode mapping for AutoTick.
 """
 
 from __future__ import annotations
