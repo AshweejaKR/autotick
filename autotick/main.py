@@ -13,8 +13,7 @@ from autotick.models import Account, MarketTick, Signal, SignalType
 from autotick.utils.logger import configure_logging, get_logger
 
 logger = get_logger(__name__)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 
 
 def _first_symbol(symbols: str | list[str]) -> str:
