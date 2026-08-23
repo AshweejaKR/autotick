@@ -124,6 +124,8 @@ Rules:
 - Do not add replay_provider.py or replay_clock.py.
 - Create optional files only in their implementation phase.
 - Add indicators only when a strategy requires them.
+- TradeManager/RiskManager own order-state, position-state, trailing, cooldown,
+  and risk workflow; Strategy callbacks stay focused on strategy decisions.
 
 ARCHITECTURE FLOW
 
@@ -211,9 +213,8 @@ Strategy
 - initialize()
 - on_market_open(), on_initial_setup()
 - on_tick(), on_bar()
-- on_order_filled(), on_order_rejected(), on_order_cancelled()
-- on_position_open(), on_position_close()
-- on_market_close(), shutdown()
+- on_order_filled()
+- on_market_close()
 
 RiskManager
 - validate_order(), can_trade(), position_size(), update()
@@ -282,8 +283,8 @@ Provider -> SessionPool -> reuse healthy session or login/refresh -> cache
 
 Market session:
 initialize() -> configure mode and check calendar -> on_market_open()
--> on_initial_setup() -> on_tick()/on_bar() -> order/position callbacks
--> should_square_off() -> on_market_close() -> checkpoint -> shutdown().
+-> on_initial_setup() -> on_tick()/on_bar() -> on_order_filled()
+-> should_square_off() -> on_market_close() -> checkpoint -> engine shutdown.
 
 Session timing:
 - Live/Paper: wall-clock time.
