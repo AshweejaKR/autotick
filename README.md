@@ -31,7 +31,10 @@ Foundation is complete through Phase 4:
 - Phase 10: Indicator base and simple moving average (SMA) — completed.
 - SMA default period: 20.
 - Additional indicators are deferred until a strategy needs them.
-- Phase 11: Strategy base, StrategyContext, and lifecycle callbacks — committed for review.
+- Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy — committed for review.
+- Simple strategy rule: BUY when LTP is more than 0.5% above previous-day close; otherwise no action.
+- Previous-day close is loaded through MarketDataProvider during initial setup.
+- Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy.
 
 ## Running
 
@@ -51,7 +54,7 @@ The repository-level `config/config.yaml` remains available for project-local co
 - Completed milestones: Foundation, Mode-Neutral Core
 - Completed: Phases 1-10
 - Current milestone: Strategy Framework
-- Current: Phase 11 - Strategy base, context, and lifecycle callbacks
+- Current: Phase 11 - Strategy base, context, lifecycle callbacks, and simple long strategy
 
 ## Plan
 
