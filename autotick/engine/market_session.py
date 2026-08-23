@@ -9,7 +9,7 @@ Mode-aware market calendar and session timing for AutoTick.
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from time import sleep
 from zoneinfo import ZoneInfo
 
@@ -24,6 +24,8 @@ class CalendarSessionManager:
         self._market_end = self._parse_time(config.get("market_end", "15:30"))
         self._square_off = self._parse_time(config.get("square_off_time", "15:15"))
         self._replay_speed = float(config.get("replay_speed", 1.0))
+        if self._replay_speed <= 0:
+            raise ValueError("replay_speed must be greater than zero")
         self._mode = "paper"
         self._current_time: datetime | None = None
 
@@ -44,9 +46,8 @@ class CalendarSessionManager:
 
     def update_time(self, value: datetime) -> None:
         """Update simulated time for backtest or replay modes."""
-        if self._mode in {"live", "paper"}:
-            return
-        self._current_time = value
+        if self._mode not in {"live", "paper"}:
+            self._current_time = value
 
     def wait_until(self, value: datetime) -> None:
         """Wait in replay mode; backtest advances immediately."""
@@ -80,6 +81,22 @@ class CalendarSessionManager:
         if current.time() <= self._market_end:
             return "open"
         return "closed"
+
+    def next_open(self, value: datetime | None = None) -> datetime:
+        """Return the next weekday market-open timestamp."""
+        current = value or self.now()
+        candidate = current.replace(
+            hour=self._market_start.hour,
+            minute=self._market_start.minute,
+            second=0,
+            microsecond=0,
+        )
+        if self.is_trading_day(current) and current < candidate:
+            return candidate
+        candidate += timedelta(days=1)
+        while not self.is_trading_day(candidate):
+            candidate += timedelta(days=1)
+        return candidate
 
     def should_square_off(self, value: datetime | None = None) -> bool:
         """Return True at or after configured square-off time while market is open."""
