@@ -8,11 +8,12 @@ Created on Sun Aug 23 15:48:09 2026
 from pathlib import Path
 
 from autotick.config.loader import load_config
-from autotick.models import Account, MarketData, Signal, SignalType
-from autotick.utils.logger import configure_logging, get_logger, log_call
+from autotick.models import Account, MarketTick, Signal, SignalType
+from autotick.utils.logger import configure_logging, get_logger
 
 logger = get_logger(__name__)
 CONFIG_PATH = Path("config/config.yaml")
+
 
 def _first_symbol(symbols: str | list[str]) -> str:
     return symbols[0] if isinstance(symbols, list) else symbols
@@ -33,7 +34,7 @@ def main():
     exchange = config["market"]["exchange"]
     quantity = config["trade"]["quantity"]
 
-    market = MarketData(symbol=symbol, exchange=exchange)
+    market_tick = MarketTick(symbol=symbol, exchange=exchange)
     signal = Signal(
         symbol=symbol,
         exchange=exchange,
@@ -44,7 +45,7 @@ def main():
 
     logger.info("Log initialized")
     logger.info("Configuration loaded and validated from %s", CONFIG_PATH)
-    logger.debug("Market model initialized: %s", market)
+    logger.debug("Market tick model initialized: %s", market_tick)
     logger.debug("Signal model initialized: %s", signal)
     logger.debug("Account model initialized: %s", account)
     logger.info("Algo Trading BOT running ...")

@@ -6,7 +6,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 
 ## Milestones
 
-- [ ] Foundation: project structure, configuration, models, and interfaces.
+- [x] Foundation: project structure, configuration, models, and interfaces.
 - [ ] Mode-Neutral Core: providers, sessions, events, and TradingEngine.
 - [ ] Strategy Framework: indicators, Strategy contract, and signal validation.
 - [ ] Provider Layer: historical, simulated, and broker adapters.
@@ -22,10 +22,10 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 
 ## Current Status
 
-- Current milestone: Foundation
-- Completed phase: Phase 1 - Project skeleton, packaging, entry point, and logging
-- Current phase: Phase 2 - YAML configuration loading and validation
-- Status: Phase 1 completed; Phase 2 not started
+- Current milestone: Mode-Neutral Core
+- Completed phase: Phase 4 - MarketData, Account, and Execution interfaces
+- Current phase: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
+- Status: Phases 1-4 completed; Foundation milestone completed
 
 ## Development Rule
 

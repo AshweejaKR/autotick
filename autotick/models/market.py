@@ -7,18 +7,30 @@ Created on Sun Aug 23 18:15:19 2026
 
 from __future__ import annotations
 
-"""Common market models for AutoTick."""
-
 from dataclasses import dataclass
 from datetime import datetime
 
 
 @dataclass(slots=True)
-class MarketData:
-    """Normalized market data shared across providers and strategies."""
+class MarketTick:
+    """Latest normalized market tick."""
 
     symbol: str
     exchange: str
-    price: float | None = None
+    ltp: float | None = None
     volume: int | None = None
     timestamp: datetime | None = None
+
+
+@dataclass(slots=True)
+class MarketBar:
+    """Normalized historical OHLCV candle."""
+
+    symbol: str
+    exchange: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    timestamp: datetime

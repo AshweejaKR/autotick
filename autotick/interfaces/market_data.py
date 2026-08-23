@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from autotick.models.market import MarketData
+from autotick.models.market import MarketBar, MarketTick
 
 
 class MarketDataProvider(ABC):
@@ -32,13 +32,9 @@ class MarketDataProvider(ABC):
         """Unsubscribe from one or more symbols."""
 
     @abstractmethod
-    def get_tick(self, symbol: str) -> MarketData | None:
-        """Return the latest normalized tick for a symbol."""
+    def get_tick(self, symbol: str) -> MarketTick | None:
+        """Return the latest LTP and current volume for a symbol."""
 
     @abstractmethod
-    def get_bar(self, symbol: str, interval: str) -> MarketData | None:
-        """Return the latest normalized bar for a symbol."""
-
-    @abstractmethod
-    def get_history(self, symbol: str, interval: str) -> list[MarketData]:
-        """Return normalized historical market data."""
+    def get_bars(self, symbol: str, interval: str) -> list[MarketBar]:
+        """Return normalized historical OHLCV candles."""
