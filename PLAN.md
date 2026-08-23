@@ -26,6 +26,7 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Completed phase: Phase 10 - Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, context, lifecycle callbacks, and simple long strategy committed for review
 - Current phase: Phase 12 - Signal validation
+- SignalValidator ownership: engine layer; Strategy only generates signals
 - Signal validation: validates symbol, exchange, signal type, and positive quantity/price when provided
 - quantity=None is valid; RiskManager/TradeManager decides sizing from configuration
 - Risk, target, stop loss, duplicate-entry, and re-entry checks stay outside signal validation
