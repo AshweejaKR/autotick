@@ -21,7 +21,8 @@ Foundation is complete through Phase 4:
 ## Mode-Neutral Core
 
 - Phase 5: ProviderFactory, ProviderBundle, and mode mapping — completed.
-- Phase 6: SessionPool and broker-session lifecycle — current.
+- Phase 6: SessionPool and broker-session lifecycle — completed.
+- Phase 7: Mode-aware CalendarSessionManager — current.
 
 ## Running
 
@@ -37,9 +38,9 @@ Or pass an explicit configuration path:
 
 - Version: 0.1.0
 - Completed milestone: Foundation
-- Completed: Phases 1-5
+- Completed: Phases 1-6
 - Current milestone: Mode-Neutral Core
-- Current: Phase 6 - SessionPool and broker-session lifecycle
+- Current: Phase 7 - Mode-aware CalendarSessionManager
 
 ## Plan
 
