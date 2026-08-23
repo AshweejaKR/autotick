@@ -295,9 +295,9 @@ CURRENT STATUS
 Version: 0.1.0
 Status: Mode-Neutral Core in progress
 Completed milestone: Milestone 1 - Foundation
-Completed phases: Phase 1 through Phase 7
+Completed phases: Phase 1 through Phase 8
 Current milestone: Milestone 2 - Mode-Neutral Core
-Current phase: Phase 8 - EventDispatcher and normalized events
-Next: Begin Phase 8 implementation after explicit approval.
+Current phase: Phase 9 - TradingEngine lifecycle and event loop
+Next: Begin Phase 9 implementation after explicit approval.
 
 Last Updated: 2026-08-23
