@@ -23,9 +23,9 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 ## Current Status
 
 - Current milestone: Mode-Neutral Core
-- Completed phase: Phase 6 - SessionPool and broker-session lifecycle
-- Current phase: Phase 7 - Mode-aware CalendarSessionManager
-- Status: Phases 1-6 completed; Foundation milestone completed; Mode-Neutral Core in progress
+- Completed phase: Phase 7 - Mode-aware CalendarSessionManager
+- Current phase: Phase 8 - EventDispatcher and normalized events
+- Status: Phases 1-7 completed; Foundation milestone completed; Mode-Neutral Core in progress
 
 ## Development Rule
 
