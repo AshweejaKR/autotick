@@ -34,7 +34,10 @@ Foundation is complete through Phase 4:
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy — committed for review.
 - Simple strategy rule: BUY when LTP is more than 0.5% above previous-day close; otherwise no action.
 - Previous-day close is loaded through MarketDataProvider during initial setup.
-- Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy.
+- Phase 12: Signal validation — committed for review.
+- Signal validation checks symbol, exchange, signal type, and positive quantity/price when supplied.
+- quantity=None is valid; RiskManager/TradeManager decides quantity from configuration.
+- Target, stop loss, duplicate-entry, re-entry, and other risk rules stay outside Strategy/SignalValidator.
 
 ## Running
 
@@ -54,7 +57,7 @@ The repository-level `config/config.yaml` remains available for project-local co
 - Completed milestones: Foundation, Mode-Neutral Core
 - Completed: Phases 1-10
 - Current milestone: Strategy Framework
-- Current: Phase 11 - Strategy base, context, lifecycle callbacks, and simple long strategy
+- Current: Phase 12 - Signal validation
 
 ## Plan
 
