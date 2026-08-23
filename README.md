@@ -26,6 +26,12 @@ Foundation is complete through Phase 4:
 - Phase 8: EventDispatcher and normalized events — completed.
 - Phase 9: TradingEngine lifecycle and event loop — completed.
 
+## Strategy Framework
+
+- Phase 10: Indicator base and simple moving average (SMA).
+- SMA default period: 20.
+- Additional indicators are deferred until a strategy needs them.
+
 ## Running
 
 Use the packaged default configuration:
@@ -44,7 +50,7 @@ The repository-level `config/config.yaml` remains available for project-local co
 - Completed milestones: Foundation, Mode-Neutral Core
 - Completed: Phases 1-9
 - Current milestone: Strategy Framework
-- Current: Phase 10 - Indicator base and initial indicators
+- Current: Phase 10 - Indicator base and simple moving average (default period 20)
 
 ## Plan
 
