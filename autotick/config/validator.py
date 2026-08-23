@@ -7,8 +7,6 @@ Created on Sun Aug 23 18:15:19 2026
 
 from __future__ import annotations
 
-"""Configuration validation for AutoTick."""
-
 from datetime import datetime
 from typing import Any
 
