@@ -1,0 +1,300 @@
+AUTOTICK - ARCHITECTURE & IMPLEMENTATION GUIDE
+
+PROJECT SUMMARY
+================================================================================
+
+AutoTick is a modular, broker-independent framework supporting Live,
+Paper, Backtest, and Replay modes through one codebase.
+
+- Same Strategy generates BUY/SELL/HOLD signals in every mode.
+- TradingEngine uses provider interfaces only and remains mode-neutral.
+- ProviderFactory switches market data, account, execution, and session timing.
+- Live/Paper use broker data; Backtest/Replay share HistoricalProvider.
+- engine/market_session.py contains only CalendarSessionManager.
+- CalendarSessionManager owns real-time, fast, or replay timing and session checks.
+- Broker components share one authenticated session through SessionPool.
+- EventDispatcher provides one event flow across all modes.
+- TradeManager owns order, position, trade, exposure, and P&L workflow/state.
+- RiskManager independently validates risk and position sizing.
+
+Deferred until required: StrategyManager, MarketCache, generic BaseProvider,
+and separate ReplayProvider.
+
+MILESTONES & PHASES
+================================================================================
+
+Milestone 1: Foundation
+- Phase 1: Project skeleton, packaging, entry point, and logging.
+- Phase 2: YAML configuration loading and validation.
+- Phase 3: Common market, signal, order, position, trade, account, event models.
+- Phase 4: MarketData, Account, and Execution interfaces.
+
+Milestone 2: Mode-Neutral Core
+- Phase 5: ProviderFactory, ProviderBundle, and mode mapping.
+- Phase 6: SessionPool and broker-session lifecycle.
+- Phase 7: Mode-aware CalendarSessionManager.
+- Phase 8: EventDispatcher and normalized events.
+- Phase 9: TradingEngine lifecycle and event loop.
+
+Milestone 3: Strategy Framework
+- Phase 10: Indicator base and initial indicators.
+- Phase 11: Strategy base, context, and lifecycle callbacks.
+- Phase 12: Signal validation and sample strategy.
+
+Milestone 4: Provider Layer
+- Phase 13: Shared HistoricalProvider.
+- Phase 14: Simulated account and execution providers.
+- Phase 15: First broker session and account adapters.
+- Phase 16: First broker market-data and execution adapters.
+
+Milestone 5: Execution and Risk
+- Phase 17: TradeManager and order state machine.
+- Phase 18: TradeManager position lifecycle, exposure, and P&L.
+- Phase 19: Risk validation, sizing, stop loss, and targets.
+- Phase 20: Daily limits, square-off, and kill switch.
+
+Milestone 6: Trading Modes
+- Phase 21: Paper mode.
+- Phase 22: Backtest mode.
+- Phase 23: Replay mode.
+- Phase 24: Live mode.
+
+Milestone 7: Recovery and Persistence
+- Phase 25: Persistence, recovery, and reconciliation.
+- Phase 26: Reconnect, token refresh, and subscription recovery.
+- Phase 27: Production configuration and secrets validation.
+
+Milestone 8: Reports
+- Phase 28: Performance metrics, reports, and trade export.
+
+Milestone 9: Testing
+- Phase 29: Unit and provider-contract tests.
+- Phase 30: Integration and cross-mode parity tests.
+- Phase 31: End-to-end, recovery, and reconciliation tests.
+
+Milestone 10: Production
+- Phase 32: Documentation, logging, metrics, and audit trail.
+- Phase 33: Paper soak test and controlled Live rollout.
+
+CODE STRUCTURE
+================================================================================
+
+autotick/
+├── main.py
+├── config/                    # loader.py, validator.py
+├── models/                    # market, signal, order, position, trade,
+│                              # account, event
+├── interfaces/
+│   ├── market_data.py
+│   ├── account.py
+│   └── execution.py
+├── indicators/                # base, moving_average, rsi, vwap
+├── strategy/
+│   ├── base.py
+│   └── sample_strategy.py
+├── providers/
+│   ├── factory.py
+│   ├── session_pool.py
+│   ├── historical.py
+│   └── brokers/
+│       ├── angelone/
+│       │   ├── session.py
+│       │   ├── account.py
+│       │   ├── market_data.py
+│       │   └── execution.py
+│       ├── aliceblue/
+│       └── simulated/
+│           ├── account.py
+│           └── execution.py
+├── engine/
+│   ├── trading_engine.py
+│   ├── market_session.py
+│   ├── dispatcher.py
+│   ├── risk_manager.py
+│   └── trade_manager.py
+├── persistence/               # state_store.py
+├── reports/                   # performance.py, trade_export.py
+└── utils/                     # logger.py
+
+Rules:
+- Add __init__.py files when packages are implemented.
+- Keep one factory.py and one historical.py.
+- Keep Strategy base under strategy/.
+- Do not add replay_provider.py or replay_clock.py.
+- Create optional files only in their implementation phase.
+
+ARCHITECTURE FLOW
+
+Startup Flow
+============
+
+main.py
+  -> Load and validate configuration
+  -> Initialize logging
+  -> ProviderFactory creates ProviderBundle for selected mode
+  -> SessionPool creates/reuses broker session when required
+  -> Initialize CalendarSessionManager, providers, engine, and Strategy
+  -> Restore state when enabled
+  -> TradingEngine.start()
+
+Trading Loop (per tick/bar)
+===========================
+
+MarketDataProvider -> EventDispatcher -> Indicators -> TradingEngine context
+-> Strategy -> Signal -> RiskManager -> TradeManager -> ExecutionProvider
+-> TradeManager updates state -> Persistence/Reports
+
+High-Level Architecture
+=======================
+
+Configuration -> ProviderFactory -> ProviderBundle
+ProviderBundle -> MarketDataProvider / AccountProvider / ExecutionProvider
+ProviderFactory -> CalendarSessionManager -> TradingEngine
+TradingEngine -> Indicators -> Strategy -> RiskManager
+RiskManager -> TradeManager -> ExecutionProvider -> TradeManager
+TradeManager -> Persistence / Reports
+
+================================================================================
+MODE SWITCHING (Provider Factory)
+================================================================================
+
+Mode     | Market Data        | Execution | Account   | Session Timing | Purpose
+---------|--------------------|-----------|-----------|----------------|-----------------
+Live     | Broker Feed        | Broker    | Broker    | Real time      | Real trading
+Paper    | Broker Feed        | BrokerSim | BrokerSim | Real time      | Paper trading
+Backtest | HistoricalProvider | BrokerSim | BrokerSim | Fast advance   | Fast testing
+Replay   | HistoricalProvider | BrokerSim | BrokerSim | Replay speed   | Timed replay
+
+ProviderBundle contains market_data, account, execution, and calendar_session.
+Strategy never reads the active mode. New brokers require
+adapter registration only; new modes require ProviderFactory wiring only.
+
+KEY INTERFACES
+================================================================================
+
+TradingEngine
+- initialize(), start(), run(), stop(), shutdown()
+
+ProviderFactory
+- create_bundle(mode, config)
+- register_broker(name, adapter)
+
+MarketDataProvider
+- connect(), disconnect(), subscribe(), unsubscribe()
+- get_tick(), get_bar(), get_history()
+
+AccountProvider
+- connect(), disconnect()
+- get_balance(), get_margin(), get_buying_power(), get_profile()
+
+ExecutionProvider
+- place_order(), modify_order(), cancel_order(), cancel_all()
+- get_order(), get_order_status(), get_orders()
+- get_positions(), get_holdings(), get_trades(), get_pnl()
+- square_off()
+
+BrokerSession
+- login(), logout(), refresh(), is_connected()
+
+CalendarSessionManager
+- configure_mode(), now(), update_time(), wait_until(), reset()
+- is_trading_day(), is_market_open(), current_session(), next_open()
+- should_square_off(), detect_session_boundary()
+
+Indicator
+- calculate(), update(), reset(), warmup_period()
+
+Strategy
+- initialize()
+- on_market_open(), on_initial_setup()
+- on_tick(), on_bar()
+- on_order_filled(), on_order_rejected(), on_order_cancelled()
+- on_position_open(), on_position_close()
+- on_market_close(), shutdown()
+
+RiskManager
+- validate_order(), can_trade(), position_size(), update()
+- check_daily_limits(), activate_kill_switch(), reset_daily_state()
+
+TradeManager
+- create_order(), track_order(), modify_order(), cancel_order()
+- update_order_state(), get_order(), get_orders(), reconcile_orders()
+- open_position(), update_position(), close_position(), get_positions()
+- get_trades(), realized_pnl(), unrealized_pnl(), total_exposure()
+- reconcile_positions()
+
+EventDispatcher
+- register(), unregister()
+- emit(), dispatch()
+
+StateStore
+- save(), load(), checkpoint(), restore(), reconcile()
+
+PerformanceReporter
+- record_trade(), calculate_metrics(), generate_report(), export_trades()
+
+ORDER STATE MACHINE
+================================================================================
+
+NEW -> VALIDATED -> SUBMITTED -> OPEN
+                              +-> PARTIAL -> FILLED
+                              +-> FILLED / REJECTED / CANCELLED / EXPIRED
+
+Broker statuses are normalized. Transitions are validated, timestamped,
+idempotent, and persisted.
+
+POSITION STATE MACHINE
+================================================================================
+
+NO_POSITION -> ENTRY_PENDING -> OPEN -> EXIT_PENDING -> CLOSED
+
+TradeManager owns position state, exposure, and realized/unrealized P&L.
+Startup recovery reconciles stored positions with broker positions.
+
+DESIGN PRINCIPLES
+================================================================================
+
+1. Same Strategy across all modes.
+2. Provider substitution through dependency injection.
+3. Broker SDKs remain inside broker adapters.
+4. All time and session behaviour comes from CalendarSessionManager.
+5. One CalendarSessionManager supports real-time, fast, and replay timing.
+6. Events and models are normalized before reaching Strategy.
+7. Order/position state transitions are explicit and validated.
+8. Configuration controls mode, broker, calendar, and risk.
+9. Production behaviour is recoverable, observable, and auditable.
+10. Optional components are added only when required.
+
+Required production controls: position/order/daily-loss limits, stop loss,
+targets, trailing stop, square-off, duplicate-order prevention, kill switch,
+reconnect, token refresh, state recovery, audit trail, and Paper soak testing.
+
+SESSION LIFECYCLE
+================================================================================
+
+Broker session:
+Provider -> SessionPool -> reuse healthy session or login/refresh -> cache
+-> share with Account/MarketData/Execution -> reconnect/resubscribe on failure
+-> safe logout during shutdown.
+
+Market session:
+initialize() -> configure mode and check calendar -> on_market_open()
+-> on_initial_setup() -> on_tick()/on_bar() -> order/position callbacks
+-> should_square_off() -> on_market_close() -> checkpoint -> shutdown().
+
+Session timing:
+- Live/Paper: wall-clock time.
+- Backtest: advance directly through historical events.
+- Replay: advance historical events at configured replay speed.
+- TradingEngine always uses the same CalendarSessionManager methods.
+
+CURRENT STATUS
+================================================================================
+
+Version: Genesis
+Status: Planning
+Current milestone: Milestone 1 - Foundation
+Current phase: Phase 1 - Project Skeleton (NOT STARTED)
+Next: Begin Phase 1 after explicit implementation approval.
+
+Last Updated: 2026-08-22
