@@ -17,13 +17,14 @@ Provides:
 - Reusable log_call decorator
 """
 
-import pendulum as pdlm
 import logging
 import time
 from functools import wraps
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Callable, TypeVar, cast
+
+import pendulum as pdlm
 
 
 DEFAULT_LOG_DIR = Path("logs")
@@ -37,10 +38,16 @@ DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def _create_log_file_name() -> Path:
-    """Create a timestamped log filename using Asia/Kolkata time."""
+def _timestamp_log_path(log_path: Path) -> Path:
+    """Append an Asia/Kolkata timestamp to a configured log filename."""
     date_time = pdlm.now(DEFAULT_TIMEZONE).strftime("%Y%m%d_%H%M%S")
+    suffix = log_path.suffix or ".log"
+    return log_path.with_name(f"{log_path.stem}_{date_time}{suffix}")
 
+
+def _create_log_file_name() -> Path:
+    """Create the default timestamped log filename."""
+    date_time = pdlm.now(DEFAULT_TIMEZONE).strftime("%Y%m%d_%H%M%S")
     return DEFAULT_LOG_DIR / f"logger_file_{date_time}.log"
 
 
@@ -62,6 +69,7 @@ def configure_logging(
     log_file: str | Path | None = None,
     console: bool = True,
     file: bool = True,
+    timestamp: bool = False,
     max_bytes: int = 5 * 1024 * 1024,
     backup_count: int = 5,
 ) -> None:
@@ -89,7 +97,13 @@ def configure_logging(
         root_logger.addHandler(console_handler)
 
     if file:
-        log_path = Path(log_file) if log_file else _create_log_file_name()
+        if log_file:
+            log_path = Path(log_file)
+            if timestamp:
+                log_path = _timestamp_log_path(log_path)
+        else:
+            log_path = _create_log_file_name()
+
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         file_handler = RotatingFileHandler(
