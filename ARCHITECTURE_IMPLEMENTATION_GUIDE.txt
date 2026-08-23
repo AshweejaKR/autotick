@@ -37,9 +37,9 @@ Milestone 2: Mode-Neutral Core
 - Phase 9: TradingEngine lifecycle and event loop.
 
 Milestone 3: Strategy Framework
-- Phase 10: Indicator base and initial indicators.
-- Phase 11: Strategy base, context, and lifecycle callbacks.
-- Phase 12: Signal validation and sample strategy.
+- Phase 10: Indicator base and simple moving average (default period 20).
+- Phase 11: Strategy base, context, lifecycle callbacks, and simple long strategy.
+- Phase 12: Signal validation.
 
 Milestone 4: Provider Layer
 - Phase 13: Shared HistoricalProvider.
@@ -88,10 +88,11 @@ autotick/
 │   ├── market_data.py
 │   ├── account.py
 │   └── execution.py
-├── indicators/                # base, moving_average, rsi, vwap
+├── indicators/                # base, moving_average
 ├── strategy/
 │   ├── base.py
-│   └── sample_strategy.py
+│   ├── context.py
+│   └── simple_strategy.py
 ├── providers/
 │   ├── factory.py
 │   ├── session_pool.py
@@ -110,6 +111,7 @@ autotick/
 │   ├── trading_engine.py
 │   ├── market_session.py
 │   ├── dispatcher.py
+│   ├── signal_validator.py
 │   ├── risk_manager.py
 │   └── trade_manager.py
 ├── persistence/               # state_store.py
@@ -122,6 +124,11 @@ Rules:
 - Keep Strategy base under strategy/.
 - Do not add replay_provider.py or replay_clock.py.
 - Create optional files only in their implementation phase.
+- Add indicators only when a strategy requires them.
+- TradeManager/RiskManager own order-state, position-state, trailing, cooldown,
+  duplicate-entry, re-entry, target, stop-loss, quantity sizing, and risk workflow.
+- Strategy stays focused on market conditions and signal generation.
+- SignalValidator is engine-owned and performs structural checks only; it does not perform risk checks.
 
 ARCHITECTURE FLOW
 
@@ -141,8 +148,8 @@ Trading Loop (per tick/bar)
 ===========================
 
 MarketDataProvider -> EventDispatcher -> Indicators -> TradingEngine context
--> Strategy -> Signal -> RiskManager -> TradeManager -> ExecutionProvider
--> TradeManager updates state -> Persistence/Reports
+-> Strategy -> Signal -> SignalValidator -> RiskManager -> TradeManager
+-> ExecutionProvider -> TradeManager updates state -> Persistence/Reports
 
 High-Level Architecture
 =======================
@@ -150,7 +157,7 @@ High-Level Architecture
 Configuration -> ProviderFactory -> ProviderBundle
 ProviderBundle -> MarketDataProvider / AccountProvider / ExecutionProvider
 ProviderFactory -> CalendarSessionManager -> TradingEngine
-TradingEngine -> Indicators -> Strategy -> RiskManager
+TradingEngine -> Indicators -> Strategy -> SignalValidator -> RiskManager
 RiskManager -> TradeManager -> ExecutionProvider -> TradeManager
 TradeManager -> Persistence / Reports
 
@@ -209,9 +216,24 @@ Strategy
 - initialize()
 - on_market_open(), on_initial_setup()
 - on_tick(), on_bar()
-- on_order_filled(), on_order_rejected(), on_order_cancelled()
-- on_position_open(), on_position_close()
-- on_market_close(), shutdown()
+- on_order_filled()
+- on_market_close()
+
+SimpleStrategy
+- on_initial_setup() fetches the latest completed daily bar through MarketDataProvider.
+- Previous-day close comes from that bar.
+- BUY when LTP > previous-day close * 1.005.
+- Otherwise return no signal.
+- Target and stop loss come from configuration outside Strategy.
+- Duplicate-entry and re-entry decisions remain outside Strategy.
+
+SignalValidator
+- validate(signal)
+- Requires non-empty symbol and exchange.
+- Requires SignalType for signal_type.
+- quantity may be None; when supplied it must be greater than zero.
+- price may be None; when supplied it must be greater than zero.
+- Does not perform sizing, risk, target, stop-loss, duplicate-entry, or re-entry checks.
 
 RiskManager
 - validate_order(), can_trade(), position_size(), update()
@@ -280,8 +302,9 @@ Provider -> SessionPool -> reuse healthy session or login/refresh -> cache
 
 Market session:
 initialize() -> configure mode and check calendar -> on_market_open()
--> on_initial_setup() -> on_tick()/on_bar() -> order/position callbacks
--> should_square_off() -> on_market_close() -> checkpoint -> shutdown().
+-> on_initial_setup() -> on_tick()/on_bar() -> validate signal
+-> on_order_filled() -> should_square_off() -> on_market_close()
+-> checkpoint -> engine shutdown.
 
 Session timing:
 - Live/Paper: wall-clock time.
@@ -293,11 +316,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Status: Strategy Framework next
-Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
-Completed phases: Phase 1 through Phase 9
-Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 10 - Indicator base and initial indicators
-Next: Begin Phase 10 implementation after explicit approval.
+Status: Provider Layer next
+Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core; Milestone 3 - Strategy Framework
+Completed phases: Phase 1 through Phase 12
+Current milestone: Milestone 4 - Provider Layer
+Current phase: Phase 13 - Shared HistoricalProvider
+Next: Begin Phase 13 implementation after explicit approval.
 
 Last Updated: 2026-08-24
