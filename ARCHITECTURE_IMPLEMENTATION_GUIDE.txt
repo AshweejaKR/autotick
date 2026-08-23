@@ -181,7 +181,8 @@ ProviderFactory
 
 MarketDataProvider
 - connect(), disconnect(), subscribe(), unsubscribe()
-- get_tick(), get_bar(), get_history()
+- get_tick() for latest LTP, current volume, and tick timestamp
+- get_bars() for historical OHLCV candle data
 
 AccountProvider
 - connect(), disconnect()
@@ -291,10 +292,12 @@ Session timing:
 CURRENT STATUS
 ================================================================================
 
-Version: Genesis
-Status: Planning
-Current milestone: Milestone 1 - Foundation
-Current phase: Phase 1 - Project Skeleton (NOT STARTED)
-Next: Begin Phase 1 after explicit implementation approval.
+Version: 0.1.0
+Status: Foundation completed
+Completed milestone: Milestone 1 - Foundation
+Completed phases: Phase 1 through Phase 4
+Current milestone: Milestone 2 - Mode-Neutral Core
+Current phase: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
+Next: Begin Phase 5 after explicit implementation approval.
 
-Last Updated: 2026-08-22
+Last Updated: 2026-08-23
