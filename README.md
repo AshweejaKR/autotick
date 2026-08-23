@@ -28,13 +28,15 @@ Foundation is complete through Phase 4:
 
 ## Running
 
-Use the default repository configuration:
+Use the packaged default configuration:
 
 `autotick`
 
 Or pass an explicit configuration path:
 
 `autotick --config path/to/config.yaml`
+
+The repository-level `config/config.yaml` remains available for project-local configuration.
 
 ## Status
 
