@@ -38,8 +38,8 @@ Milestone 2: Mode-Neutral Core
 
 Milestone 3: Strategy Framework
 - Phase 10: Indicator base and simple moving average (default period 20).
-- Phase 11: Strategy base, context, and lifecycle callbacks.
-- Phase 12: Signal validation and sample strategy.
+- Phase 11: Strategy base, context, lifecycle callbacks, and simple long strategy.
+- Phase 12: Signal validation.
 
 Milestone 4: Provider Layer
 - Phase 13: Shared HistoricalProvider.
@@ -92,7 +92,7 @@ autotick/
 ├── strategy/
 │   ├── base.py
 │   ├── context.py
-│   └── sample_strategy.py
+│   └── simple_strategy.py
 ├── providers/
 │   ├── factory.py
 │   ├── session_pool.py
@@ -125,7 +125,8 @@ Rules:
 - Create optional files only in their implementation phase.
 - Add indicators only when a strategy requires them.
 - TradeManager/RiskManager own order-state, position-state, trailing, cooldown,
-  and risk workflow; Strategy callbacks stay focused on strategy decisions.
+  duplicate-entry, re-entry, target, stop-loss, and risk workflow.
+- Strategy stays focused on market conditions and signal generation.
 
 ARCHITECTURE FLOW
 
@@ -216,6 +217,14 @@ Strategy
 - on_order_filled()
 - on_market_close()
 
+SimpleStrategy
+- on_initial_setup() fetches the latest completed daily bar through MarketDataProvider.
+- Previous-day close comes from that bar.
+- BUY when LTP > previous-day close * 1.005.
+- Otherwise return no signal.
+- Target and stop loss come from configuration outside Strategy.
+- Duplicate-entry and re-entry decisions remain outside Strategy.
+
 RiskManager
 - validate_order(), can_trade(), position_size(), update()
 - check_daily_limits(), activate_kill_switch(), reset_daily_state()
@@ -300,7 +309,7 @@ Status: Strategy Framework in progress
 Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
 Completed phases: Phase 1 through Phase 10
 Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 11 - Strategy base, context, and lifecycle callbacks
+Current phase: Phase 11 - Strategy base, context, lifecycle callbacks, and simple long strategy
 Next: Review Phase 11 implementation before marking it complete.
 
 Last Updated: 2026-08-24
