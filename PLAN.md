@@ -24,8 +24,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 
 - Current milestone: Strategy Framework
 - Completed phase: Phase 9 - TradingEngine lifecycle and event loop
-- Current phase: Phase 10 - Indicator base and initial indicators
-- Status: Phases 1-9 completed; Foundation and Mode-Neutral Core milestones completed; Strategy Framework next
+- Current phase: Phase 10 - Indicator base and simple moving average (default period 20)
+- Status: Phases 1-9 completed; Phase 10 implementation committed for review
 
 ## Development Rule
 
