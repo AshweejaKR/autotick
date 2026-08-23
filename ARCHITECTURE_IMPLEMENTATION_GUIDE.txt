@@ -92,6 +92,7 @@ autotick/
 ├── strategy/
 │   ├── base.py
 │   ├── context.py
+│   ├── signal_validator.py
 │   └── simple_strategy.py
 ├── providers/
 │   ├── factory.py
@@ -125,8 +126,9 @@ Rules:
 - Create optional files only in their implementation phase.
 - Add indicators only when a strategy requires them.
 - TradeManager/RiskManager own order-state, position-state, trailing, cooldown,
-  duplicate-entry, re-entry, target, stop-loss, and risk workflow.
+  duplicate-entry, re-entry, target, stop-loss, quantity sizing, and risk workflow.
 - Strategy stays focused on market conditions and signal generation.
+- SignalValidator performs structural checks only; it does not perform risk checks.
 
 ARCHITECTURE FLOW
 
@@ -146,8 +148,8 @@ Trading Loop (per tick/bar)
 ===========================
 
 MarketDataProvider -> EventDispatcher -> Indicators -> TradingEngine context
--> Strategy -> Signal -> RiskManager -> TradeManager -> ExecutionProvider
--> TradeManager updates state -> Persistence/Reports
+-> Strategy -> Signal -> SignalValidator -> RiskManager -> TradeManager
+-> ExecutionProvider -> TradeManager updates state -> Persistence/Reports
 
 High-Level Architecture
 =======================
@@ -155,7 +157,7 @@ High-Level Architecture
 Configuration -> ProviderFactory -> ProviderBundle
 ProviderBundle -> MarketDataProvider / AccountProvider / ExecutionProvider
 ProviderFactory -> CalendarSessionManager -> TradingEngine
-TradingEngine -> Indicators -> Strategy -> RiskManager
+TradingEngine -> Indicators -> Strategy -> SignalValidator -> RiskManager
 RiskManager -> TradeManager -> ExecutionProvider -> TradeManager
 TradeManager -> Persistence / Reports
 
@@ -225,6 +227,14 @@ SimpleStrategy
 - Target and stop loss come from configuration outside Strategy.
 - Duplicate-entry and re-entry decisions remain outside Strategy.
 
+SignalValidator
+- validate(signal)
+- Requires non-empty symbol and exchange.
+- Requires SignalType for signal_type.
+- quantity may be None; when supplied it must be greater than zero.
+- price may be None; when supplied it must be greater than zero.
+- Does not perform sizing, risk, target, stop-loss, duplicate-entry, or re-entry checks.
+
 RiskManager
 - validate_order(), can_trade(), position_size(), update()
 - check_daily_limits(), activate_kill_switch(), reset_daily_state()
@@ -292,8 +302,9 @@ Provider -> SessionPool -> reuse healthy session or login/refresh -> cache
 
 Market session:
 initialize() -> configure mode and check calendar -> on_market_open()
--> on_initial_setup() -> on_tick()/on_bar() -> on_order_filled()
--> should_square_off() -> on_market_close() -> checkpoint -> engine shutdown.
+-> on_initial_setup() -> on_tick()/on_bar() -> validate signal
+-> on_order_filled() -> should_square_off() -> on_market_close()
+-> checkpoint -> engine shutdown.
 
 Session timing:
 - Live/Paper: wall-clock time.
@@ -309,7 +320,9 @@ Status: Strategy Framework in progress
 Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
 Completed phases: Phase 1 through Phase 10
 Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 11 - Strategy base, context, lifecycle callbacks, and simple long strategy
-Next: Review Phase 11 implementation before marking it complete.
+Current phase: Phase 12 - Signal validation
+Phase 11: implementation committed for review
+Phase 12: implementation committed for review
+Next: Review Phase 11 and Phase 12 before marking Strategy Framework complete.
 
 Last Updated: 2026-08-24
