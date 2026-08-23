@@ -37,7 +37,7 @@ Milestone 2: Mode-Neutral Core
 - Phase 9: TradingEngine lifecycle and event loop.
 
 Milestone 3: Strategy Framework
-- Phase 10: Indicator base and initial indicators.
+- Phase 10: Indicator base and simple moving average (default period 20).
 - Phase 11: Strategy base, context, and lifecycle callbacks.
 - Phase 12: Signal validation and sample strategy.
 
@@ -88,7 +88,7 @@ autotick/
 │   ├── market_data.py
 │   ├── account.py
 │   └── execution.py
-├── indicators/                # base, moving_average, rsi, vwap
+├── indicators/                # base, moving_average
 ├── strategy/
 │   ├── base.py
 │   └── sample_strategy.py
@@ -122,6 +122,7 @@ Rules:
 - Keep Strategy base under strategy/.
 - Do not add replay_provider.py or replay_clock.py.
 - Create optional files only in their implementation phase.
+- Add indicators only when a strategy requires them.
 
 ARCHITECTURE FLOW
 
@@ -293,11 +294,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Status: Strategy Framework next
+Status: Strategy Framework in progress
 Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
 Completed phases: Phase 1 through Phase 9
 Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 10 - Indicator base and initial indicators
-Next: Begin Phase 10 implementation after explicit approval.
+Current phase: Phase 10 - Indicator base and simple moving average (default period 20)
+Next: Review Phase 10 implementation before marking it complete.
 
 Last Updated: 2026-08-24
