@@ -28,7 +28,7 @@ Foundation is complete through Phase 4:
 
 ## Strategy Framework
 
-- Phase 10: Indicator base and simple moving average (SMA).
+- Phase 10: Indicator base and simple moving average (SMA) — completed.
 - SMA default period: 20.
 - Additional indicators are deferred until a strategy needs them.
 
@@ -48,9 +48,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core
-- Completed: Phases 1-9
+- Completed: Phases 1-10
 - Current milestone: Strategy Framework
-- Current: Phase 10 - Indicator base and simple moving average (default period 20)
+- Current: Phase 11 - Strategy base, context, and lifecycle callbacks
 
 ## Plan
 
