@@ -9,5 +9,6 @@ Strategy framework exports for AutoTick.
 
 from autotick.strategy.base import Strategy
 from autotick.strategy.context import StrategyContext
+from autotick.strategy.simple_strategy import SimpleStrategy
 
-__all__ = ["Strategy", "StrategyContext"]
+__all__ = ["SimpleStrategy", "Strategy", "StrategyContext"]
