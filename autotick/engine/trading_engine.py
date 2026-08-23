@@ -9,6 +9,7 @@ Mode-neutral TradingEngine lifecycle and event loop for AutoTick.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from queue import Empty, Queue
 
 from autotick.engine.dispatcher import EventDispatcher
@@ -39,8 +40,17 @@ class TradingEngine:
         """Connect providers once before engine start."""
         if self._initialized:
             return
-        self.providers.market_data.connect()
-        self.providers.account.connect()
+
+        try:
+            self.providers.market_data.connect()
+            self.providers.account.connect()
+        except Exception:
+            with suppress(Exception):
+                self.providers.account.disconnect()
+            with suppress(Exception):
+                self.providers.market_data.disconnect()
+            raise
+
         self._initialized = True
 
     def start(self) -> None:
