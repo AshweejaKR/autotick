@@ -92,7 +92,6 @@ autotick/
 ├── strategy/
 │   ├── base.py
 │   ├── context.py
-│   ├── signal_validator.py
 │   └── simple_strategy.py
 ├── providers/
 │   ├── factory.py
@@ -112,6 +111,7 @@ autotick/
 │   ├── trading_engine.py
 │   ├── market_session.py
 │   ├── dispatcher.py
+│   ├── signal_validator.py
 │   ├── risk_manager.py
 │   └── trade_manager.py
 ├── persistence/               # state_store.py
@@ -128,7 +128,7 @@ Rules:
 - TradeManager/RiskManager own order-state, position-state, trailing, cooldown,
   duplicate-entry, re-entry, target, stop-loss, quantity sizing, and risk workflow.
 - Strategy stays focused on market conditions and signal generation.
-- SignalValidator performs structural checks only; it does not perform risk checks.
+- SignalValidator is engine-owned and performs structural checks only; it does not perform risk checks.
 
 ARCHITECTURE FLOW
 
@@ -316,13 +316,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Status: Strategy Framework in progress
-Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core
-Completed phases: Phase 1 through Phase 10
-Current milestone: Milestone 3 - Strategy Framework
-Current phase: Phase 12 - Signal validation
-Phase 11: implementation committed for review
-Phase 12: implementation committed for review
-Next: Review Phase 11 and Phase 12 before marking Strategy Framework complete.
+Status: Provider Layer next
+Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core; Milestone 3 - Strategy Framework
+Completed phases: Phase 1 through Phase 12
+Current milestone: Milestone 4 - Provider Layer
+Current phase: Phase 13 - Shared HistoricalProvider
+Next: Begin Phase 13 implementation after explicit approval.
 
 Last Updated: 2026-08-24
