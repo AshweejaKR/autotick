@@ -35,6 +35,7 @@ Foundation is complete through Phase 4:
 - Simple strategy rule: BUY when LTP is more than 0.5% above previous-day close; otherwise no action.
 - Previous-day close is loaded through MarketDataProvider during initial setup.
 - Phase 12: Signal validation — committed for review.
+- SignalValidator lives in the engine layer; Strategy only generates signals.
 - Signal validation checks symbol, exchange, signal type, and positive quantity/price when supplied.
 - quantity=None is valid; RiskManager/TradeManager decides quantity from configuration.
 - Target, stop loss, duplicate-entry, re-entry, and other risk rules stay outside Strategy/SignalValidator.
