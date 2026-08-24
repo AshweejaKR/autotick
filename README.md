@@ -45,6 +45,9 @@ Foundation is complete through Phase 4:
 - Phase 13: Shared HistoricalProvider — completed.
 - Backtest and Replay share the same normalized historical market-data provider.
 - Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
+- Phase 14: Simulated account and execution providers — completed.
+- Simulated providers keep simple in-memory account/order state.
+- Position/trade verification and reconciliation remain TradeManager responsibilities.
 
 ## Running
 
@@ -62,9 +65,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework
-- Completed: Phases 1-13
+- Completed: Phases 1-14
 - Current milestone: Provider Layer
-- Current: Phase 14 - Simulated account and execution providers
+- Current: Phase 15 - First broker session and account adapters
 
 ## Plan
 
