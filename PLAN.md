@@ -34,10 +34,11 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 17: TradeManager and validated, timestamped order state machine
 - Phase 18: TradeManager position lifecycle, broker reconciliation, exposure, trades, and realized/unrealized P&L
 - Phase 19: RiskManager validation, risk-based quantity cap, stop loss, and configurable target
-- Phase 20: Daily loss limit, kill switch, and intraday-only square-off
+- Phase 20: Daily loss limit, filled-entry trade limit, kill switch, and intraday-only square-off
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
+- Daily filled entry trades are capped by `risk.max_trades_per_day`; default is 5
 - Position type defaults to POSITIONAL; only INTRADAY positions are auto squared off
 - Target and stop loss are risk configuration; duplicate-entry and re-entry remain outside Strategy/SignalValidator
 - Position/trade verification and reconciliation stay in TradeManager, not providers
