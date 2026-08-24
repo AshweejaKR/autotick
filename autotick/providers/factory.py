@@ -16,7 +16,12 @@ from autotick.engine.market_session import CalendarSessionManager
 from autotick.interfaces.account import AccountProvider
 from autotick.interfaces.execution import ExecutionProvider
 from autotick.interfaces.market_data import MarketDataProvider
-from autotick.providers.brokers.angelone import AngelOneMarketDataProvider, AngelOneSession
+from autotick.providers.brokers.angelone import (
+    AngelOneAccountProvider,
+    AngelOneExecutionProvider,
+    AngelOneMarketDataProvider,
+    AngelOneSession,
+)
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
@@ -75,6 +80,8 @@ class ProviderFactory:
         if not isinstance(config, dict):
             raise TypeError("config must be a dictionary")
 
+        if normalized == "live":
+            return cls._create_live(config)
         if normalized == "paper":
             return cls._create_paper(config)
         if normalized in {"backtest", "replay"}:
@@ -82,20 +89,31 @@ class ProviderFactory:
         raise NotImplementedError(f"{normalized} mode is not implemented yet")
 
     @classmethod
-    def _create_paper(cls, config: dict[str, Any]) -> ProviderBundle:
+    def _broker_session(cls, config: dict[str, Any]) -> tuple[str, AngelOneSession]:
         broker = str(config["broker"]).strip().lower()
         if broker != "angelone":
-            raise ValueError("Paper mode currently supports broker: angelone")
-
+            raise ValueError("Supported broker: angelone")
         broker_config = config["broker_config"][broker]
         session = cls._session_pool.get_or_create(
             broker,
             lambda: AngelOneSession(broker_config["credentials_file"]),
         )
-        market_data = AngelOneMarketDataProvider(
-            session,
-            exchange=config["market"]["exchange"],
-        )
+        return broker, session
+
+    @classmethod
+    def _create_live(cls, config: dict[str, Any]) -> ProviderBundle:
+        _, session = cls._broker_session(config)
+        market_data = AngelOneMarketDataProvider(session, config["market"]["exchange"])
+        account = AngelOneAccountProvider(session)
+        execution = AngelOneExecutionProvider(session)
+        calendar = CalendarSessionManager(config["session"])
+        calendar.configure_mode("live")
+        return ProviderBundle(market_data, account, execution, calendar)
+
+    @classmethod
+    def _create_paper(cls, config: dict[str, Any]) -> ProviderBundle:
+        _, session = cls._broker_session(config)
+        market_data = AngelOneMarketDataProvider(session, config["market"]["exchange"])
         return cls._simulated_bundle("paper", config, market_data)
 
     @classmethod
