@@ -85,11 +85,16 @@ class AngelOneExecutionProvider(ExecutionProvider):
                     exchange=position.exchange,
                     side=OrderSide.SELL if position.quantity > 0 else OrderSide.BUY,
                     quantity=abs(position.quantity),
+                    position_type=position.position_type,
                 )
             )
 
     def _order_params(self, order: Order) -> dict[str, object]:
         trading_symbol, token = self.session.get_instrument(order.symbol, order.exchange)
+        if order.position_type == PositionType.INTRADAY:
+            product = "INTRADAY"
+        else:
+            product = "DELIVERY" if order.exchange.upper() in {"NSE", "BSE"} else "CARRYFORWARD"
         return {
             "variety": "NORMAL",
             "tradingsymbol": trading_symbol,
@@ -97,7 +102,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             "transactiontype": order.side.value,
             "exchange": order.exchange,
             "ordertype": order.order_type.value,
-            "producttype": "DELIVERY" if order.exchange.upper() in {"NSE", "BSE"} else "CARRYFORWARD",
+            "producttype": product,
             "duration": "DAY",
             "price": order.price if order.order_type == OrderType.LIMIT else None,
             "quantity": order.quantity,
@@ -106,6 +111,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
     @staticmethod
     def _to_order(item: dict) -> Order:
         status = str(item.get("orderstatus") or item.get("status") or "").lower()
+        product = str(item.get("producttype", "")).upper()
         status_map = {
             "complete": OrderStatus.FILLED,
             "filled": OrderStatus.FILLED,
@@ -124,6 +130,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             order_type=OrderType.LIMIT if str(item.get("ordertype", "")).upper() == "LIMIT" else OrderType.MARKET,
             price=float(item.get("price", 0) or 0) or None,
             status=status_map.get(status, OrderStatus.SUBMITTED),
+            position_type=PositionType.INTRADAY if product == "INTRADAY" else PositionType.POSITIONAL,
         )
 
     @staticmethod
