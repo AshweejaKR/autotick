@@ -49,8 +49,11 @@ Foundation is complete through Phase 4:
 - Simulated providers keep simple in-memory account/order state.
 - Position/trade verification and reconciliation remain TradeManager responsibilities.
 - Phase 15: AngelOne SmartAPI session and account adapters — completed.
-- AngelOne session owns login, token refresh, logout, and shared SmartConnect client.
+- AngelOne session owns login, token refresh, logout, symbol resolution, and shared SmartConnect client.
 - AngelOne account adapter exposes profile, balance, margin, and buying power through the normalized account interface.
+- Phase 16: AngelOne SmartAPI market-data and execution adapters — completed.
+- Market-data adapter provides normalized LTP/ticks and historical OHLCV candles.
+- Execution adapter provides normalized orders, positions, holdings, trades, P&L, and order actions.
 
 ## Running
 
@@ -67,10 +70,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework
-- Completed: Phases 1-15
-- Current milestone: Provider Layer
-- Current: Phase 16 - First broker market-data and execution adapters
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
+- Completed: Phases 1-16
+- Current milestone: Execution and Risk
+- Current: Phase 17 - TradeManager and order state machine
 
 ## Plan
 
