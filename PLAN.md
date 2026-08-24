@@ -42,6 +42,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Backtest does not require broker login or broker credentials
 - Phase 23: Replay mode reuses HistoricalProvider and simulated account/execution with replay-speed session timing
 - Replay uses the same optional historical CSV source as Backtest and does not require broker login
+- Backtest and Replay detect trading-date changes through TradingEngine.advance_time()
+- New trading day closes prior strategy session, resets RiskManager daily state, then reruns on_market_open() and on_initial_setup()
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
