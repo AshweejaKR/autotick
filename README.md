@@ -55,6 +55,24 @@ Foundation is complete through Phase 4:
 - Market-data adapter provides normalized LTP/ticks and historical OHLCV candles.
 - Execution adapter provides normalized orders, positions, holdings, trades, P&L, and order actions.
 
+## Execution and Risk
+
+- Phase 17: TradeManager and order state machine — completed.
+- Orders follow NEW -> VALIDATED -> SUBMITTED -> OPEN/PARTIAL/FILLED or terminal rejected/cancelled/expired states.
+- TradeManager validates transitions, timestamps state changes, tracks normalized orders, and reconciles execution-provider order state.
+- Phase 18: TradeManager position lifecycle, exposure, and P&L — completed.
+- Positions track pending/open/closed state, broker reconciliation, trades, realized/unrealized P&L, and total exposure.
+- Phase 19: Risk validation, sizing, stop loss, and targets — completed.
+- RiskManager caps configured quantity using capital, per-trade risk, price, and stop-loss distance.
+- Stop loss and target are percentage-based; `target_pct` is user-configurable and defaults to 5.
+- Market orders can use current LTP for risk sizing without forcing a limit price.
+- Phase 20: Daily limits, square-off, and kill switch — completed.
+- Daily P&L at or below configured `max_loss` activates the kill switch and blocks new trades until reset.
+- Orders carry explicit `ENTRY` or `EXIT` intent. Only a FILLED `ENTRY` increments the daily trade count.
+- Reaching `max_trades_per_day` activates the kill switch; EXIT, rejected, and cancelled orders do not consume the limit.
+- Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
+- Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
+
 ## Running
 
 Use the packaged default configuration:
@@ -70,10 +88,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
-- Completed: Phases 1-16
-- Current milestone: Execution and Risk
-- Current: Phase 17 - TradeManager and order state machine
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
+- Completed: Phases 1-20
+- Current milestone: Trading Modes
+- Current: Phase 21 - Paper mode
 
 ## Plan
 
