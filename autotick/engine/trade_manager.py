@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from uuid import uuid4
 
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.models.order import Order, OrderStatus
-from autotick.models.position import Position, PositionStatus
+from autotick.models.order import Order, OrderSide, OrderStatus
+from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
 
 
@@ -50,7 +51,6 @@ class TradeManager:
         self._trades: dict[str, Trade] = {}
 
     def create_order(self, order: Order) -> Order:
-        """Validate, submit, and track one new order."""
         validated = self.update_order_state(order, OrderStatus.VALIDATED)
         submitted = self.execution.place_order(validated)
         self.track_order(submitted)
@@ -110,11 +110,7 @@ class TradeManager:
 
     def update_position(self, position: Position) -> Position:
         if position.quantity == 0:
-            position = replace(
-                position,
-                unrealized_pnl=0.0,
-                status=PositionStatus.CLOSED,
-            )
+            position = replace(position, unrealized_pnl=0.0, status=PositionStatus.CLOSED)
         else:
             position = replace(position, status=PositionStatus.OPEN)
         self._positions[self._position_key(position)] = position
@@ -125,14 +121,25 @@ class TradeManager:
         position = self._positions.get(key)
         if position is None:
             raise KeyError(f"Unknown position: {symbol}:{exchange}")
-        closed = replace(
-            position,
-            quantity=0,
-            unrealized_pnl=0.0,
-            status=PositionStatus.CLOSED,
-        )
+        closed = replace(position, quantity=0, unrealized_pnl=0.0, status=PositionStatus.CLOSED)
         self._positions[key] = closed
         return closed
+
+    def square_off_intraday(self) -> list[Order]:
+        """Submit exit orders only for open intraday positions."""
+        orders = []
+        for key, position in list(self._positions.items()):
+            if position.quantity == 0 or position.position_type != PositionType.INTRADAY:
+                continue
+            self._positions[key] = replace(position, status=PositionStatus.EXIT_PENDING)
+            orders.append(self.create_order(Order(
+                order_id=str(uuid4()),
+                symbol=position.symbol,
+                exchange=position.exchange,
+                side=OrderSide.SELL if position.quantity > 0 else OrderSide.BUY,
+                quantity=abs(position.quantity),
+            )))
+        return orders
 
     def get_positions(self) -> list[Position]:
         return list(self._positions.values())
@@ -147,10 +154,7 @@ class TradeManager:
         return sum(position.unrealized_pnl for position in self._positions.values())
 
     def total_exposure(self) -> float:
-        return sum(
-            abs(position.quantity * position.average_price)
-            for position in self._positions.values()
-        )
+        return sum(abs(position.quantity * position.average_price) for position in self._positions.values())
 
     def reconcile_positions(self) -> None:
         broker_positions = self.execution.get_positions()
@@ -165,6 +169,4 @@ class TradeManager:
             if position.status == PositionStatus.OPEN and key not in active_keys:
                 self.close_position(*key)
 
-        self._trades = {
-            trade.trade_id: trade for trade in self.execution.get_trades()
-        }
+        self._trades = {trade.trade_id: trade for trade in self.execution.get_trades()}
