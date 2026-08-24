@@ -23,7 +23,7 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 ## Current Status
 
 - Completed milestone: Execution and Risk
-- Completed phases: Phase 1 through Phase 22
+- Completed phases: Phase 1 through Phase 23
 - Phase 10: Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation
@@ -40,6 +40,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 22: Backtest mode uses HistoricalProvider with simulated account/execution and fast session timing
 - Backtest can optionally load normalized OHLCV bars from configured CSV; otherwise HistoricalProvider accepts in-memory bars
 - Backtest does not require broker login or broker credentials
+- Phase 23: Replay mode reuses HistoricalProvider and simulated account/execution with replay-speed session timing
+- Replay uses the same optional historical CSV source as Backtest and does not require broker login
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
@@ -49,8 +51,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Target and stop loss are risk configuration; duplicate-entry and re-entry remain outside Strategy/SignalValidator
 - Position/trade verification and reconciliation stay in TradeManager, not providers
 - Current milestone: Trading Modes
-- Current phase: Phase 23 - Replay mode
-- Status: Milestones 1-5 and Phases 1-22 completed
+- Current phase: Phase 24 - Live mode
+- Status: Milestones 1-5 and Phases 1-23 completed
 
 ## Development Rule
 
