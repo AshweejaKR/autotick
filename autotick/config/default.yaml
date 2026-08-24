@@ -29,6 +29,11 @@ session:
   only_market_hours: true
   replay_speed: 1.0
 
+backtest:
+  csv:
+    enabled: false
+    data_file: ""
+
 broker_config:
   angelone:
     credentials_file: "config/angelone_keys.env"
