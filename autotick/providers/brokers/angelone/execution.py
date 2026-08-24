@@ -89,10 +89,11 @@ class AngelOneExecutionProvider(ExecutionProvider):
             )
 
     def _order_params(self, order: Order) -> dict[str, object]:
+        trading_symbol, token = self.session.get_instrument(order.symbol, order.exchange)
         return {
             "variety": "NORMAL",
-            "tradingsymbol": order.symbol,
-            "symboltoken": self.session.get_token(order.symbol, order.exchange),
+            "tradingsymbol": trading_symbol,
+            "symboltoken": token,
             "transactiontype": order.side.value,
             "exchange": order.exchange,
             "ordertype": order.order_type.value,
