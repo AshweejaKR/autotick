@@ -7,6 +7,7 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
+import csv
 from datetime import datetime
 
 from autotick.interfaces.market_data import MarketDataProvider
@@ -21,6 +22,27 @@ class HistoricalProvider(MarketDataProvider):
         self._connected = False
         self._subscriptions: set[str] = set()
         self._current_time: datetime | None = None
+
+    @classmethod
+    def from_csv(cls, path: str) -> "HistoricalProvider":
+        """Load normalized bars from a CSV historical-data file."""
+        bars: dict[tuple[str, str], list[MarketBar]] = {}
+        with open(path, newline="", encoding="utf-8") as file:
+            for row in csv.DictReader(file):
+                bar = MarketBar(
+                    symbol=row["symbol"],
+                    exchange=row["exchange"],
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=int(row["volume"]),
+                    timestamp=datetime.fromisoformat(row["timestamp"]),
+                )
+                bars.setdefault((bar.symbol, row["interval"]), []).append(bar)
+        for items in bars.values():
+            items.sort(key=lambda item: item.timestamp)
+        return cls(bars)
 
     def connect(self) -> None:
         self._connected = True
