@@ -9,7 +9,7 @@ from autotick.models.account import Account
 from autotick.models.event import Event, EventType
 from autotick.models.market import MarketBar, MarketTick
 from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
-from autotick.models.position import Position
+from autotick.models.position import Position, PositionStatus
 from autotick.models.signal import Signal, SignalType
 from autotick.models.trade import Trade
 
@@ -24,6 +24,7 @@ __all__ = [
     "OrderStatus",
     "OrderType",
     "Position",
+    "PositionStatus",
     "Signal",
     "SignalType",
     "Trade",
