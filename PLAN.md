@@ -23,7 +23,7 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 ## Current Status
 
 - Completed milestone: Provider Layer
-- Completed phases: Phase 1 through Phase 18
+- Completed phases: Phase 1 through Phase 19
 - Phase 10: Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation
@@ -33,14 +33,15 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 16: AngelOne SmartAPI market-data and execution adapters
 - Phase 17: TradeManager and validated, timestamped order state machine
 - Phase 18: TradeManager position lifecycle, broker reconciliation, exposure, trades, and realized/unrealized P&L
+- Phase 19: RiskManager validation, risk-based quantity cap, stop loss, and configurable target
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
-- quantity=None is valid; RiskManager/TradeManager decides sizing from configuration
-- Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy/SignalValidator
+- quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
+- Target and stop loss are risk configuration; duplicate-entry and re-entry remain outside Strategy/SignalValidator
 - Position/trade verification and reconciliation stay in TradeManager, not providers
 - Current milestone: Execution and Risk
-- Current phase: Phase 19 - Risk validation, sizing, stop loss, and targets
-- Status: Milestones 1-4 and Phases 1-18 completed
+- Current phase: Phase 20 - Daily limits, square-off, and kill switch
+- Status: Milestones 1-4 and Phases 1-19 completed
 
 ## Development Rule
 
