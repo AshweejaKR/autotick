@@ -21,6 +21,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
 )
+from autotick.providers.historical import HistoricalProvider
 from autotick.providers.session_pool import SessionPool
 
 
@@ -73,9 +74,15 @@ class ProviderFactory:
         cls.resolve_mode(normalized)
         if not isinstance(config, dict):
             raise TypeError("config must be a dictionary")
-        if normalized != "paper":
-            raise NotImplementedError(f"{normalized} mode is not implemented yet")
 
+        if normalized == "paper":
+            return cls._create_paper(config)
+        if normalized == "backtest":
+            return cls._create_backtest(config)
+        raise NotImplementedError(f"{normalized} mode is not implemented yet")
+
+    @classmethod
+    def _create_paper(cls, config: dict[str, Any]) -> ProviderBundle:
         broker = str(config["broker"]).strip().lower()
         if broker != "angelone":
             raise ValueError("Paper mode currently supports broker: angelone")
@@ -89,8 +96,25 @@ class ProviderFactory:
             session,
             exchange=config["market"]["exchange"],
         )
+        return cls._simulated_bundle("paper", config, market_data)
+
+    @classmethod
+    def _create_backtest(cls, config: dict[str, Any]) -> ProviderBundle:
+        csv_config = config.get("backtest", {}).get("csv", {})
+        if csv_config.get("enabled") and csv_config.get("data_file"):
+            market_data = HistoricalProvider.from_csv(csv_config["data_file"])
+        else:
+            market_data = HistoricalProvider()
+        return cls._simulated_bundle("backtest", config, market_data)
+
+    @staticmethod
+    def _simulated_bundle(
+        mode: str,
+        config: dict[str, Any],
+        market_data: MarketDataProvider,
+    ) -> ProviderBundle:
         account = SimulatedAccountProvider(float(config["capital"]))
         execution = SimulatedExecutionProvider(market_data)
         calendar = CalendarSessionManager(config["session"])
-        calendar.configure_mode("paper")
+        calendar.configure_mode(mode)
         return ProviderBundle(market_data, account, execution, calendar)
