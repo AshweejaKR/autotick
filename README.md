@@ -40,6 +40,12 @@ Foundation is complete through Phase 4:
 - quantity=None is valid; RiskManager/TradeManager decides quantity from configuration.
 - Target, stop loss, duplicate-entry, re-entry, and other risk rules stay outside Strategy/SignalValidator.
 
+## Provider Layer
+
+- Phase 13: Shared HistoricalProvider — completed.
+- Backtest and Replay share the same normalized historical market-data provider.
+- Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
+
 ## Running
 
 Use the packaged default configuration:
@@ -56,9 +62,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework
-- Completed: Phases 1-12
+- Completed: Phases 1-13
 - Current milestone: Provider Layer
-- Current: Phase 13 - Shared HistoricalProvider
+- Current: Phase 14 - Simulated account and execution providers
 
 ## Plan
 
