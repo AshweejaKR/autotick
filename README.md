@@ -73,6 +73,13 @@ Foundation is complete through Phase 4:
 - Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
 - Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
 
+## Trading Modes
+
+- Phase 21: Paper mode — completed.
+- Paper mode uses AngelOne live market data with simulated account and execution providers.
+- Paper MARKET orders fill immediately at the current AngelOne LTP; no broker order is sent.
+- Paper mode uses real-time CalendarSessionManager timing.
+
 ## Running
 
 Use the packaged default configuration:
@@ -89,9 +96,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
-- Completed: Phases 1-20
+- Completed: Phases 1-21
 - Current milestone: Trading Modes
-- Current: Phase 21 - Paper mode
+- Current: Phase 22 - Backtest mode
 
 ## Plan
 
