@@ -53,7 +53,7 @@ def _hhmm(value: Any, name: str) -> None:
 
 
 def validate_config(config: dict[str, Any]) -> None:
-    """Validate the Phase 2 AutoTick YAML configuration."""
+    """Validate the AutoTick YAML configuration."""
     mode = _require(config, "mode")
     if mode not in _VALID_MODES:
         raise ConfigValidationError(
@@ -92,7 +92,7 @@ def validate_config(config: dict[str, Any]) -> None:
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
-    for key in ("risk_per_trade_pct", "stoploss_pct", "trailing_sl_pct"):
+    for key in ("risk_per_trade_pct", "stoploss_pct", "target_pct", "trailing_sl_pct"):
         value = _require(risk, key, "risk")
         _number(value, f"risk.{key}")
         if value < 0 or value > 100:
