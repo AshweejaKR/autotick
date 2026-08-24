@@ -66,7 +66,10 @@ Foundation is complete through Phase 4:
 - RiskManager caps configured quantity using capital, per-trade risk, price, and stop-loss distance.
 - Stop loss and target are percentage-based; `target_pct` is user-configurable and defaults to 5.
 - Market orders can use current LTP for risk sizing without forcing a limit price.
-- Daily limits, square-off, and kill switch remain Phase 20.
+- Phase 20: Daily limits, square-off, and kill switch — completed.
+- Daily P&L at or below configured `max_loss` activates the kill switch and blocks new trades until reset.
+- Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
+- Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
 
 ## Running
 
@@ -83,10 +86,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
-- Completed: Phases 1-19
-- Current milestone: Execution and Risk
-- Current: Phase 20 - Daily limits, square-off, and kill switch
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
+- Completed: Phases 1-20
+- Current milestone: Trading Modes
+- Current: Phase 21 - Paper mode
 
 ## Plan
 
