@@ -118,7 +118,7 @@ def validate_config(config: dict[str, Any]) -> None:
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
             raise ConfigValidationError(f"broker_config.{broker} must be configured")
 
-    if mode == "backtest":
+    if mode in {"backtest", "replay"}:
         backtest = config.get("backtest", {})
         csv_config = backtest.get("csv", {})
         if csv_config and not isinstance(csv_config.get("enabled", False), bool):
