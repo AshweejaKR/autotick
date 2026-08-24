@@ -52,7 +52,12 @@ class AngelOneMarketDataProvider(MarketDataProvider):
 
     def get_tick(self, symbol: str) -> MarketTick | None:
         trading_symbol, token = self.session.get_instrument(symbol, self.exchange)
-        response = self.session.client.ltpData(self.exchange, trading_symbol, token)
+        response = self.session.call(
+            self.session.client.ltpData,
+            self.exchange,
+            trading_symbol,
+            token,
+        ) or {}
         data = response.get("data") if response.get("status") else None
         if not data:
             return None
@@ -72,15 +77,16 @@ class AngelOneMarketDataProvider(MarketDataProvider):
 
         now = datetime.now(self._timezone)
         start = now - timedelta(days=30 if interval.lower() == "1d" else 5)
-        response = self.session.client.getCandleData(
+        response = self.session.call(
+            self.session.client.getCandleData,
             {
                 "exchange": self.exchange,
                 "symboltoken": self.session.get_token(symbol, self.exchange),
                 "interval": api_interval,
                 "fromdate": start.strftime("%Y-%m-%d %H:%M"),
                 "todate": now.strftime("%Y-%m-%d %H:%M"),
-            }
-        )
+            },
+        ) or {}
         return [
             MarketBar(
                 symbol=symbol,
