@@ -25,6 +25,7 @@ class AngelOneSession:
         self.client = SmartConnect(api_key=self.api_key)
         self.refresh_token: str | None = None
         self._connected = False
+        self._tokens: dict[tuple[str, str], str] = {}
 
     def login(self) -> None:
         if self._connected:
@@ -52,6 +53,19 @@ class AngelOneSession:
 
     def is_connected(self) -> bool:
         return self._connected
+
+    def get_token(self, symbol: str, exchange: str) -> str:
+        key = (symbol.upper(), exchange.upper())
+        if key in self._tokens:
+            return self._tokens[key]
+
+        response = self.client.searchScrip(key[1], key[0])
+        for item in response.get("data") or []:
+            if item.get("tradingsymbol", "").upper() == key[0]:
+                token = str(item["symboltoken"])
+                self._tokens[key] = token
+                return token
+        raise ValueError(f"AngelOne token not found for {symbol} on {exchange}")
 
     @staticmethod
     def _load_credentials(path: str) -> dict[str, str]:
