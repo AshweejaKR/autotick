@@ -19,6 +19,7 @@ class ConfigValidationError(ValueError):
 
 _VALID_MODES = {"live", "paper", "backtest", "replay"}
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_VALID_POSITION_TYPES = {"INTRADAY", "POSITIONAL"}
 
 
 def _require(config: dict[str, Any], key: str, path: str = "") -> Any:
@@ -89,6 +90,9 @@ def validate_config(config: dict[str, Any]) -> None:
     quantity = _require(trade, "quantity", "trade")
     if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
         raise ConfigValidationError("trade.quantity must be a positive integer")
+    position_type = trade.get("position_type", "POSITIONAL")
+    if not isinstance(position_type, str) or position_type.upper() not in _VALID_POSITION_TYPES:
+        raise ConfigValidationError("trade.position_type must be INTRADAY or POSITIONAL")
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
