@@ -20,6 +20,11 @@ class PositionStatus(str, Enum):
     CLOSED = "CLOSED"
 
 
+class PositionType(str, Enum):
+    INTRADAY = "INTRADAY"
+    POSITIONAL = "POSITIONAL"
+
+
 @dataclass(slots=True)
 class Position:
     symbol: str
@@ -29,3 +34,4 @@ class Position:
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0
     status: PositionStatus = PositionStatus.OPEN
+    position_type: PositionType = PositionType.POSITIONAL
