@@ -26,11 +26,11 @@ MILESTONES & PHASES
 Milestone 1: Foundation
 - Phase 1: Project skeleton, packaging, entry point, and logging.
 - Phase 2: YAML configuration loading and validation.
-- Phase 3: Common market, signal, order, position, trade, account, event models.
+- Phase 3: Common models and provider interfaces.
 - Phase 4: MarketData, Account, and Execution interfaces.
 
 Milestone 2: Mode-Neutral Core
-- Phase 5: ProviderFactory, ProviderBundle, and mode mapping.
+- Phase 5: ProviderFactory and mode mapping.
 - Phase 6: SessionPool and broker-session lifecycle.
 - Phase 7: Mode-aware CalendarSessionManager.
 - Phase 8: EventDispatcher and normalized events.
@@ -316,11 +316,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Status: Provider Layer next
-Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core; Milestone 3 - Strategy Framework
-Completed phases: Phase 1 through Phase 12
-Current milestone: Milestone 4 - Provider Layer
-Current phase: Phase 13 - Shared HistoricalProvider
-Next: Begin Phase 13 implementation after explicit approval.
+Status: Execution and Risk next
+Completed milestones: Milestone 1 - Foundation; Milestone 2 - Mode-Neutral Core; Milestone 3 - Strategy Framework; Milestone 4 - Provider Layer
+Completed phases: Phase 1 through Phase 16
+Current milestone: Milestone 5 - Execution and Risk
+Current phase: Phase 17 - TradeManager and order state machine
+Next: Begin Phase 17 implementation after explicit approval.
 
 Last Updated: 2026-08-24
