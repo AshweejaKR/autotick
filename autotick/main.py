@@ -32,6 +32,18 @@ def _symbols(value: str | list[str]) -> list[str]:
     return value if isinstance(value, list) else [value]
 
 
+def _setup_strategies(providers, symbols: list[str]) -> dict[str, SimpleStrategy]:
+    strategies = {}
+    for symbol in symbols:
+        tick = providers.market_data.get_tick(symbol)
+        strategy = SimpleStrategy()
+        strategy.initialize(StrategyContext(providers.market_data, symbol, tick=tick))
+        strategy.on_market_open()
+        strategy.on_initial_setup()
+        strategies[symbol] = strategy
+    return strategies
+
+
 def main() -> None:
     args = _parse_args()
     config = load_config(args.config.expanduser().resolve())
@@ -52,26 +64,29 @@ def main() -> None:
     trades = TradeManager(providers.execution, risk)
     position_type = PositionType(config["trade"].get("position_type", "POSITIONAL").upper())
     symbols = _symbols(config["market"]["symbols"])
-    strategies: dict[str, SimpleStrategy] = {}
     entered: set[str] = set()
 
     try:
         providers.market_data.connect()
         providers.account.connect()
         providers.market_data.subscribe(symbols)
-
-        for symbol in symbols:
-            tick = providers.market_data.get_tick(symbol)
-            strategy = SimpleStrategy()
-            strategy.initialize(StrategyContext(providers.market_data, symbol, tick=tick))
-            strategy.on_market_open()
-            strategy.on_initial_setup()
-            strategies[symbol] = strategy
+        strategies = _setup_strategies(providers, symbols)
+        trading_date = providers.calendar_session.now().date()
 
         logger.info("AutoTick %s mode started for %s", mode.upper(), ", ".join(symbols))
 
         while True:
-            if config["session"]["only_market_hours"] and not providers.calendar_session.is_market_open():
+            now = providers.calendar_session.now()
+            market_open = providers.calendar_session.is_market_open(now)
+            if now.date() != trading_date and market_open:
+                for strategy in strategies.values():
+                    strategy.on_market_close()
+                risk.reset_daily_state()
+                entered.clear()
+                strategies = _setup_strategies(providers, symbols)
+                trading_date = now.date()
+
+            if config["session"]["only_market_hours"] and not market_open:
                 sleep(config["engine"]["loop_sleep_s"])
                 continue
 
@@ -87,13 +102,12 @@ def main() -> None:
                     continue
 
                 SignalValidator.validate(signal)
-                quantity = risk.position_size(float(signal.price))
                 order = Order(
                     order_id=str(uuid4()),
                     symbol=signal.symbol,
                     exchange=signal.exchange,
                     side=OrderSide.BUY,
-                    quantity=quantity,
+                    quantity=config["trade"]["quantity"],
                     price=signal.price,
                     position_type=position_type,
                 )
