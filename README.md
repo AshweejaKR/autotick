@@ -48,6 +48,9 @@ Foundation is complete through Phase 4:
 - Phase 14: Simulated account and execution providers — completed.
 - Simulated providers keep simple in-memory account/order state.
 - Position/trade verification and reconciliation remain TradeManager responsibilities.
+- Phase 15: AngelOne SmartAPI session and account adapters — completed.
+- AngelOne session owns login, token refresh, logout, and shared SmartConnect client.
+- AngelOne account adapter exposes profile, balance, margin, and buying power through the normalized account interface.
 
 ## Running
 
@@ -65,9 +68,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework
-- Completed: Phases 1-14
+- Completed: Phases 1-15
 - Current milestone: Provider Layer
-- Current: Phase 15 - First broker session and account adapters
+- Current: Phase 16 - First broker market-data and execution adapters
 
 ## Plan
 
