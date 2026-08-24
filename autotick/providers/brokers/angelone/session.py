@@ -25,7 +25,7 @@ class AngelOneSession:
         self.client = SmartConnect(api_key=self.api_key)
         self.refresh_token: str | None = None
         self._connected = False
-        self._tokens: dict[tuple[str, str], str] = {}
+        self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
 
     def login(self) -> None:
         if self._connected:
@@ -54,18 +54,31 @@ class AngelOneSession:
     def is_connected(self) -> bool:
         return self._connected
 
-    def get_token(self, symbol: str, exchange: str) -> str:
+    def get_instrument(self, symbol: str, exchange: str) -> tuple[str, str]:
         key = (symbol.upper(), exchange.upper())
-        if key in self._tokens:
-            return self._tokens[key]
+        if key in self._instruments:
+            return self._instruments[key]
 
         response = self.client.searchScrip(key[1], key[0])
-        for item in response.get("data") or []:
-            if item.get("tradingsymbol", "").upper() == key[0]:
-                token = str(item["symboltoken"])
-                self._tokens[key] = token
-                return token
-        raise ValueError(f"AngelOne token not found for {symbol} on {exchange}")
+        matches = response.get("data") or []
+        item = next(
+            (
+                value
+                for value in matches
+                if value.get("tradingsymbol", "").upper() == key[0]
+                or value.get("tradingsymbol", "").upper().startswith(f"{key[0]}-")
+            ),
+            None,
+        )
+        if item is None:
+            raise ValueError(f"AngelOne token not found for {symbol} on {exchange}")
+
+        instrument = (str(item["tradingsymbol"]), str(item["symboltoken"]))
+        self._instruments[key] = instrument
+        return instrument
+
+    def get_token(self, symbol: str, exchange: str) -> str:
+        return self.get_instrument(symbol, exchange)[1]
 
     @staticmethod
     def _load_credentials(path: str) -> dict[str, str]:
