@@ -92,6 +92,9 @@ def validate_config(config: dict[str, Any]) -> None:
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
+    max_trades = _require(risk, "max_trades_per_day", "risk")
+    if isinstance(max_trades, bool) or not isinstance(max_trades, int) or max_trades <= 0:
+        raise ConfigValidationError("risk.max_trades_per_day must be a positive integer")
     for key in ("risk_per_trade_pct", "stoploss_pct", "target_pct", "trailing_sl_pct"):
         value = _require(risk, key, "risk")
         _number(value, f"risk.{key}")
