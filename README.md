@@ -91,6 +91,10 @@ Foundation is complete through Phase 4:
 - Replay mode does not log in to a broker and does not add a separate ReplayProvider.
 - TradingEngine detects historical date changes through `advance_time()`.
 - Each new day closes the prior strategy session, resets daily risk state, then runs `on_market_open()` and `on_initial_setup()` again for daily strategy calculations.
+- Phase 24: Live mode — completed.
+- Live mode uses one shared AngelOne session for live market data, broker account, and broker execution.
+- Live mode uses real-time CalendarSessionManager timing.
+- Orders carry `position_type`; AngelOne maps `INTRADAY` to broker intraday and `POSITIONAL` to delivery/carry-forward products.
 
 ## Running
 
@@ -107,10 +111,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
-- Completed: Phases 1-23
-- Current milestone: Trading Modes
-- Current: Phase 24 - Live mode
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
+- Completed: Phases 1-24
+- Current milestone: Recovery and Persistence
+- Current: Phase 25 - Persistence, recovery, and reconciliation
 
 ## Plan
 
