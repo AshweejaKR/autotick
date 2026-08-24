@@ -8,6 +8,7 @@ Created on Mon Aug 24 19:56:33 2026
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from autotick.interfaces.market_data import MarketDataProvider
 from autotick.models.market import MarketBar, MarketTick
@@ -31,6 +32,7 @@ class AngelOneMarketDataProvider(MarketDataProvider):
     def __init__(self, session: AngelOneSession, exchange: str = "NSE") -> None:
         self.session = session
         self.exchange = exchange.upper()
+        self._timezone = ZoneInfo("Asia/Kolkata")
         self._subscriptions: set[str] = set()
 
     def connect(self) -> None:
@@ -60,7 +62,7 @@ class AngelOneMarketDataProvider(MarketDataProvider):
             exchange=self.exchange,
             ltp=float(data.get("ltp", 0.0)),
             volume=int(volume) if volume is not None else None,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(self._timezone),
         )
 
     def get_bars(self, symbol: str, interval: str) -> list[MarketBar]:
@@ -68,7 +70,7 @@ class AngelOneMarketDataProvider(MarketDataProvider):
         if api_interval is None:
             raise ValueError(f"Unsupported AngelOne interval: {interval}")
 
-        now = datetime.now()
+        now = datetime.now(self._timezone)
         start = now - timedelta(days=30 if interval.lower() == "1d" else 5)
         response = self.session.client.getCandleData(
             {
@@ -83,7 +85,7 @@ class AngelOneMarketDataProvider(MarketDataProvider):
             MarketBar(
                 symbol=symbol,
                 exchange=self.exchange,
-                timestamp=datetime.fromisoformat(str(row[0])),
+                timestamp=self._parse_timestamp(row[0]),
                 open=float(row[1]),
                 high=float(row[2]),
                 low=float(row[3]),
@@ -92,3 +94,9 @@ class AngelOneMarketDataProvider(MarketDataProvider):
             )
             for row in (response.get("data") or [])
         ]
+
+    def _parse_timestamp(self, value: object) -> datetime:
+        timestamp = datetime.fromisoformat(str(value))
+        if timestamp.tzinfo is None:
+            return timestamp.replace(tzinfo=self._timezone)
+        return timestamp.astimezone(self._timezone)
