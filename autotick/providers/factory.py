@@ -77,8 +77,8 @@ class ProviderFactory:
 
         if normalized == "paper":
             return cls._create_paper(config)
-        if normalized == "backtest":
-            return cls._create_backtest(config)
+        if normalized in {"backtest", "replay"}:
+            return cls._create_historical(normalized, config)
         raise NotImplementedError(f"{normalized} mode is not implemented yet")
 
     @classmethod
@@ -99,13 +99,14 @@ class ProviderFactory:
         return cls._simulated_bundle("paper", config, market_data)
 
     @classmethod
-    def _create_backtest(cls, config: dict[str, Any]) -> ProviderBundle:
+    def _create_historical(cls, mode: str, config: dict[str, Any]) -> ProviderBundle:
         csv_config = config.get("backtest", {}).get("csv", {})
-        if csv_config.get("enabled") and csv_config.get("data_file"):
-            market_data = HistoricalProvider.from_csv(csv_config["data_file"])
-        else:
-            market_data = HistoricalProvider()
-        return cls._simulated_bundle("backtest", config, market_data)
+        market_data = (
+            HistoricalProvider.from_csv(csv_config["data_file"])
+            if csv_config.get("enabled") and csv_config.get("data_file")
+            else HistoricalProvider()
+        )
+        return cls._simulated_bundle(mode, config, market_data)
 
     @staticmethod
     def _simulated_bundle(
