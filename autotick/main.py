@@ -105,7 +105,15 @@ def main() -> None:
         logger.debug("Subscribed symbols=%s", symbols)
 
         strategies = _setup_strategies(providers, symbols)
-        trading_date = providers.calendar_session.now().date()
+        now = providers.calendar_session.now()
+        trading_date = now.date()
+        logger.info(
+            "Session status=%s current=%s market=%s-%s",
+            providers.calendar_session.current_session(now),
+            now.strftime("%H:%M:%S"),
+            config["session"]["market_start"],
+            config["session"]["market_end"],
+        )
         logger.info("AutoTick %s mode started", mode.upper())
 
         while True:
