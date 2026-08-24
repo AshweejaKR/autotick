@@ -35,12 +35,12 @@ class RiskManager:
         return min(self.quantity, int(risk_amount / risk_per_unit))
 
     def validate_order(self, order: Order, price: float | None = None) -> Order:
-        if not self.can_trade(price if price is not None else order.price or 0):
-            raise RuntimeError("Trading blocked by daily risk limits")
         current_price = price if price is not None else order.price
+        if current_price is None or current_price <= 0:
+            raise ValueError("Current price must be greater than zero")
+        if not self.can_trade(current_price):
+            raise RuntimeError("Trading blocked by daily risk limits")
         quantity = self.position_size(current_price)
-        if quantity <= 0:
-            raise ValueError("Order quantity is zero after risk sizing")
         return replace(order, quantity=min(order.quantity, quantity))
 
     def can_trade(self, price: float) -> bool:
