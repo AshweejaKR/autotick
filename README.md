@@ -89,6 +89,8 @@ Foundation is complete through Phase 4:
 - Replay mode reuses the Backtest HistoricalProvider and simulated account/execution providers.
 - Replay reads the same optional `backtest.csv` source and uses `session.replay_speed` for timed historical playback.
 - Replay mode does not log in to a broker and does not add a separate ReplayProvider.
+- TradingEngine detects historical date changes through `advance_time()`.
+- Each new day closes the prior strategy session, resets daily risk state, then runs `on_market_open()` and `on_initial_setup()` again for daily strategy calculations.
 
 ## Running
 
