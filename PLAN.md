@@ -23,17 +23,18 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 ## Current Status
 
 - Completed milestone: Strategy Framework
-- Completed phases: Phase 1 through Phase 12
+- Completed phases: Phase 1 through Phase 13
 - Phase 10: Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation
+- Phase 13: Shared HistoricalProvider for Backtest and Replay historical market data
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid; RiskManager/TradeManager decides sizing from configuration
 - Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy/SignalValidator
 - Current milestone: Provider Layer
-- Current phase: Phase 13 - Shared HistoricalProvider
-- Status: Milestones 1-3 and Phases 1-12 completed
+- Current phase: Phase 14 - Simulated account and execution providers
+- Status: Milestones 1-3 and Phases 1-13 completed
 
 ## Development Rule
 
