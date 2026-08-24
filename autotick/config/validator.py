@@ -113,9 +113,20 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("session.only_market_hours must be boolean")
     _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
-    broker_config = _mapping(config, "broker_config")
-    if broker not in broker_config or not isinstance(broker_config[broker], dict):
-        raise ConfigValidationError(f"broker_config.{broker} must be configured")
+    if mode in {"live", "paper"}:
+        broker_config = _mapping(config, "broker_config")
+        if broker not in broker_config or not isinstance(broker_config[broker], dict):
+            raise ConfigValidationError(f"broker_config.{broker} must be configured")
+
+    if mode == "backtest":
+        backtest = config.get("backtest", {})
+        csv_config = backtest.get("csv", {})
+        if csv_config and not isinstance(csv_config.get("enabled", False), bool):
+            raise ConfigValidationError("backtest.csv.enabled must be boolean")
+        if csv_config.get("enabled"):
+            data_file = csv_config.get("data_file")
+            if not isinstance(data_file, str) or not data_file.strip():
+                raise ConfigValidationError("backtest.csv.data_file is required when enabled")
 
     persistence = _mapping(config, "persistence")
     if not isinstance(_require(persistence, "enabled", "persistence"), bool):
