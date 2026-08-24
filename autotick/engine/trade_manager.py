@@ -11,8 +11,9 @@ from dataclasses import replace
 from datetime import datetime
 from uuid import uuid4
 
+from autotick.engine.risk_manager import RiskManager
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.models.order import Order, OrderSide, OrderStatus
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
 
@@ -44,8 +45,13 @@ class TradeManager:
         },
     }
 
-    def __init__(self, execution: ExecutionProvider) -> None:
+    def __init__(
+        self,
+        execution: ExecutionProvider,
+        risk_manager: RiskManager | None = None,
+    ) -> None:
         self.execution = execution
+        self.risk_manager = risk_manager
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, Trade] = {}
@@ -83,6 +89,12 @@ class TradeManager:
             raise ValueError(f"Invalid order transition: {order.status} -> {status}")
         updated = replace(order, status=status, status_updated_at=datetime.now())
         self.track_order(updated)
+        if (
+            status == OrderStatus.FILLED
+            and updated.intent == OrderIntent.ENTRY
+            and self.risk_manager is not None
+        ):
+            self.risk_manager.record_entry()
         return updated
 
     def get_order(self, order_id: str) -> Order | None:
@@ -138,6 +150,7 @@ class TradeManager:
                 exchange=position.exchange,
                 side=OrderSide.SELL if position.quantity > 0 else OrderSide.BUY,
                 quantity=abs(position.quantity),
+                intent=OrderIntent.EXIT,
             )))
         return orders
 
