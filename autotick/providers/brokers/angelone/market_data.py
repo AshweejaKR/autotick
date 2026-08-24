@@ -42,23 +42,24 @@ class AngelOneMarketDataProvider(MarketDataProvider):
 
     def subscribe(self, symbols: list[str]) -> None:
         for symbol in symbols:
-            self.session.get_token(symbol, self.exchange)
+            self.session.get_instrument(symbol, self.exchange)
             self._subscriptions.add(symbol.upper())
 
     def unsubscribe(self, symbols: list[str]) -> None:
         self._subscriptions.difference_update(symbol.upper() for symbol in symbols)
 
     def get_tick(self, symbol: str) -> MarketTick | None:
-        token = self.session.get_token(symbol, self.exchange)
-        response = self.session.client.ltpData(self.exchange, symbol, token)
+        trading_symbol, token = self.session.get_instrument(symbol, self.exchange)
+        response = self.session.client.ltpData(self.exchange, trading_symbol, token)
         data = response.get("data") if response.get("status") else None
         if not data:
             return None
+        volume = data.get("tradeVolume")
         return MarketTick(
             symbol=symbol,
             exchange=self.exchange,
             ltp=float(data.get("ltp", 0.0)),
-            volume=int(data.get("tradeVolume", 0) or 0),
+            volume=int(volume) if volume is not None else None,
             timestamp=datetime.now(),
         )
 
