@@ -26,7 +26,7 @@ MILESTONES & PHASES
 Milestone 1: Foundation
 - Phase 1: Project skeleton, packaging, entry point, and logging.
 - Phase 2: YAML configuration loading and validation.
-- Phase 3: Common models and provider interfaces.
+- Phase 3: Common market, signal, order, position, trade, account, event models.
 - Phase 4: MarketData, Account, and Execution interfaces.
 
 Milestone 2: Mode-Neutral Core
