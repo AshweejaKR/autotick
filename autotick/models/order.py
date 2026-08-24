@@ -24,6 +24,11 @@ class OrderType(str, Enum):
     LIMIT = "LIMIT"
 
 
+class OrderIntent(str, Enum):
+    ENTRY = "ENTRY"
+    EXIT = "EXIT"
+
+
 class OrderStatus(str, Enum):
     NEW = "NEW"
     VALIDATED = "VALIDATED"
@@ -46,4 +51,5 @@ class Order:
     order_type: OrderType = OrderType.MARKET
     price: float | None = None
     status: OrderStatus = OrderStatus.NEW
+    intent: OrderIntent = OrderIntent.ENTRY
     status_updated_at: datetime | None = None
