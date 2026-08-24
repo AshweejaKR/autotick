@@ -39,7 +39,7 @@ backtest:
 
 broker_config:
   angelone:
-    credentials_file: "config/angelone_keys.env"
+    credentials_file: "angelone_keys.env"
 
 persistence:
   enabled: true
