@@ -9,7 +9,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Foundation: project structure, configuration, models, and interfaces.
 - [x] Mode-Neutral Core: providers, sessions, events, and TradingEngine.
 - [x] Strategy Framework: indicators, Strategy contract, simple strategy, and signal validation.
-- [ ] Provider Layer: historical, simulated, and broker adapters.
+- [x] Provider Layer: historical, simulated, and broker adapters.
 - [ ] Execution and Risk: orders, positions, P&L, limits, and kill switch.
 - [ ] Trading Modes: Paper, Backtest, Replay, and Live.
 - [ ] Recovery and Persistence: persistence, recovery, reconciliation, and reconnect.
@@ -22,22 +22,23 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 
 ## Current Status
 
-- Completed milestone: Strategy Framework
-- Completed phases: Phase 1 through Phase 15
+- Completed milestone: Provider Layer
+- Completed phases: Phase 1 through Phase 16
 - Phase 10: Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation
 - Phase 13: Shared HistoricalProvider for Backtest and Replay historical market data
 - Phase 14: Simulated account and execution providers with in-memory state
 - Phase 15: AngelOne SmartAPI shared session and account adapter
+- Phase 16: AngelOne SmartAPI market-data and execution adapters
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid; RiskManager/TradeManager decides sizing from configuration
 - Target, stop loss, duplicate-entry, and re-entry rules stay outside Strategy/SignalValidator
 - Position/trade verification and reconciliation stay in TradeManager, not providers
-- Current milestone: Provider Layer
-- Current phase: Phase 16 - First broker market-data and execution adapters
-- Status: Milestones 1-3 and Phases 1-15 completed
+- Current milestone: Execution and Risk
+- Current phase: Phase 17 - TradeManager and order state machine
+- Status: Milestones 1-4 and Phases 1-16 completed
 
 ## Development Rule
 
