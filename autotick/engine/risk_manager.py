@@ -51,8 +51,10 @@ class RiskManager:
         )
 
     def record_entry(self) -> None:
-        """Count one filled entry trade."""
+        """Count one filled entry trade and activate the limit kill switch."""
         self.trade_count += 1
+        if self.trade_count >= self.max_trades:
+            self.activate_kill_switch()
 
     def stop_loss(self, entry_price: float) -> float:
         return entry_price * (1 - self.stoploss_pct / 100)
@@ -61,9 +63,9 @@ class RiskManager:
         return entry_price * (1 + self.target_pct / 100)
 
     def check_daily_limits(self, pnl: float) -> bool:
-        if pnl <= self.max_loss:
+        if pnl <= self.max_loss or self.trade_count >= self.max_trades:
             self.activate_kill_switch()
-        return not self.kill_switch and self.trade_count < self.max_trades
+        return not self.kill_switch
 
     def activate_kill_switch(self) -> None:
         self.kill_switch = True
