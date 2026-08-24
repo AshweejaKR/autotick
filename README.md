@@ -55,6 +55,13 @@ Foundation is complete through Phase 4:
 - Market-data adapter provides normalized LTP/ticks and historical OHLCV candles.
 - Execution adapter provides normalized orders, positions, holdings, trades, P&L, and order actions.
 
+## Execution and Risk
+
+- Phase 17: TradeManager and order state machine — completed.
+- Orders follow NEW -> VALIDATED -> SUBMITTED -> OPEN/PARTIAL/FILLED or terminal rejected/cancelled/expired states.
+- TradeManager validates transitions, timestamps state changes, tracks normalized orders, and reconciles execution-provider order state.
+- Position lifecycle, exposure, and P&L remain Phase 18.
+
 ## Running
 
 Use the packaged default configuration:
@@ -71,9 +78,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
-- Completed: Phases 1-16
+- Completed: Phases 1-17
 - Current milestone: Execution and Risk
-- Current: Phase 17 - TradeManager and order state machine
+- Current: Phase 18 - TradeManager position lifecycle, exposure, and P&L
 
 ## Plan
 
