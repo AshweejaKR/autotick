@@ -68,7 +68,8 @@ Foundation is complete through Phase 4:
 - Market orders can use current LTP for risk sizing without forcing a limit price.
 - Phase 20: Daily limits, square-off, and kill switch — completed.
 - Daily P&L at or below configured `max_loss` activates the kill switch and blocks new trades until reset.
-- `max_trades_per_day` limits filled entry trades per day; default is 5. Exit, rejected, and cancelled orders do not consume the limit.
+- Orders carry explicit `ENTRY` or `EXIT` intent. Only a FILLED `ENTRY` increments the daily trade count.
+- Reaching `max_trades_per_day` activates the kill switch; EXIT, rejected, and cancelled orders do not consume the limit.
 - Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
 - Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
 
