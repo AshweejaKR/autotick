@@ -10,7 +10,8 @@ from __future__ import annotations
 from dataclasses import replace
 
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.models.order import Order, OrderStatus
+from autotick.interfaces.market_data import MarketDataProvider
+from autotick.models.order import Order, OrderStatus, OrderType
 from autotick.models.position import Position
 from autotick.models.trade import Trade
 
@@ -18,7 +19,8 @@ from autotick.models.trade import Trade
 class SimulatedExecutionProvider(ExecutionProvider):
     """Simple in-memory execution provider for simulated trading."""
 
-    def __init__(self) -> None:
+    def __init__(self, market_data: MarketDataProvider | None = None) -> None:
+        self.market_data = market_data
         self._orders: dict[str, Order] = {}
         self._positions: list[Position] = []
         self._holdings: list[Position] = []
@@ -26,7 +28,13 @@ class SimulatedExecutionProvider(ExecutionProvider):
         self._pnl = 0.0
 
     def place_order(self, order: Order) -> Order:
-        submitted = replace(order, status=OrderStatus.SUBMITTED)
+        if order.order_type == OrderType.MARKET and self.market_data is not None:
+            tick = self.market_data.get_tick(order.symbol)
+            if tick is None or tick.ltp is None or tick.ltp <= 0:
+                raise RuntimeError(f"No market price for {order.symbol}")
+            submitted = replace(order, price=float(tick.ltp), status=OrderStatus.FILLED)
+        else:
+            submitted = replace(order, status=OrderStatus.SUBMITTED)
         self._orders[submitted.order_id] = submitted
         return submitted
 
@@ -38,7 +46,7 @@ class SimulatedExecutionProvider(ExecutionProvider):
 
     def cancel_order(self, order_id: str) -> bool:
         order = self._orders.get(order_id)
-        if order is None:
+        if order is None or order.status == OrderStatus.FILLED:
             return False
         self._orders[order_id] = replace(order, status=OrderStatus.CANCELLED)
         return True
