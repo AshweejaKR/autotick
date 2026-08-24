@@ -1,15 +1,18 @@
 mode: paper
 broker: angelone
-strategy: sample
+strategy: simple
 
 market:
-  symbols: NIFTYBEES
+  symbols:
+    - NIFTYBEES-EQ
+    - INFY-EQ
   exchange: NSE
 
 capital: 100000
 
 trade:
   quantity: 10
+  position_type: POSITIONAL
 
 risk:
   max_loss: -2000
