@@ -79,6 +79,12 @@ Foundation is complete through Phase 4:
 - Paper mode uses AngelOne live market data with simulated account and execution providers.
 - Paper MARKET orders fill immediately at the current AngelOne LTP; no broker order is sent.
 - Paper mode uses real-time CalendarSessionManager timing.
+- Phase 22: Backtest mode — completed.
+- Backtest mode uses HistoricalProvider with simulated account/execution and fast CalendarSessionManager timing.
+- Optional CSV source: enable `backtest.csv.enabled` and set `backtest.csv.data_file`.
+- CSV columns: `symbol,exchange,interval,timestamp,open,high,low,close,volume`.
+- When CSV is disabled, HistoricalProvider remains available for in-memory `MarketBar` data.
+- Backtest mode does not log in to a broker.
 
 ## Running
 
@@ -96,9 +102,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
-- Completed: Phases 1-21
+- Completed: Phases 1-22
 - Current milestone: Trading Modes
-- Current: Phase 22 - Backtest mode
+- Current: Phase 23 - Replay mode
 
 ## Plan
 
