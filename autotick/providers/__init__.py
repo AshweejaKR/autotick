@@ -8,10 +8,12 @@ Provider selection, bundling, and shared broker sessions for AutoTick.
 """
 
 from autotick.providers.factory import ModeMapping, ProviderBundle, ProviderFactory
+from autotick.providers.historical import HistoricalProvider
 from autotick.providers.session_pool import BrokerSession, SessionPool
 
 __all__ = [
     "BrokerSession",
+    "HistoricalProvider",
     "ModeMapping",
     "ProviderBundle",
     "ProviderFactory",
