@@ -38,7 +38,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
 - Previous-day close: fetched through MarketDataProvider during on_initial_setup()
 - quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
-- Daily filled entry trades are capped by `risk.max_trades_per_day`; default is 5
+- Orders use explicit ENTRY/EXIT intent; only FILLED ENTRY orders increment the daily trade count
+- Reaching `risk.max_trades_per_day` activates the kill switch; default is 5
 - Position type defaults to POSITIONAL; only INTRADAY positions are auto squared off
 - Target and stop loss are risk configuration; duplicate-entry and re-entry remain outside Strategy/SignalValidator
 - Position/trade verification and reconciliation stay in TradeManager, not providers
