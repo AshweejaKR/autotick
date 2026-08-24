@@ -13,6 +13,7 @@ trade:
 
 risk:
   max_loss: -2000
+  max_trades_per_day: 5
   risk_per_trade_pct: 1
   stoploss_pct: 2
   target_pct: 5
