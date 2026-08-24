@@ -62,7 +62,11 @@ Foundation is complete through Phase 4:
 - TradeManager validates transitions, timestamps state changes, tracks normalized orders, and reconciles execution-provider order state.
 - Phase 18: TradeManager position lifecycle, exposure, and P&L — completed.
 - Positions track pending/open/closed state, broker reconciliation, trades, realized/unrealized P&L, and total exposure.
-- Risk validation, sizing, stop loss, and targets remain Phase 19.
+- Phase 19: Risk validation, sizing, stop loss, and targets — completed.
+- RiskManager caps configured quantity using capital, per-trade risk, price, and stop-loss distance.
+- Stop loss and target are percentage-based; `target_pct` is user-configurable and defaults to 5.
+- Market orders can use current LTP for risk sizing without forcing a limit price.
+- Daily limits, square-off, and kill switch remain Phase 20.
 
 ## Running
 
@@ -80,9 +84,9 @@ The repository-level `config/config.yaml` remains available for project-local co
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
-- Completed: Phases 1-18
+- Completed: Phases 1-19
 - Current milestone: Execution and Risk
-- Current: Phase 19 - Risk validation, sizing, stop loss, and targets
+- Current: Phase 20 - Daily limits, square-off, and kill switch
 
 ## Plan
 
