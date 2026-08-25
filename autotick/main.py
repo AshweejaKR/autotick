@@ -19,7 +19,7 @@ from autotick.strategy.simple_strategy import SimpleStrategy
 from autotick.utils.logger import configure_logging, get_logger, log_call
 
 logger = get_logger(__name__)
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "config.yaml"
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -42,7 +42,6 @@ def _setup_strategies(providers, symbols: list[str]) -> dict[str, SimpleStrategy
         strategy.on_market_open()
         strategy.on_initial_setup()
         strategies[symbol] = strategy
-        logger.debug("Strategy initialized symbol=%s previous_close=%s", symbol, strategy.previous_close)
     return strategies
 
 
@@ -63,10 +62,87 @@ def _place_order(
         price=signal.price,
         position_type=position_type,
     )
-    logger.debug("Order created symbol=%s qty=%s price=%s type=%s", order.symbol, order.quantity, order.price, order.position_type.value)
-    order = risk.validate_order(order, signal.price)
-    logger.debug("Order risk validated symbol=%s qty=%s", order.symbol, order.quantity)
-    return trades.create_order(order)
+    return trades.create_order(risk.validate_order(order, signal.price))
+
+
+def _process_symbols(
+    providers,
+    strategies: dict[str, SimpleStrategy],
+    trades: TradeManager,
+    risk: RiskManager,
+    entered: set[str],
+    quantity: int,
+    position_type: PositionType,
+    mode: str,
+) -> None:
+    for symbol, strategy in strategies.items():
+        if symbol in entered:
+            continue
+        tick = providers.market_data.get_tick(symbol)
+        if tick is None:
+            continue
+        strategy.context.tick = tick
+        signal = strategy.on_tick(tick)
+        if signal is None or signal.signal_type != SignalType.BUY:
+            continue
+        SignalValidator.validate(signal)
+        order = _place_order(trades, risk, signal, quantity, position_type)
+        entered.add(symbol)
+        logger.info(
+            "%s order %s: %s qty=%s price=%s status=%s",
+            mode.upper(), order.order_id, symbol, order.quantity, order.price, order.status.value,
+        )
+
+
+def _run_realtime(providers, config, symbols, trades, risk, position_type) -> None:
+    strategies = _setup_strategies(providers, symbols)
+    entered: set[str] = set()
+    trading_date = providers.calendar_session.now().date()
+
+    while True:
+        now = providers.calendar_session.now()
+        market_open = providers.calendar_session.is_market_open(now)
+        if now.date() != trading_date and market_open:
+            for strategy in strategies.values():
+                strategy.on_market_close()
+            risk.reset_daily_state()
+            entered.clear()
+            strategies = _setup_strategies(providers, symbols)
+            trading_date = now.date()
+        if not config["session"]["only_market_hours"] or market_open:
+            _process_symbols(
+                providers, strategies, trades, risk, entered,
+                config["trade"]["quantity"], position_type, config["mode"],
+            )
+        sleep(config["engine"]["loop_sleep_s"])
+
+
+def _run_historical(providers, config, symbols, trades, risk, position_type) -> None:
+    timestamps = providers.market_data.timestamps()
+    strategies: dict[str, SimpleStrategy] = {}
+    entered: set[str] = set()
+    trading_date = None
+
+    for value in timestamps:
+        providers.calendar_session.wait_until(value)
+        providers.calendar_session.update_time(value)
+        providers.market_data.update_time(value)
+
+        if trading_date != value.date():
+            for strategy in strategies.values():
+                strategy.on_market_close()
+            if trading_date is not None:
+                risk.reset_daily_state()
+            entered.clear()
+            strategies = _setup_strategies(providers, symbols)
+            trading_date = value.date()
+
+        if config["session"]["only_market_hours"] and not providers.calendar_session.is_market_open(value):
+            continue
+        _process_symbols(
+            providers, strategies, trades, risk, entered,
+            config["trade"]["quantity"], position_type, config["mode"],
+        )
 
 
 def main() -> None:
@@ -82,93 +158,29 @@ def main() -> None:
     )
 
     mode = config["mode"].lower()
-    if mode not in {"paper", "live"}:
-        raise NotImplementedError("main smoke runner currently supports paper and live modes")
-
     providers = ProviderFactory.create_bundle(mode, config)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
     position_type = PositionType(config["trade"].get("position_type", "POSITIONAL").upper())
     symbols = _symbols(config["market"]["symbols"])
-    quantity = config["trade"]["quantity"]
-    entered: set[str] = set()
 
     logger.info("Configuration loaded from %s", config_path)
     logger.info("Starting mode=%s symbols=%s position_type=%s", mode.upper(), symbols, position_type.value)
 
     try:
         providers.market_data.connect()
-        logger.debug("Market-data provider connected: %s", type(providers.market_data).__name__)
         providers.account.connect()
-        logger.debug("Account provider connected: %s", type(providers.account).__name__)
         providers.market_data.subscribe(symbols)
-        logger.debug("Subscribed symbols=%s", symbols)
-
-        strategies = _setup_strategies(providers, symbols)
-        now = providers.calendar_session.now()
-        trading_date = now.date()
-        logger.info(
-            "Session status=%s current=%s market=%s-%s",
-            providers.calendar_session.current_session(now),
-            now.strftime("%H:%M:%S"),
-            config["session"]["market_start"],
-            config["session"]["market_end"],
-        )
-        logger.info("AutoTick %s mode started", mode.upper())
-
-        while True:
-            now = providers.calendar_session.now()
-            market_open = providers.calendar_session.is_market_open(now)
-
-            if now.date() != trading_date and market_open:
-                logger.info("New trading day detected: %s -> %s", trading_date, now.date())
-                for strategy in strategies.values():
-                    strategy.on_market_close()
-                risk.reset_daily_state()
-                entered.clear()
-                strategies = _setup_strategies(providers, symbols)
-                trading_date = now.date()
-
-            if config["session"]["only_market_hours"] and not market_open:
-                sleep(config["engine"]["loop_sleep_s"])
-                continue
-
-            for symbol, strategy in strategies.items():
-                if symbol in entered:
-                    continue
-
-                tick = providers.market_data.get_tick(symbol)
-                if tick is None:
-                    logger.debug("No tick available symbol=%s", symbol)
-                    continue
-
-                logger.debug("Tick symbol=%s ltp=%s volume=%s timestamp=%s", symbol, tick.ltp, tick.volume, tick.timestamp)
-                strategy.context.tick = tick
-                signal = strategy.on_tick(tick)
-                if signal is None:
-                    logger.debug("No signal symbol=%s", symbol)
-                    continue
-
-                logger.debug("Signal symbol=%s type=%s price=%s", symbol, signal.signal_type.value, signal.price)
-                if signal.signal_type != SignalType.BUY:
-                    continue
-
-                SignalValidator.validate(signal)
-                order = _place_order(trades, risk, signal, quantity, position_type)
-                entered.add(symbol)
-                logger.info(
-                    "%s order %s: %s qty=%s price=%s status=%s",
-                    mode.upper(), order.order_id, symbol, order.quantity, order.price, order.status.value,
-                )
-
-            sleep(config["engine"]["loop_sleep_s"])
+        if mode in {"backtest", "replay"}:
+            _run_historical(providers, config, symbols, trades, risk, position_type)
+        else:
+            _run_realtime(providers, config, symbols, trades, risk, position_type)
     except KeyboardInterrupt:
         logger.info("AutoTick stopped by user")
     except Exception:
-        logger.exception("AutoTick smoke runner failed")
+        logger.exception("AutoTick runner failed")
         raise
     finally:
-        logger.debug("Shutting down providers")
         providers.market_data.unsubscribe(symbols)
         providers.account.disconnect()
         providers.market_data.disconnect()
