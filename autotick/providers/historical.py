@@ -62,6 +62,16 @@ class HistoricalProvider(MarketDataProvider):
         """Set current simulated time for Backtest or Replay reads."""
         self._current_time = value
 
+    def timestamps(self) -> list[datetime]:
+        """Return ordered historical timestamps for subscribed symbols."""
+        symbols = self._subscriptions or {name for name, _ in self._bars}
+        return sorted({
+            bar.timestamp
+            for (name, _), items in self._bars.items()
+            if name in symbols
+            for bar in items
+        })
+
     def get_tick(self, symbol: str) -> MarketTick | None:
         if self._current_time is None:
             return None
