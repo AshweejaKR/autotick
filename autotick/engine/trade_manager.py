@@ -58,9 +58,14 @@ class TradeManager:
 
     def create_order(self, order: Order) -> Order:
         validated = self.update_order_state(order, OrderStatus.VALIDATED)
-        submitted = self.execution.place_order(validated)
-        self.track_order(submitted)
-        return submitted
+        provider_order = self.execution.place_order(validated)
+        submitted = self.update_order_state(
+            replace(provider_order, status=OrderStatus.VALIDATED),
+            OrderStatus.SUBMITTED,
+        )
+        if provider_order.status == OrderStatus.SUBMITTED:
+            return submitted
+        return self.update_order_state(submitted, provider_order.status)
 
     def track_order(self, order: Order) -> None:
         if order.order_id:

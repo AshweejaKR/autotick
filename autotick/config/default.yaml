@@ -1,15 +1,18 @@
 mode: paper
 broker: angelone
-strategy: sample
+strategy: simple
 
 market:
-  symbols: NIFTYBEES
+  symbols:
+    - NIFTYBEES-EQ
+    - INFY-EQ
   exchange: NSE
 
 capital: 100000
 
 trade:
   quantity: 10
+  position_type: POSITIONAL
 
 risk:
   max_loss: -2000
@@ -29,9 +32,14 @@ session:
   only_market_hours: true
   replay_speed: 1.0
 
+backtest:
+  csv:
+    enabled: false
+    data_file: ""
+
 broker_config:
   angelone:
-    credentials_file: "config/angelone_keys.env"
+    credentials_file: "angelone_keys.env"
 
 persistence:
   enabled: true

@@ -19,6 +19,7 @@ class ConfigValidationError(ValueError):
 
 _VALID_MODES = {"live", "paper", "backtest", "replay"}
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_VALID_POSITION_TYPES = {"INTRADAY", "POSITIONAL"}
 
 
 def _require(config: dict[str, Any], key: str, path: str = "") -> Any:
@@ -89,6 +90,9 @@ def validate_config(config: dict[str, Any]) -> None:
     quantity = _require(trade, "quantity", "trade")
     if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
         raise ConfigValidationError("trade.quantity must be a positive integer")
+    position_type = trade.get("position_type", "POSITIONAL")
+    if not isinstance(position_type, str) or position_type.upper() not in _VALID_POSITION_TYPES:
+        raise ConfigValidationError("trade.position_type must be INTRADAY or POSITIONAL")
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
@@ -113,9 +117,20 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("session.only_market_hours must be boolean")
     _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
-    broker_config = _mapping(config, "broker_config")
-    if broker not in broker_config or not isinstance(broker_config[broker], dict):
-        raise ConfigValidationError(f"broker_config.{broker} must be configured")
+    if mode in {"live", "paper"}:
+        broker_config = _mapping(config, "broker_config")
+        if broker not in broker_config or not isinstance(broker_config[broker], dict):
+            raise ConfigValidationError(f"broker_config.{broker} must be configured")
+
+    if mode in {"backtest", "replay"}:
+        backtest = config.get("backtest", {})
+        csv_config = backtest.get("csv", {})
+        if csv_config and not isinstance(csv_config.get("enabled", False), bool):
+            raise ConfigValidationError("backtest.csv.enabled must be boolean")
+        if csv_config.get("enabled"):
+            data_file = csv_config.get("data_file")
+            if not isinstance(data_file, str) or not data_file.strip():
+                raise ConfigValidationError("backtest.csv.data_file is required when enabled")
 
     persistence = _mapping(config, "persistence")
     if not isinstance(_require(persistence, "enabled", "persistence"), bool):

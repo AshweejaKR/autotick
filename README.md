@@ -73,6 +73,29 @@ Foundation is complete through Phase 4:
 - Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
 - Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
 
+## Trading Modes
+
+- Phase 21: Paper mode — completed.
+- Paper mode uses AngelOne live market data with simulated account and execution providers.
+- Paper MARKET orders fill immediately at the current AngelOne LTP; no broker order is sent.
+- Paper mode uses real-time CalendarSessionManager timing.
+- Phase 22: Backtest mode — completed.
+- Backtest mode uses HistoricalProvider with simulated account/execution and fast CalendarSessionManager timing.
+- Optional CSV source: enable `backtest.csv.enabled` and set `backtest.csv.data_file`.
+- CSV columns: `symbol,exchange,interval,timestamp,open,high,low,close,volume`.
+- When CSV is disabled, HistoricalProvider remains available for in-memory `MarketBar` data.
+- Backtest mode does not log in to a broker.
+- Phase 23: Replay mode — completed.
+- Replay mode reuses the Backtest HistoricalProvider and simulated account/execution providers.
+- Replay reads the same optional `backtest.csv` source and uses `session.replay_speed` for timed historical playback.
+- Replay mode does not log in to a broker and does not add a separate ReplayProvider.
+- TradingEngine detects historical date changes through `advance_time()`.
+- Each new day closes the prior strategy session, resets daily risk state, then runs `on_market_open()` and `on_initial_setup()` again for daily strategy calculations.
+- Phase 24: Live mode — completed.
+- Live mode uses one shared AngelOne session for live market data, broker account, and broker execution.
+- Live mode uses real-time CalendarSessionManager timing.
+- Orders carry `position_type`; AngelOne maps `INTRADAY` to broker intraday and `POSITIONAL` to delivery/carry-forward products.
+
 ## Running
 
 Use the packaged default configuration:
@@ -88,10 +111,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk
-- Completed: Phases 1-20
-- Current milestone: Trading Modes
-- Current: Phase 21 - Paper mode
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
+- Completed: Phases 1-24
+- Current milestone: Recovery and Persistence
+- Current: Phase 25 - Persistence, recovery, and reconciliation
 
 ## Plan
 

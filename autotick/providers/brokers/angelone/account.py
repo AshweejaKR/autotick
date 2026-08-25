@@ -37,13 +37,16 @@ class AngelOneAccountProvider(AccountProvider):
     def get_profile(self) -> dict[str, Any]:
         if not self.session.refresh_token:
             raise RuntimeError("AngelOne session is not connected")
-        response = self.session.client.getProfile(self.session.refresh_token)
+        response = self.session.call(
+            self.session.client.getProfile,
+            self.session.refresh_token,
+        ) or {}
         if not response.get("status"):
             raise RuntimeError(f"AngelOne profile failed: {response.get('message', 'unknown error')}")
         return response.get("data") or {}
 
     def _rms_value(self, key: str) -> float:
-        response = self.session.client.rmsLimit()
+        response = self.session.call(self.session.client.rmsLimit) or {}
         if not response.get("status"):
             raise RuntimeError(f"AngelOne RMS failed: {response.get('message', 'unknown error')}")
         return float((response.get("data") or {}).get(key, 0.0))

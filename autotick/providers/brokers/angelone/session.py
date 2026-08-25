@@ -8,9 +8,15 @@ Created on Mon Aug 24 19:56:33 2026
 from __future__ import annotations
 
 from pathlib import Path
+from time import monotonic, sleep
+from typing import Any, Callable
 
 import pyotp
 from SmartApi import SmartConnect
+
+from autotick.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AngelOneSession:
@@ -26,21 +32,56 @@ class AngelOneSession:
         self.refresh_token: str | None = None
         self._connected = False
         self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
+        self._last_api_call = 0.0
+
+    def _throttle(self) -> None:
+        wait = 1.0 - (monotonic() - self._last_api_call)
+        if wait > 0:
+            sleep(wait)
+        self._last_api_call = monotonic()
+
+    def call(self, func: Callable[..., Any], *args: Any, retries: int = 3, **kwargs: Any) -> Any:
+        """Call a safe broker read with throttling, retry, and auth recovery."""
+        auth_retried = False
+        for attempt in range(1, retries + 1):
+            self._throttle()
+            try:
+                response = func(*args, **kwargs)
+            except Exception as exc:
+                if attempt == retries or not self._is_retryable(exc):
+                    raise
+                logger.warning("AngelOne read failed; retry %s/%s: %s", attempt, retries, exc)
+                sleep(attempt)
+                continue
+
+            if self._is_auth_error(response) and not auth_retried:
+                logger.warning("AngelOne session expired; re-authenticating")
+                self._connected = False
+                self.login()
+                auth_retried = True
+                continue
+
+            if self._is_retryable(response) and attempt < retries:
+                logger.warning("AngelOne read throttled/unavailable; retry %s/%s", attempt, retries)
+                sleep(attempt)
+                continue
+            return response
+        return None
 
     def login(self) -> None:
         if self._connected:
             return
-
+        self._throttle()
         totp = pyotp.TOTP(self.totp_secret).now()
         response = self.client.generateSession(self.client_id, self.password, totp)
-        if not response.get("status"):
-            raise RuntimeError(f"AngelOne login failed: {response.get('message', 'unknown error')}")
-
+        if not response or not response.get("status"):
+            raise RuntimeError(f"AngelOne login failed: {(response or {}).get('message', 'unknown error')}")
         self.refresh_token = response["data"]["refreshToken"]
         self._connected = True
 
     def logout(self) -> None:
         if self._connected:
+            self._throttle()
             self.client.terminateSession(self.client_id)
         self._connected = False
 
@@ -48,7 +89,12 @@ class AngelOneSession:
         if not self.refresh_token:
             self.login()
             return
-        self.client.generateToken(self.refresh_token)
+        self._throttle()
+        response = self.client.generateToken(self.refresh_token)
+        if not response or not response.get("status"):
+            self._connected = False
+            self.login()
+            return
         self._connected = True
 
     def is_connected(self) -> bool:
@@ -59,7 +105,7 @@ class AngelOneSession:
         if key in self._instruments:
             return self._instruments[key]
 
-        response = self.client.searchScrip(key[1], key[0])
+        response = self.call(self.client.searchScrip, key[1], key[0]) or {}
         matches = response.get("data") or []
         item = next(
             (
@@ -79,6 +125,28 @@ class AngelOneSession:
 
     def get_token(self, symbol: str, exchange: str) -> str:
         return self.get_instrument(symbol, exchange)[1]
+
+    @staticmethod
+    def _is_auth_error(value: object) -> bool:
+        if not isinstance(value, dict) or value.get("status") is not False:
+            return False
+        text = f"{value.get('errorcode', '')} {value.get('message', '')}".lower()
+        return any(word in text for word in ("token", "session expired", "unauthorized", "jwt"))
+
+    @staticmethod
+    def _is_retryable(value: object) -> bool:
+        if isinstance(value, (TimeoutError, ConnectionError, OSError)):
+            return True
+        if isinstance(value, dict):
+            if value.get("status") is not False:
+                return False
+            text = f"{value.get('errorcode', '')} {value.get('message', '')}".lower()
+        else:
+            text = str(value).lower()
+        return any(word in text for word in (
+            "rate limit", "too many", "timeout", "timed out",
+            "temporarily", "service unavailable", "connection", "429", "503",
+        ))
 
     @staticmethod
     def _load_credentials(path: str) -> dict[str, str]:
