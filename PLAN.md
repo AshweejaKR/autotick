@@ -24,6 +24,7 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 
 - Completed milestone: Trading Modes
 - Completed phases: Phase 1 through Phase 24
+- Default YAML lives only at `config/default.yaml`; `autotick/config/` contains code only
 - Phase 10: Indicator base and simple moving average (default period 20)
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation

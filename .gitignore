@@ -159,7 +159,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 instrument_list_file.json
-/config
+/config/*
+!/config/default.yaml
 /data
 /logs
 NSE.csv

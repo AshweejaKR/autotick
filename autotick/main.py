@@ -19,7 +19,7 @@ from uuid import uuid4
 # from utils.logger import configure_logging, get_logger, log_call
 
 # logger = get_logger(__name__)
-# DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
+# DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "default.yaml"
 
 
 # def _parse_args() -> argparse.Namespace:

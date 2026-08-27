@@ -20,6 +20,3 @@ autotick = "autotick.main:main"
 
 [tool.setuptools.packages.find]
 include = ["autotick*"]
-
-[tool.setuptools.package-data]
-autotick = ["config/*.yaml"]

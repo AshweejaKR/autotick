@@ -79,9 +79,11 @@ Milestone 10: Production
 CODE STRUCTURE
 ================================================================================
 
+config/
+└── default.yaml
 autotick/
 ├── main.py
-├── config/                    # loader.py, validator.py
+├── config/                    # __init__.py, loader.py, validator.py
 ├── models/                    # market, signal, order, position, trade,
 │                              # account, event
 ├── interfaces/

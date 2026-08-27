@@ -101,7 +101,7 @@ Foundation is complete through Phase 4:
 
 ## Running
 
-Use the packaged default configuration:
+Use the repository default configuration:
 
 `autotick`
 
@@ -109,7 +109,7 @@ Or pass an explicit configuration path:
 
 `autotick --config path/to/config.yaml`
 
-The repository-level `config/config.yaml` remains available for project-local configuration.
+`config/default.yaml` is the only default YAML file. `autotick/config/` contains configuration code only.
 
 ## Status
 
