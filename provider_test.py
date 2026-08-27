@@ -41,6 +41,9 @@ SYMBOLS = ("INFY-EQ", "RELIANCE-EQ", "TCS-EQ")
 BAR_INTERVAL = "1m"
 SIMULATED_CAPITAL = 100_000.0
 
+# True calls and prints get_tick() and get_bars().
+GET_MARKET_DATA = False
+
 # WARNING: True sends real intraday market BUY and SELL orders.
 PLACE_LIVE_ORDERS = False
 ORDER_SYMBOL = "INFY-EQ"
@@ -81,6 +84,12 @@ def print_account(account: AccountProvider) -> None:
 def print_market_data(
     market_data: MarketDataProvider,
 ) -> tuple[dict[str, MarketTick], dict[tuple[str, str], list[MarketBar]]]:
+    if not GET_MARKET_DATA:
+        print("connect market data: disabled")
+        print("get_tick: disabled")
+        print("get_bars: disabled")
+        return {}, {}
+
     print_call("connect market data", market_data.connect)
     ticks: dict[str, MarketTick] = {}
     bars: dict[tuple[str, str], list[MarketBar]] = {}
