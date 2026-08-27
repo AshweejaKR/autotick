@@ -47,6 +47,9 @@ Foundation is complete through Phase 4:
 - Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
 - Phase 14: Simulated provider adapters — completed.
 - Simulated session, market-data, account, and execution adapters implement the same normalized contracts as AngelOne.
+- AngelOne and simulated adapters use matching constructor arguments.
+- Simulated market data accepts `exchange`; ticks and bars are loaded with `set_tick()` and `set_bars()`.
+- The setter methods are simulation-only data-input helpers, not shared provider methods.
 - Simulated market data is a standalone in-memory adapter; Paper still uses AngelOne data and Backtest/Replay still use HistoricalProvider.
 - Account providers return the same normalized `Account` model.
 - Simulated providers keep simple in-memory market/account/order state.

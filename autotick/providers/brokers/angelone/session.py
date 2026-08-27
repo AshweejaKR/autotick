@@ -20,7 +20,9 @@ logger = get_logger(__name__)
 class AngelOneSession(BrokerSession):
     """Shared AngelOne SmartAPI authenticated session."""
 
-    def __init__(self, credentials_file: str) -> None:
+    def __init__(self, credentials_file: str | None = None) -> None:
+        if not credentials_file:
+            raise ValueError("credentials_file is required for AngelOne")
         keys = self._load_credentials(credentials_file)
         self.api_key = keys["API_KEY"]
         self.client_id = keys["CLIENT_ID"]

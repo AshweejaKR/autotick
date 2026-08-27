@@ -4,7 +4,7 @@ Created on Thu Aug 27 07:28:48 2026
 
 @author: ashwe
 
-In-memory market-data adapter for standalone simulation and tests.
+In-memory market-data adapter for standalone simulation.
 """
 
 from __future__ import annotations
@@ -20,16 +20,26 @@ class SimulatedMarketDataProvider(MarketDataProvider):
     def __init__(
         self,
         session: SimulatedSession,
-        ticks: dict[str, MarketTick] | None = None,
-        bars: dict[tuple[str, str], list[MarketBar]] | None = None,
+        exchange: str = "NSE",
     ) -> None:
         self.session = session
-        self._ticks = {symbol.upper(): tick for symbol, tick in (ticks or {}).items()}
-        self._bars = {
-            (symbol.upper(), interval.lower()): list(items)
-            for (symbol, interval), items in (bars or {}).items()
-        }
+        self.exchange = exchange.upper()
+        self._ticks: dict[str, MarketTick] = {}
+        self._bars: dict[tuple[str, str], list[MarketBar]] = {}
         self._subscriptions: set[str] = set()
+        self.session.set_market_data(self)
+
+    def set_tick(self, tick: MarketTick) -> None:
+        """Store the latest simulated tick."""
+        if tick.exchange.upper() != self.exchange:
+            raise ValueError(f"Expected exchange {self.exchange}, got {tick.exchange}")
+        self._ticks[tick.symbol.upper()] = tick
+
+    def set_bars(self, symbol: str, interval: str, bars: list[MarketBar]) -> None:
+        """Store simulated bars for one symbol and interval."""
+        if any(bar.exchange.upper() != self.exchange for bar in bars):
+            raise ValueError(f"Expected exchange {self.exchange}")
+        self._bars[(symbol.upper(), interval.lower())] = list(bars)
 
     def connect(self) -> None:
         self.session.login()

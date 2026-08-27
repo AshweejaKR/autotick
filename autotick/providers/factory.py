@@ -25,6 +25,7 @@ from autotick.providers.brokers.angelone import (
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
+    SimulatedSession,
 )
 from autotick.providers.historical import HistoricalProvider
 from autotick.providers.session_pool import SessionPool
@@ -132,8 +133,10 @@ class ProviderFactory:
         config: dict[str, Any],
         market_data: MarketDataProvider,
     ) -> ProviderBundle:
-        account = SimulatedAccountProvider(float(config["capital"]))
-        execution = SimulatedExecutionProvider(market_data)
+        session = SimulatedSession()
+        session.set_market_data(market_data)
+        account = SimulatedAccountProvider(session, float(config["capital"]))
+        execution = SimulatedExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode(mode)
         return ProviderBundle(market_data, account, execution, calendar)

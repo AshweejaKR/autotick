@@ -10,17 +10,17 @@ from __future__ import annotations
 from dataclasses import replace
 
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.interfaces.market_data import MarketDataProvider
 from autotick.models.order import Order, OrderStatus, OrderType
 from autotick.models.position import Position
 from autotick.models.trade import Trade
+from autotick.providers.brokers.simulated.session import SimulatedSession
 
 
 class SimulatedExecutionProvider(ExecutionProvider):
     """Simple in-memory execution provider for simulated trading."""
 
-    def __init__(self, market_data: MarketDataProvider | None = None) -> None:
-        self.market_data = market_data
+    def __init__(self, session: SimulatedSession) -> None:
+        self.session = session
         self._orders: dict[str, Order] = {}
         self._positions: list[Position] = []
         self._holdings: list[Position] = []
@@ -28,8 +28,9 @@ class SimulatedExecutionProvider(ExecutionProvider):
         self._pnl = 0.0
 
     def place_order(self, order: Order) -> Order:
-        if order.order_type == OrderType.MARKET and self.market_data is not None:
-            tick = self.market_data.get_tick(order.symbol)
+        market_data = self.session.market_data
+        if order.order_type == OrderType.MARKET and market_data is not None:
+            tick = market_data.get_tick(order.symbol)
             if tick is None or tick.ltp is None or tick.ltp <= 0:
                 raise RuntimeError(f"No market price for {order.symbol}")
             submitted = replace(order, price=float(tick.ltp), status=OrderStatus.FILLED)

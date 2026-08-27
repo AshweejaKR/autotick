@@ -183,6 +183,12 @@ adapter registration only; new modes require ProviderFactory wiring only.
 KEY INTERFACES
 ================================================================================
 
+Provider constructors
+- Session(credentials_file=None)
+- Account(session, configured_capital=0.0)
+- Execution(session)
+- MarketData(session, exchange="NSE")
+
 TradingEngine
 - initialize(), start(), run(), stop(), shutdown()
 
