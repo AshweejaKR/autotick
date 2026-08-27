@@ -104,7 +104,7 @@ class ProviderFactory:
     def _create_live(cls, config: dict[str, Any]) -> ProviderBundle:
         _, session = cls._broker_session(config)
         market_data = AngelOneMarketDataProvider(session, config["market"]["exchange"])
-        account = AngelOneAccountProvider(session)
+        account = AngelOneAccountProvider(session, float(config["capital"]))
         execution = AngelOneExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode("live")

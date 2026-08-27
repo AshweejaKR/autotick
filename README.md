@@ -45,8 +45,11 @@ Foundation is complete through Phase 4:
 - Phase 13: Shared HistoricalProvider — completed.
 - Backtest and Replay share the same normalized historical market-data provider.
 - Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
-- Phase 14: Simulated account and execution providers — completed.
-- Simulated providers keep simple in-memory account/order state.
+- Phase 14: Simulated provider adapters — completed.
+- Simulated session, market-data, account, and execution adapters implement the same normalized contracts as AngelOne.
+- Simulated market data is a standalone in-memory adapter; Paper still uses AngelOne data and Backtest/Replay still use HistoricalProvider.
+- Account providers return the same normalized `Account` model.
+- Simulated providers keep simple in-memory market/account/order state.
 - Position/trade verification and reconciliation remain TradeManager responsibilities.
 - Phase 15: AngelOne SmartAPI session and account adapters — completed.
 - AngelOne session owns login, token refresh, logout, symbol resolution, and shared SmartConnect client.

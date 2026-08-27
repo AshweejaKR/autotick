@@ -15,11 +15,14 @@ class SimulatedAccountProvider(AccountProvider):
     """Simple in-memory account provider for simulated trading."""
 
     def __init__(self, capital: float) -> None:
+        capital = float(capital)
         self._account = Account(
             configured_capital=capital,
             balance=capital,
             available_margin=capital,
             buying_power=capital,
+            account_id="SIMULATED",
+            name="Simulated Account",
         )
         self._connected = False
 

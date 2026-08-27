@@ -28,7 +28,9 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
 - Phase 12: Engine-layer SignalValidator for structural signal validation
 - Phase 13: Shared HistoricalProvider for Backtest and Replay historical market data
-- Phase 14: Simulated account and execution providers with in-memory state
+- Phase 14: Simulated session, market-data, account, and execution providers with in-memory state
+- Simulated market data remains standalone; mode mapping keeps Paper on AngelOne and Backtest/Replay on HistoricalProvider
+- AngelOne and simulated account providers return the same normalized Account model
 - Phase 15: AngelOne SmartAPI shared session and account adapter
 - Phase 16: AngelOne SmartAPI market-data and execution adapters
 - Phase 17: TradeManager and validated, timestamped order state machine

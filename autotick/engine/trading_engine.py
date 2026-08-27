@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING
 
 from autotick.engine.dispatcher import EventDispatcher
 from autotick.models.event import Event
-from autotick.providers.factory import ProviderBundle
 
 if TYPE_CHECKING:
     from autotick.engine.risk_manager import RiskManager
+    from autotick.providers.factory import ProviderBundle
     from autotick.strategy.base import Strategy
 
 

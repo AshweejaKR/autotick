@@ -43,7 +43,7 @@ Milestone 3: Strategy Framework
 
 Milestone 4: Provider Layer
 - Phase 13: Shared HistoricalProvider.
-- Phase 14: Simulated account and execution providers.
+- Phase 14: Simulated session, market-data, account, and execution providers.
 - Phase 15: First broker session and account adapters.
 - Phase 16: First broker market-data and execution adapters.
 
@@ -105,6 +105,8 @@ autotick/
 │       │   └── execution.py
 │       ├── aliceblue/
 │       └── simulated/
+│           ├── session.py
+│           ├── market_data.py
 │           ├── account.py
 │           └── execution.py
 ├── engine/
@@ -194,6 +196,7 @@ MarketDataProvider
 AccountProvider
 - connect(), disconnect()
 - get_balance(), get_margin(), get_buying_power(), get_profile()
+- get_profile() returns the normalized Account model for every provider
 
 ExecutionProvider
 - place_order(), modify_order(), cancel_order(), cancel_all()
