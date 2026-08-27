@@ -9,6 +9,7 @@ Manual AngelOne and simulated provider check.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from autotick.interfaces.account import AccountProvider
@@ -46,6 +47,16 @@ ORDER_SYMBOL = "INFY-EQ"
 ORDER_QUANTITY = 1
 
 
+def print_call(name: str, call: Callable[[], object]) -> object | None:
+    try:
+        value = call()
+    except Exception as exc:
+        print(f"{name}: ERROR {type(exc).__name__}: {exc}")
+        return None
+    print(f"{name}:", value)
+    return value
+
+
 def new_order(order_id: str, side: OrderSide) -> Order:
     return Order(
         order_id=order_id,
@@ -60,28 +71,29 @@ def new_order(order_id: str, side: OrderSide) -> Order:
 
 
 def print_account(account: AccountProvider) -> None:
-    print("connect account:", account.connect())
-    print("get_balance:", account.get_balance())
-    print("get_margin:", account.get_margin())
-    print("get_buying_power:", account.get_buying_power())
-    print("get_profile:", account.get_profile())
+    print_call("connect account", account.connect)
+    print_call("get_balance", account.get_balance)
+    print_call("get_margin", account.get_margin)
+    print_call("get_buying_power", account.get_buying_power)
+    print_call("get_profile", account.get_profile)
 
 
 def print_market_data(
     market_data: MarketDataProvider,
 ) -> tuple[dict[str, MarketTick], dict[tuple[str, str], list[MarketBar]]]:
-    print("connect market data:", market_data.connect())
+    print_call("connect market data", market_data.connect)
     ticks: dict[str, MarketTick] = {}
     bars: dict[tuple[str, str], list[MarketBar]] = {}
 
     for symbol in SYMBOLS:
-        tick = market_data.get_tick(symbol)
-        candle_data = market_data.get_bars(symbol, BAR_INTERVAL)
-        print(f"get_tick {symbol}:", tick)
-        print(f"get_bars {symbol}:", candle_data)
-        if tick is not None:
+        tick = print_call(f"get_tick {symbol}", lambda: market_data.get_tick(symbol))
+        candle_data = print_call(
+            f"get_bars {symbol}",
+            lambda: market_data.get_bars(symbol, BAR_INTERVAL),
+        )
+        if isinstance(tick, MarketTick):
             ticks[symbol] = tick
-        bars[(symbol, BAR_INTERVAL)] = candle_data
+        bars[(symbol, BAR_INTERVAL)] = candle_data if isinstance(candle_data, list) else []
 
     return ticks, bars
 
@@ -93,21 +105,31 @@ def print_execution(
     sell_order_id: str = "",
 ) -> None:
     if place_orders:
-        buy_order = execution.place_order(new_order(buy_order_id, OrderSide.BUY))
-        sell_order = execution.place_order(new_order(sell_order_id, OrderSide.SELL))
-        print("place_order BUY:", buy_order)
-        print("place_order SELL:", sell_order)
-        print("get_order_status BUY:", execution.get_order_status(buy_order.order_id))
-        print("get_order_status SELL:", execution.get_order_status(sell_order.order_id))
+        buy_order = print_call(
+            "place_order BUY",
+            lambda: execution.place_order(new_order(buy_order_id, OrderSide.BUY)),
+        )
+        sell_order = print_call(
+            "place_order SELL",
+            lambda: execution.place_order(new_order(sell_order_id, OrderSide.SELL)),
+        )
+        for name, order in (("BUY", buy_order), ("SELL", sell_order)):
+            if isinstance(order, Order) and order.order_id:
+                print_call(
+                    f"get_order_status {name}",
+                    lambda order_id=order.order_id: execution.get_order_status(order_id),
+                )
+            else:
+                print(f"get_order_status {name}: None (no order ID)")
     else:
         print("place_order BUY: disabled")
         print("place_order SELL: disabled")
         print("get_order_status: disabled")
 
-    print("get_orders:", execution.get_orders())
-    print("get_positions:", execution.get_positions())
-    print("get_holdings:", execution.get_holdings())
-    print("get_trades:", execution.get_trades())
+    print_call("get_orders", execution.get_orders)
+    print_call("get_positions", execution.get_positions)
+    print_call("get_holdings", execution.get_holdings)
+    print_call("get_trades", execution.get_trades)
 
 
 def disconnect(
@@ -115,9 +137,9 @@ def disconnect(
     market_data: MarketDataProvider,
     session: BrokerSession,
 ) -> None:
-    print("disconnect market data:", market_data.disconnect())
-    print("disconnect account:", account.disconnect())
-    print("logout session:", session.logout())
+    print_call("disconnect market data", market_data.disconnect)
+    print_call("disconnect account", account.disconnect)
+    print_call("logout session", session.logout)
 
 
 def run_angelone() -> tuple[

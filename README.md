@@ -117,6 +117,8 @@ Or pass an explicit configuration path:
 
 Manual provider check: run `python provider_test.py` after placing `angelone_keys.env` inside root `config/`.
 Live BUY/SELL calls remain disabled until `PLACE_LIVE_ORDERS` is changed to `True`.
+AngelOne order calls require the API application's registered static public IP.
+Rejected orders have no order ID, so the manual script skips their status lookup and continues other checks.
 
 ## Status
 

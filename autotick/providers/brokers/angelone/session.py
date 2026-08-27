@@ -68,6 +68,11 @@ class AngelOneSession(BrokerSession):
             return response
         return None
 
+    def call_once(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Call a broker write once with throttling and no automatic retry."""
+        self._throttle()
+        return func(*args, **kwargs)
+
     def login(self) -> None:
         if self._connected:
             return
@@ -146,7 +151,7 @@ class AngelOneSession(BrokerSession):
         else:
             text = str(value).lower()
         return any(word in text for word in (
-            "rate limit", "too many", "timeout", "timed out",
+            "rate limit", "access rate", "too many", "timeout", "timed out",
             "temporarily", "service unavailable", "connection", "429", "503",
         ))
 
