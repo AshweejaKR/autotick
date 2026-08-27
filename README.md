@@ -115,6 +115,9 @@ Or pass an explicit configuration path:
 
 `config/default.yaml` is the only default YAML file. `autotick/config/` contains configuration code only.
 
+Manual provider check: run `python provider_test.py` after placing `angelone_keys.env` inside root `config/`.
+Live BUY/SELL calls remain disabled until `PLACE_LIVE_ORDERS` is changed to `True`.
+
 ## Status
 
 - Version: 0.1.0
