@@ -9,6 +9,8 @@ In-memory market-data adapter for standalone simulation.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from autotick.interfaces.market_data import MarketDataProvider
 from autotick.models.market import MarketBar, MarketTick
 from autotick.providers.brokers.simulated.session import SimulatedSession
@@ -56,5 +58,19 @@ class SimulatedMarketDataProvider(MarketDataProvider):
     def get_tick(self, symbol: str) -> MarketTick | None:
         return self._ticks.get(symbol.upper())
 
-    def get_bars(self, symbol: str, interval: str) -> list[MarketBar]:
-        return list(self._bars.get((symbol.upper(), interval.lower()), []))
+    def get_bars(
+        self,
+        symbol: str,
+        interval: str,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[MarketBar]:
+        bars = self._bars.get((symbol.upper(), interval.lower()), [])
+        if not bars:
+            return []
+
+        end_date = end_date or datetime.now(bars[-1].timestamp.tzinfo)
+        start_date = start_date or end_date - timedelta(days=30 if interval.lower() == "1d" else 5)
+        if start_date > end_date:
+            raise ValueError("start_date must not be after end_date")
+        return [bar for bar in bars if start_date <= bar.timestamp <= end_date]

@@ -45,6 +45,7 @@ Foundation is complete through Phase 4:
 - Phase 13: Shared HistoricalProvider — completed.
 - Backtest and Replay share the same normalized historical market-data provider.
 - Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
+- `get_bars()` accepts optional `start_date` and `end_date`; the end defaults to current provider time and the start defaults to 5 days earlier, or 30 days for daily bars.
 - Phase 14: Simulated provider adapters — completed.
 - Simulated session, market-data, account, and execution adapters implement the same normalized contracts as AngelOne.
 - AngelOne and simulated adapters use matching constructor arguments.

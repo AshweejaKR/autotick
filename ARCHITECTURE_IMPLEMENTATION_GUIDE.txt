@@ -199,7 +199,8 @@ ProviderFactory
 MarketDataProvider
 - connect(), disconnect(), subscribe(), unsubscribe()
 - get_tick() for latest LTP, current volume, and tick timestamp
-- get_bars() for historical OHLCV candle data
+- get_bars(symbol, interval, start_date=None, end_date=None) for historical OHLCV candle data
+- Default end is current provider time; default start is 5 days earlier, or 30 days for daily bars
 
 AccountProvider
 - connect(), disconnect()
