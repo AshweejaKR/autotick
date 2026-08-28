@@ -21,15 +21,16 @@ class SimulatedAccountProvider(AccountProvider):
         configured_capital: float = 0.0,
     ) -> None:
         self.session = session
-        capital = float(configured_capital)
-        self._account = Account(
-            configured_capital=capital,
-            balance=capital,
-            available_margin=capital,
-            buying_power=capital,
-            account_id="SIMULATED",
-            name="Simulated Account",
-        )
+        self.session.state.initialize_account(configured_capital)
+
+    @property
+    def _account(self) -> Account:
+        """Keep existing simulated-account access backed by session state."""
+        return self.session.state.get_account()
+
+    @_account.setter
+    def _account(self, account: Account) -> None:
+        self.session.state.set_account(account)
 
     def connect(self) -> None:
         self.session.login()

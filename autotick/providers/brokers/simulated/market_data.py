@@ -26,22 +26,23 @@ class SimulatedMarketDataProvider(MarketDataProvider):
     ) -> None:
         self.session = session
         self.exchange = exchange.upper()
-        self._ticks: dict[str, MarketTick] = {}
-        self._bars: dict[tuple[str, str], list[MarketBar]] = {}
-        self._subscriptions: set[str] = set()
+        self._lock = self.session.state.lock
+        self._ticks = self.session.state.ticks
+        self._bars = self.session.state.bars
+        self._subscriptions = self.session.state.subscriptions
         self.session.set_market_data(self)
 
     def set_tick(self, tick: MarketTick) -> None:
         """Store the latest simulated tick."""
         if tick.exchange.upper() != self.exchange:
             raise ValueError(f"Expected exchange {self.exchange}, got {tick.exchange}")
-        self._ticks[tick.symbol.upper()] = tick
+        self.session.state.set_tick(tick)
 
     def set_bars(self, symbol: str, interval: str, bars: list[MarketBar]) -> None:
         """Store simulated bars for one symbol and interval."""
         if any(bar.exchange.upper() != self.exchange for bar in bars):
             raise ValueError(f"Expected exchange {self.exchange}")
-        self._bars[(symbol.upper(), interval.lower())] = list(bars)
+        self.session.state.set_bars(symbol, interval, bars)
 
     def connect(self) -> None:
         self.session.login()
@@ -56,7 +57,7 @@ class SimulatedMarketDataProvider(MarketDataProvider):
         self._subscriptions.difference_update(symbol.upper() for symbol in symbols)
 
     def get_tick(self, symbol: str) -> MarketTick | None:
-        return self._ticks.get(symbol.upper())
+        return self.session.state.get_tick(symbol)
 
     def get_bars(
         self,
@@ -65,7 +66,7 @@ class SimulatedMarketDataProvider(MarketDataProvider):
         start_date: datetime | None = None,
         end_date: datetime | None = None,
     ) -> list[MarketBar]:
-        bars = self._bars.get((symbol.upper(), interval.lower()), [])
+        bars = self.session.state.get_bars(symbol, interval)
         if not bars:
             return []
 

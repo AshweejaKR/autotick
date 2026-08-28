@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from autotick.providers.brokers.simulated.state import SimulatedState
 from autotick.providers.session_pool import BrokerSession
 
 if TYPE_CHECKING:
@@ -22,8 +23,14 @@ class SimulatedSession(BrokerSession):
 
     def __init__(self, credentials_file: str | None = None) -> None:
         self.credentials_file = credentials_file
+        self._state = SimulatedState()
         self.market_data: MarketDataProvider | None = None
         self._connected = False
+
+    @property
+    def state(self) -> SimulatedState:
+        """Return the state shared by this session's simulated providers."""
+        return self._state
 
     def set_market_data(self, market_data: MarketDataProvider) -> None:
         self.market_data = market_data
