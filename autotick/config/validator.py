@@ -109,6 +109,17 @@ def validate_config(config: dict[str, Any]) -> None:
     loop_sleep = _require(engine, "loop_sleep_s", "engine")
     _number(loop_sleep, "engine.loop_sleep_s", positive=True)
 
+    simulated = config.get("simulated", {})
+    if not isinstance(simulated, dict):
+        raise ConfigValidationError("simulated must be a mapping")
+    ui_data_enabled = simulated.get("ui_data_enabled", False)
+    if not isinstance(ui_data_enabled, bool):
+        raise ConfigValidationError("simulated.ui_data_enabled must be boolean")
+    if ui_data_enabled and mode != "paper":
+        raise ConfigValidationError(
+            "simulated.ui_data_enabled is supported only in paper mode"
+        )
+
     session = _mapping(config, "session")
     for key in ("market_start", "market_end", "square_off_time"):
         _hhmm(_require(session, key, "session"), f"session.{key}")
@@ -117,7 +128,7 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("session.only_market_hours must be boolean")
     _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
-    if mode in {"live", "paper"}:
+    if mode == "live" or (mode == "paper" and not ui_data_enabled):
         broker_config = _mapping(config, "broker_config")
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
             raise ConfigValidationError(f"broker_config.{broker} must be configured")

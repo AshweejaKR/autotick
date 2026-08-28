@@ -9,7 +9,8 @@ Paper, Backtest, and Replay modes through one codebase.
 - Same Strategy generates BUY/SELL/HOLD signals in every mode.
 - TradingEngine uses provider interfaces only and remains mode-neutral.
 - ProviderFactory switches market data, account, execution, and session timing.
-- Live/Paper use broker data; Backtest/Replay share HistoricalProvider.
+- Live uses broker data. Paper uses broker data by default and can optionally
+  use the Windows simulated-data control panel. Backtest/Replay share HistoricalProvider.
 - engine/market_session.py contains only CalendarSessionManager.
 - CalendarSessionManager owns real-time, fast, or replay timing and session checks.
 - Broker components share one authenticated session through SessionPool.
@@ -172,13 +173,15 @@ MODE SWITCHING (Provider Factory)
 Mode     | Market Data        | Execution | Account   | Session Timing | Purpose
 ---------|--------------------|-----------|-----------|----------------|-----------------
 Live     | Broker Feed        | Broker    | Broker    | Real time      | Real trading
-Paper    | Broker Feed        | BrokerSim | BrokerSim | Real time      | Paper trading
+Paper    | Broker/UI Sim      | BrokerSim | BrokerSim | Real time      | Paper trading
 Backtest | HistoricalProvider | BrokerSim | BrokerSim | Fast advance   | Fast testing
 Replay   | HistoricalProvider | BrokerSim | BrokerSim | Replay speed   | Timed replay
 
 ProviderBundle contains market_data, account, execution, and calendar_session.
 Strategy never reads the active mode. New brokers require
 adapter registration only; new modes require ProviderFactory wiring only.
+When `simulated.ui_data_enabled` is true, the Windows control panel and Paper
+runner share one in-process simulated session and provider bundle.
 
 KEY INTERFACES
 ================================================================================

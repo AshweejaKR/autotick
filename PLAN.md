@@ -41,6 +41,8 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 19: RiskManager validation, risk-based quantity cap, stop loss, and configurable target
 - Phase 20: Daily loss limit, filled-entry trade limit, kill switch, and intraday-only square-off
 - Phase 21: Paper mode uses AngelOne live market data with simulated account/execution and real-time session timing
+- Paper mode can optionally use the Windows simulated-data control panel when `simulated.ui_data_enabled` is true
+- UI-backed Paper mode shares one in-process simulated session with the running strategy
 - Paper MARKET orders fill immediately using current broker LTP without sending broker orders
 - Phase 22: Backtest mode uses HistoricalProvider with simulated account/execution and fast session timing
 - Backtest can optionally load normalized OHLCV bars from configured CSV; otherwise HistoricalProvider accepts in-memory bars

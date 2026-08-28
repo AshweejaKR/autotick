@@ -511,6 +511,9 @@ class SimulatedControlPanel:
         runtime: SimulationRuntime,
         controller: SimulationController,
         stop_event: Event,
+        initial_symbol: str = DEFAULT_SYMBOL,
+        initial_interval: str = "1m",
+        credentials_file: str | None = None,
     ) -> None:
         self.root = root
         self.runtime = runtime
@@ -524,14 +527,20 @@ class SimulatedControlPanel:
 
         self.balance_var = tk.StringVar()
         self.funds_var = tk.StringVar(value="1000.00")
-        self.symbol_var = tk.StringVar(value=DEFAULT_SYMBOL)
+        self.symbol_var = tk.StringVar(value=initial_symbol)
         self.ltp_var = tk.StringVar(value=f"{DEFAULT_LTP:.2f}")
         self.volume_var = tk.StringVar(value=str(DEFAULT_VOLUME))
         self.adjustment_var = tk.StringVar(value="1.00")
         self.adjustment_mode_var = tk.StringVar(value="Value")
-        self.interval_var = tk.StringVar(value="1m")
+        self.interval_var = tk.StringVar(
+            value=initial_interval if initial_interval in INTERVALS else "1m"
+        )
         self.csv_path_var = tk.StringVar()
-        default_credentials = Path(__file__).resolve().parent / "config" / "angelone_keys.env"
+        default_credentials = (
+            Path(credentials_file).expanduser().resolve()
+            if credentials_file
+            else Path(__file__).resolve().parent / "config" / "angelone_keys.env"
+        )
         self.credentials_var = tk.StringVar(
             value=str(default_credentials) if default_credentials.is_file() else ""
         )
@@ -1038,16 +1047,27 @@ def run_control_panel(
     strategy_runner: Callable[[ProviderBundle, Event], None] | None = None,
     configured_capital: float = DEFAULT_CAPITAL,
     exchange: str = DEFAULT_EXCHANGE,
+    initial_symbol: str = DEFAULT_SYMBOL,
+    initial_interval: str = "1m",
+    credentials_file: str | None = None,
 ) -> None:
     """Run the GUI and optional strategy runner in the same process."""
     runtime = create_simulation_runtime(configured_capital, exchange)
     runtime.market_data.connect()
     runtime.account.connect()
     controller = SimulationController(runtime.account, runtime.market_data)
-    controller.ensure_tick(DEFAULT_SYMBOL)
+    controller.ensure_tick(initial_symbol)
     stop_event = Event()
     root = tk.Tk()
-    panel = SimulatedControlPanel(root, runtime, controller, stop_event)
+    panel = SimulatedControlPanel(
+        root,
+        runtime,
+        controller,
+        stop_event,
+        initial_symbol,
+        initial_interval,
+        credentials_file,
+    )
     if strategy_runner is not None:
         panel.start_strategy(strategy_runner)
     try:
