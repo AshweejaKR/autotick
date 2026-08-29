@@ -12,7 +12,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus, OrderType
 from autotick.models.position import Position, PositionStatus
 from autotick.models.trade import Trade
 from autotick.providers.brokers.simulated.session import SimulatedSession
@@ -83,7 +83,20 @@ class SimulatedExecutionProvider(ExecutionProvider):
         return self._pnl
 
     def square_off(self) -> None:
-        self._positions.clear()
+        for position in list(self._positions.values()):
+            if position.quantity <= 0:
+                continue
+            self.place_order(
+                Order(
+                    order_id=str(uuid4()),
+                    symbol=position.symbol,
+                    exchange=position.exchange,
+                    side=OrderSide.SELL,
+                    quantity=position.quantity,
+                    intent=OrderIntent.EXIT,
+                    position_type=position.position_type,
+                )
+            )
 
     def _fill(self, order: Order, timestamp: datetime | None) -> bool:
         """Update simulated cash, position, trade, and realized P&L."""
