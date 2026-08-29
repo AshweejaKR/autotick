@@ -57,6 +57,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added colored console logging and logger.done().
 - Added market-closed warning and realtime-loop exit when only_market_hours is true.
 - Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
+- Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
 - Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
 

@@ -127,6 +127,14 @@ def _process_symbols(
             continue
 
         SignalValidator.validate(signal)
+        if signal.price is None or not risk.can_trade(signal.price):
+            logger.debug(
+                "Order blocked by risk limits: %s price=%s",
+                symbol,
+                signal.price,
+            )
+            continue
+
         order = _place_order(trades, risk, signal, quantity, position_type)
         entered.add(symbol)
         log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
@@ -179,19 +187,18 @@ def _run_realtime(
 
         if not config["session"]["only_market_hours"] or market_open:
             balance = providers.account.get_balance()
-            if balance > 0:
-                risk.update(balance)
-                _process_symbols(
-                    providers,
-                    symbols,
-                    strategies,
-                    trades,
-                    risk,
-                    entered,
-                    config["trade"]["quantity"],
-                    position_type,
-                    config["mode"],
-                )
+            risk.update(balance)
+            _process_symbols(
+                providers,
+                symbols,
+                strategies,
+                trades,
+                risk,
+                entered,
+                config["trade"]["quantity"],
+                position_type,
+                config["mode"],
+            )
 
         if stop_event is None:
             sleep(loop_sleep)

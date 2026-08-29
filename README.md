@@ -92,6 +92,7 @@ One AutoTick run supports one market and one exchange. Configure one calendar pr
 - closed_dates optionally closes specific dates for DAILY and WEEKLY schedules.
 - only_market_hours true: Live and Paper check the calendar before provider login, subscription, or strategy setup. A closed market logs a warning with the next opening and stops the runner.
 - only_market_hours false: the schedule gate is ignored and processing continues every engine.loop_sleep_s.
+- Realtime strategy tick processing is independent of account balance. A zero balance keeps on_tick() active while RiskManager blocks order submission.
 - Live and Paper use wall-clock time. Backtest and Replay use historical timestamps.
 - DAILY supports configured square-off timing. WEEKLY and ALWAYS_OPEN do not create an automatic daily square-off signal.
 - POSITIONAL orders are not automatically squared off. TradeManager exposes intraday square-off, but the current CLI runner does not call it yet.

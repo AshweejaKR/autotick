@@ -246,6 +246,8 @@ session.only_market_hours:
 - true: Live and Paper check the calendar before provider login, subscription,
   or strategy setup. A closed market logs WARNING with next_open and stops.
 - false: the realtime runner ignores the schedule gate and keeps processing.
+- account balance does not gate strategy tick processing; zero balance produces
+  zero risk quantity and blocks order submission.
 
 engine.loop_sleep_s:
 - minimum realtime loop delay.

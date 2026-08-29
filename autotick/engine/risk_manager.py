@@ -75,6 +75,6 @@ class RiskManager:
         self.kill_switch = False
 
     def update(self, capital: float) -> None:
-        if capital <= 0:
-            raise ValueError("capital must be greater than zero")
+        if capital < 0:
+            raise ValueError("capital must not be negative")
         self.capital = float(capital)
