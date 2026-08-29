@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Mode-aware market calendar and session timing for AutoTick."""
+"""
+Created on Sun Aug 23 23:02:28 2026
+
+@author: ashwe
+
+Mode-aware market calendar and session timing for AutoTick.
+"""
 
 from __future__ import annotations
 
