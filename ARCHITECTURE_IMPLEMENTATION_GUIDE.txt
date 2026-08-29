@@ -182,6 +182,8 @@ Strategy never reads the active mode. New brokers require
 adapter registration only; new modes require ProviderFactory wiring only.
 When `simulated.ui_data_enabled` is true, the Windows control panel and Paper
 runner share one in-process simulated session and provider bundle.
+When `simulated.broker_auto_fetch` is true, the selected real broker adapter
+provides the initial balance, tick, and bars. False keeps UI data fully manual.
 
 KEY INTERFACES
 ================================================================================

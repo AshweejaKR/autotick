@@ -13,6 +13,7 @@ import csv
 import tkinter as tk
 from collections.abc import Callable
 from contextlib import suppress
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import datetime
 from math import isfinite
@@ -31,7 +32,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedMarketDataProvider,
     SimulatedSession,
 )
-from autotick.providers.factory import ProviderBundle
+from autotick.providers.factory import ProviderBundle, ProviderFactory
 
 DEFAULT_CAPITAL = 100_000.0
 DEFAULT_EXCHANGE = "NSE"
@@ -177,8 +178,8 @@ class SimulationRuntime:
 
 
 @dataclass(slots=True)
-class AngelOneInitialData:
-    """AngelOne values copied into the simulated providers at startup."""
+class BrokerInitialData:
+    """Real-broker values copied into simulated providers at startup."""
 
     balance: float | None
     tick: MarketTick | None
@@ -193,13 +194,15 @@ class SimulationController:
         self,
         account: EditableSimulatedAccountProvider,
         market_data: ControlledSimulatedMarketDataProvider,
+        source_broker: str | None = None,
+        source_config: dict[str, Any] | None = None,
     ) -> None:
         self.account = account
         self.market_data = market_data
         self._baseline_ticks: dict[str, MarketTick] = {}
-        self._angelone_session: Any | None = None
-        self._angelone_account: Any | None = None
-        self._angelone_market_data: Any | None = None
+        self.source_broker = str(source_broker or "").strip().lower()
+        self._source_config = source_config
+        self._broker_bundle: ProviderBundle | None = None
         self._credentials_file: str | None = None
         self._lock = RLock()
 
@@ -339,65 +342,66 @@ class SimulationController:
             self._valid_interval(interval),
         )
 
-    def import_angelone_tick(self, credentials_file: str, symbol: str) -> MarketTick:
-        """Copy one AngelOne tick snapshot into simulated market data."""
-        tick = self.check_angelone_connection(credentials_file, symbol)
+    def import_broker_tick(self, credentials_file: str, symbol: str) -> MarketTick:
+        """Copy one real-broker tick snapshot into simulated market data."""
+        tick = self.check_broker_connection(credentials_file, symbol)
         return self.set_tick(tick.symbol, float(tick.ltp), int(tick.volume or 0))
 
-    def check_angelone_connection(
+    def check_broker_connection(
         self,
         credentials_file: str,
         symbol: str,
     ) -> MarketTick:
         """Verify login and market-data access by fetching one current tick."""
         with self._lock:
-            source = self._angelone_source(credentials_file)
-            tick = source.get_tick(self._valid_symbol(symbol))
+            source = self._broker_source(credentials_file)
+            tick = source.market_data.get_tick(self._valid_symbol(symbol))
             if tick is None or tick.ltp is None:
-                raise RuntimeError("AngelOne returned no tick")
+                raise RuntimeError(f"{self.source_broker} returned no tick")
             return tick
 
-    def import_angelone_bars(
+    def import_broker_bars(
         self,
         credentials_file: str,
         symbol: str,
         interval: str,
     ) -> list[MarketBar]:
-        """Copy one AngelOne historical snapshot into simulated market data."""
+        """Copy one real-broker historical snapshot into simulated market data."""
         with self._lock:
             name = self._valid_symbol(symbol)
             period = self._valid_interval(interval)
-            bars = self._angelone_source(credentials_file).get_bars(name, period)
+            source = self._broker_source(credentials_file)
+            bars = source.market_data.get_bars(name, period)
             if not bars:
-                raise RuntimeError("AngelOne returned no bars")
+                raise RuntimeError(f"{self.source_broker} returned no bars")
             self.market_data.set_bars(name, period, bars)
             return bars
 
-    def import_angelone_initial_data(
+    def import_broker_initial_data(
         self,
         credentials_file: str,
         symbol: str,
         interval: str,
-    ) -> AngelOneInitialData:
+    ) -> BrokerInitialData:
         """Copy balance, current tick, and bars when the GUI starts."""
         with self._lock:
             name = self._valid_symbol(symbol)
             period = self._valid_interval(interval)
-            source = self._angelone_source(credentials_file)
+            source = self._broker_source(credentials_file)
             errors: list[str] = []
             balance: float | None = None
             tick: MarketTick | None = None
             bars: list[MarketBar] = []
 
             try:
-                fetched_balance = float(self._angelone_account.get_balance())
+                fetched_balance = float(source.account.get_balance())
                 self.account.set_balance(fetched_balance)
                 balance = fetched_balance
             except Exception as exc:
                 errors.append(f"balance: {exc}")
 
             try:
-                fetched_tick = source.get_tick(name)
+                fetched_tick = source.market_data.get_tick(name)
                 if fetched_tick is None or fetched_tick.ltp is None:
                     raise RuntimeError("no tick returned")
                 tick = self.set_tick(
@@ -409,7 +413,7 @@ class SimulationController:
                 errors.append(f"tick: {exc}")
 
             try:
-                bars = source.get_bars(name, period)
+                bars = source.market_data.get_bars(name, period)
                 if not bars:
                     raise RuntimeError("no bars returned")
                 self.market_data.set_bars(name, period, bars)
@@ -419,45 +423,46 @@ class SimulationController:
 
             if balance is None and tick is None and not bars:
                 raise RuntimeError("; ".join(errors))
-            return AngelOneInitialData(balance, tick, bars, errors)
+            return BrokerInitialData(balance, tick, bars, errors)
 
     def close(self) -> None:
-        """Close the optional AngelOne snapshot session."""
+        """Close the optional real-broker snapshot session."""
         with self._lock:
-            if self._angelone_market_data is not None:
+            if self._broker_bundle is not None:
                 with suppress(Exception):
-                    self._angelone_market_data.disconnect()
-            if self._angelone_session is not None:
+                    self._broker_bundle.market_data.disconnect()
                 with suppress(Exception):
-                    self._angelone_session.logout()
-            self._angelone_market_data = None
-            self._angelone_account = None
-            self._angelone_session = None
+                    self._broker_bundle.account.disconnect()
+            if self.source_broker:
+                with suppress(Exception):
+                    ProviderFactory.close_broker_session(self.source_broker)
+            self._broker_bundle = None
             self._credentials_file = None
 
-    def _angelone_source(self, credentials_file: str):
+    def _broker_source(self, credentials_file: str) -> ProviderBundle:
+        if not self.source_broker or self.source_broker == "simulated":
+            raise ValueError("Real broker source is not configured")
+        if self._source_config is None:
+            raise ValueError("Real broker configuration is not available")
         path = str(Path(credentials_file).expanduser().resolve())
         if not Path(path).is_file():
-            raise ValueError("AngelOne credentials file does not exist")
-        if self._angelone_market_data is not None and path == self._credentials_file:
-            return self._angelone_market_data
+            raise ValueError(f"{self.source_broker} credentials file does not exist")
+        if self._broker_bundle is not None and path == self._credentials_file:
+            return self._broker_bundle
 
         self.close()
-        from autotick.providers.brokers.angelone import (
-            AngelOneAccountProvider,
-            AngelOneMarketDataProvider,
-            AngelOneSession,
+        config = deepcopy(self._source_config)
+        config["broker"] = self.source_broker
+        broker_config = config.setdefault("broker_config", {}).setdefault(
+            self.source_broker,
+            {},
         )
-
-        self._angelone_session = AngelOneSession(path)
-        self._angelone_account = AngelOneAccountProvider(self._angelone_session)
-        self._angelone_market_data = AngelOneMarketDataProvider(
-            self._angelone_session,
-            self.market_data.exchange,
-        )
-        self._angelone_market_data.connect()
+        broker_config["credentials_file"] = path
+        self._broker_bundle = ProviderFactory.create_bundle("live", config)
+        self._broker_bundle.market_data.connect()
+        self._broker_bundle.account.connect()
         self._credentials_file = path
-        return self._angelone_market_data
+        return self._broker_bundle
 
     @staticmethod
     def _valid_symbol(value: str) -> str:
@@ -514,6 +519,8 @@ class SimulatedControlPanel:
         initial_symbol: str = DEFAULT_SYMBOL,
         initial_interval: str = "1m",
         credentials_file: str | None = None,
+        source_broker: str | None = None,
+        broker_auto_fetch: bool = False,
     ) -> None:
         self.root = root
         self.runtime = runtime
@@ -524,6 +531,13 @@ class SimulatedControlPanel:
         self._initial_data_ready = False
         self._strategy_started = False
         self._strategy_runner: Callable[[ProviderBundle, Event], None] | None = None
+        self.source_broker = str(source_broker or "").strip().lower()
+        self.broker_label = (
+            "AngelOne" if self.source_broker == "angelone"
+            else self.source_broker.title() if self.source_broker
+            else "Broker"
+        )
+        self.broker_auto_fetch = broker_auto_fetch
 
         self.balance_var = tk.StringVar()
         self.funds_var = tk.StringVar(value="1000.00")
@@ -539,15 +553,19 @@ class SimulatedControlPanel:
         default_credentials = (
             Path(credentials_file).expanduser().resolve()
             if credentials_file
-            else Path(__file__).resolve().parent / "config" / "angelone_keys.env"
+            else None
         )
         self.credentials_var = tk.StringVar(
-            value=str(default_credentials) if default_credentials.is_file() else ""
+            value=(
+                str(default_credentials)
+                if default_credentials and default_credentials.is_file()
+                else ""
+            )
         )
         self.bars_var = tk.StringVar(value="No bars loaded")
         self.status_var = tk.StringVar(value="Ready")
         self.strategy_var = tk.StringVar(value="Strategy: not configured")
-        self.angelone_status_var = tk.StringVar(value="● AngelOne: not checked")
+        self.broker_status_var = tk.StringVar(value=f"● {self.broker_label}: not checked")
 
         self._build()
         self._refresh_account()
@@ -555,7 +573,14 @@ class SimulatedControlPanel:
         self._refresh_bars()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self._poll_results)
-        self.root.after(250, self._auto_fetch_angelone)
+        if self.broker_auto_fetch:
+            self.root.after(250, self._auto_fetch_broker)
+        else:
+            self._set_broker_status(
+                "unchecked",
+                f"{self.broker_label}: automatic fetch disabled",
+            )
+            self.root.after(0, self._finish_initial_data)
 
     def _build(self) -> None:
         self.root.title("AutoTick Simulated Broker Control Panel")
@@ -600,7 +625,11 @@ class SimulatedControlPanel:
         ).grid(row=1, column=2, columnspan=2, padx=3, pady=3, sticky="ew")
         ttk.Button(tick, text="Increase", command=lambda: self._adjust_tick(True)).grid(row=1, column=4, padx=3)
         ttk.Button(tick, text="Decrease", command=lambda: self._adjust_tick(False)).grid(row=1, column=5, padx=3)
-        ttk.Button(tick, text="Import AngelOne Tick", command=self._import_tick).grid(row=1, column=6, columnspan=2, padx=3, sticky="w")
+        ttk.Button(
+            tick,
+            text=f"Import {self.broker_label} Tick",
+            command=self._import_tick,
+        ).grid(row=1, column=6, columnspan=2, padx=3, sticky="w")
 
         table_frame = ttk.LabelFrame(self.root, text="Simulated Stocks", padding=10)
         table_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
@@ -644,23 +673,38 @@ class SimulatedControlPanel:
         )
         interval_box.grid(row=1, column=1, padx=3, pady=3, sticky="w")
         interval_box.bind("<<ComboboxSelected>>", lambda _: self._refresh_bars())
-        ttk.Button(bars, text="Import AngelOne Bars", command=self._import_bars).grid(row=1, column=2, padx=3)
+        ttk.Button(
+            bars,
+            text=f"Import {self.broker_label} Bars",
+            command=self._import_bars,
+        ).grid(row=1, column=2, padx=3)
         ttk.Button(bars, text="Clear Selected Bars", command=self._clear_bars).grid(row=1, column=3, padx=3)
         ttk.Label(bars, textvariable=self.bars_var).grid(row=1, column=4, columnspan=3, padx=8, sticky="w")
 
-        source = ttk.LabelFrame(self.root, text="Optional AngelOne Snapshot Source", padding=10)
+        source = ttk.LabelFrame(
+            self.root,
+            text=f"Optional {self.broker_label} Snapshot Source",
+            padding=10,
+        )
         source.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
         source.columnconfigure(1, weight=1)
         ttk.Label(source, text="Credentials:").grid(row=0, column=0, padx=3)
         ttk.Entry(source, textvariable=self.credentials_var).grid(row=0, column=1, padx=3, sticky="ew")
         ttk.Button(source, text="Browse", command=self._browse_credentials).grid(row=0, column=2, padx=3)
-        self.angelone_status_label = tk.Label(
+        self.broker_status_label = tk.Label(
             source,
-            textvariable=self.angelone_status_var,
+            textvariable=self.broker_status_var,
             foreground="#6b7280",
         )
-        self.angelone_status_label.grid(row=1, column=0, columnspan=2, padx=3, pady=(8, 0), sticky="w")
-        ttk.Button(source, text="Check Connection", command=self._check_angelone).grid(
+        self.broker_status_label.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            padx=3,
+            pady=(8, 0),
+            sticky="w",
+        )
+        ttk.Button(source, text="Check Connection", command=self._check_broker).grid(
             row=1,
             column=2,
             padx=3,
@@ -815,35 +859,36 @@ class SimulatedControlPanel:
 
     def _browse_credentials(self) -> None:
         path = filedialog.askopenfilename(
-            title="Select AngelOne credentials file",
+            title=f"Select {self.broker_label} credentials file",
             filetypes=(("Environment files", "*.env"), ("All files", "*.*")),
         )
         if path:
             self.credentials_var.set(path)
-            self.root.after(0, self._auto_fetch_angelone)
+            if self.broker_auto_fetch:
+                self.root.after(0, self._auto_fetch_broker)
 
     def _credentials_changed(self, *_: object) -> None:
-        self._set_angelone_status("unchecked", "AngelOne: not checked")
+        self._set_broker_status("unchecked", f"{self.broker_label}: not checked")
 
-    def _auto_fetch_angelone(self) -> None:
+    def _auto_fetch_broker(self) -> None:
         credentials = self.credentials_var.get()
         if not credentials or not Path(credentials).expanduser().is_file():
-            self._set_angelone_status(
+            self._set_broker_status(
                 "unchecked",
-                "AngelOne: credentials not found — using defaults",
+                f"{self.broker_label}: credentials not found — using defaults",
             )
             self._finish_initial_data()
             return
 
         symbol = self.symbol_var.get()
         interval = self.interval_var.get()
-        self._set_angelone_status(
+        self._set_broker_status(
             "checking",
-            "AngelOne: loading balance, tick, and bars...",
+            f"{self.broker_label}: loading balance, tick, and bars...",
         )
 
         def done(value: object) -> None:
-            data = value if isinstance(value, AngelOneInitialData) else None
+            data = value if isinstance(value, BrokerInitialData) else None
             if data is None:
                 self._finish_initial_data()
                 return
@@ -852,14 +897,14 @@ class SimulatedControlPanel:
                 self._show_tick(data.tick)
             self._refresh_bars()
             if data.errors:
-                self._set_angelone_status(
+                self._set_broker_status(
                     "partial",
-                    f"AngelOne: connected — {len(data.errors)} startup fetch failed",
+                    f"{self.broker_label}: connected — {len(data.errors)} startup fetch failed",
                 )
             else:
-                self._set_angelone_status(
+                self._set_broker_status(
                     "connected",
-                    "AngelOne: connected — balance, tick, and bars fetched",
+                    f"{self.broker_label}: connected — balance, tick, and bars fetched",
                 )
             self._finish_initial_data()
 
@@ -867,8 +912,8 @@ class SimulatedControlPanel:
             self._finish_initial_data()
 
         self._background(
-            "AngelOne startup import",
-            lambda: self.controller.import_angelone_initial_data(
+            f"{self.broker_label} startup import",
+            lambda: self.controller.import_broker_initial_data(
                 credentials,
                 symbol,
                 interval,
@@ -881,19 +926,22 @@ class SimulatedControlPanel:
         self._initial_data_ready = True
         self._launch_strategy()
 
-    def _check_angelone(self) -> None:
+    def _check_broker(self) -> None:
         credentials = self.credentials_var.get()
         symbol = self.symbol_var.get()
-        self._set_angelone_status("checking", "AngelOne: checking data...")
+        self._set_broker_status("checking", f"{self.broker_label}: checking data...")
 
         def done(value: object) -> None:
             tick = value if isinstance(value, MarketTick) else None
             detail = f"{tick.symbol} LTP {float(tick.ltp):.2f}" if tick else "data fetched"
-            self._set_angelone_status("connected", f"AngelOne: connected — {detail}")
+            self._set_broker_status(
+                "connected",
+                f"{self.broker_label}: connected — {detail}",
+            )
 
         self._background(
-            "AngelOne connection check",
-            lambda: self.controller.check_angelone_connection(credentials, symbol),
+            f"{self.broker_label} connection check",
+            lambda: self.controller.check_broker_connection(credentials, symbol),
             done,
         )
 
@@ -911,19 +959,19 @@ class SimulatedControlPanel:
     def _import_tick(self) -> None:
         credentials = self.credentials_var.get()
         symbol = self.symbol_var.get()
-        self._set_angelone_status("checking", "AngelOne: fetching tick...")
+        self._set_broker_status("checking", f"{self.broker_label}: fetching tick...")
 
         def done(value: object) -> None:
             if isinstance(value, MarketTick):
                 self._show_tick(value)
-                self._set_angelone_status(
+                self._set_broker_status(
                     "connected",
-                    f"AngelOne: connected — {value.symbol} tick fetched",
+                    f"{self.broker_label}: connected — {value.symbol} tick fetched",
                 )
 
         self._background(
-            "AngelOne tick import",
-            lambda: self.controller.import_angelone_tick(credentials, symbol),
+            f"{self.broker_label} tick import",
+            lambda: self.controller.import_broker_tick(credentials, symbol),
             done,
         )
 
@@ -931,18 +979,18 @@ class SimulatedControlPanel:
         credentials = self.credentials_var.get()
         symbol = self.symbol_var.get()
         interval = self.interval_var.get()
-        self._set_angelone_status("checking", "AngelOne: fetching bars...")
+        self._set_broker_status("checking", f"{self.broker_label}: fetching bars...")
 
         def done(_: object) -> None:
             self._refresh_bars()
-            self._set_angelone_status(
+            self._set_broker_status(
                 "connected",
-                f"AngelOne: connected — {symbol.upper()} bars fetched",
+                f"{self.broker_label}: connected — {symbol.upper()} bars fetched",
             )
 
         self._background(
-            "AngelOne bars import",
-            lambda: self.controller.import_angelone_bars(credentials, symbol, interval),
+            f"{self.broker_label} bars import",
+            lambda: self.controller.import_broker_bars(credentials, symbol, interval),
             done,
         )
 
@@ -993,13 +1041,16 @@ class SimulatedControlPanel:
                 if callback is not None:
                     callback(value)
                 self._status(f"{label}: {value}", error=True)
-                if label.startswith("AngelOne"):
-                    self._set_angelone_status("failed", "AngelOne: data fetch failed")
+                if label.startswith(self.broker_label):
+                    self._set_broker_status(
+                        "failed",
+                        f"{self.broker_label}: data fetch failed",
+                    )
                 if state == "strategy_error":
                     self.strategy_var.set("Strategy: failed")
         self.root.after(100, self._poll_results)
 
-    def _set_angelone_status(self, state: str, text: str) -> None:
+    def _set_broker_status(self, state: str, text: str) -> None:
         colors = {
             "unchecked": "#6b7280",
             "checking": "#d97706",
@@ -1007,8 +1058,8 @@ class SimulatedControlPanel:
             "connected": "#15803d",
             "failed": "#b91c1c",
         }
-        self.angelone_status_var.set(f"● {text}")
-        self.angelone_status_label.configure(foreground=colors[state])
+        self.broker_status_var.set(f"● {text}")
+        self.broker_status_label.configure(foreground=colors[state])
 
     def _status(self, text: str, error: bool = False) -> None:
         self.status_var.set(("ERROR: " if error else "") + text)
@@ -1050,12 +1101,20 @@ def run_control_panel(
     initial_symbol: str = DEFAULT_SYMBOL,
     initial_interval: str = "1m",
     credentials_file: str | None = None,
+    source_broker: str | None = None,
+    source_config: dict[str, Any] | None = None,
+    broker_auto_fetch: bool = False,
 ) -> None:
     """Run the GUI and optional strategy runner in the same process."""
     runtime = create_simulation_runtime(configured_capital, exchange)
     runtime.market_data.connect()
     runtime.account.connect()
-    controller = SimulationController(runtime.account, runtime.market_data)
+    controller = SimulationController(
+        runtime.account,
+        runtime.market_data,
+        source_broker,
+        source_config,
+    )
     controller.ensure_tick(initial_symbol)
     stop_event = Event()
     root = tk.Tk()
@@ -1067,6 +1126,8 @@ def run_control_panel(
         initial_symbol,
         initial_interval,
         credentials_file,
+        source_broker,
+        broker_auto_fetch,
     )
     if strategy_runner is not None:
         panel.start_strategy(strategy_runner)

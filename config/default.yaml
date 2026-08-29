@@ -27,6 +27,7 @@ engine:
 
 simulated:
   ui_data_enabled: false
+  broker_auto_fetch: false
 
 session:
   market_start: "09:15"

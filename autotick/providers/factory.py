@@ -90,6 +90,11 @@ class ProviderFactory:
         raise NotImplementedError(f"{normalized} mode is not implemented yet")
 
     @classmethod
+    def close_broker_session(cls, broker: str) -> None:
+        """Close one broker session created by this factory."""
+        cls._session_pool.close(broker)
+
+    @classmethod
     def _broker_session(cls, config: dict[str, Any]) -> tuple[str, AngelOneSession]:
         broker = str(config["broker"]).strip().lower()
         if broker != "angelone":

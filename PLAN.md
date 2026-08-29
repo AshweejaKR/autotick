@@ -43,6 +43,7 @@ Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_G
 - Phase 21: Paper mode uses AngelOne live market data with simulated account/execution and real-time session timing
 - Paper mode can optionally use the Windows simulated-data control panel when `simulated.ui_data_enabled` is true
 - UI-backed Paper mode shares one in-process simulated session with the running strategy
+- UI broker snapshot loading is controlled by generic `simulated.broker_auto_fetch`; false keeps all data manual
 - Paper MARKET orders fill immediately using current broker LTP without sending broker orders
 - Phase 22: Backtest mode uses HistoricalProvider with simulated account/execution and fast session timing
 - Backtest can optionally load normalized OHLCV bars from configured CSV; otherwise HistoricalProvider accepts in-memory bars

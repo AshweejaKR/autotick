@@ -282,6 +282,8 @@ def _run_ui_data(config: dict) -> None:
 
     symbols = _symbols(config["market"]["symbols"])
     broker = str(config["broker"]).strip().lower()
+    simulated_config = config.get("simulated", {})
+    broker_auto_fetch = simulated_config.get("broker_auto_fetch", False)
     credentials_file = (
         config.get("broker_config", {}).get(broker, {}).get("credentials_file")
     )
@@ -299,6 +301,9 @@ def _run_ui_data(config: dict) -> None:
         initial_symbol=symbols[0],
         initial_interval="1d",
         credentials_file=credentials_file,
+        source_broker=broker if broker != "simulated" else None,
+        source_config=config,
+        broker_auto_fetch=broker_auto_fetch,
     )
 
 

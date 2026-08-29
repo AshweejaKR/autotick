@@ -115,9 +115,20 @@ def validate_config(config: dict[str, Any]) -> None:
     ui_data_enabled = simulated.get("ui_data_enabled", False)
     if not isinstance(ui_data_enabled, bool):
         raise ConfigValidationError("simulated.ui_data_enabled must be boolean")
+    broker_auto_fetch = simulated.get("broker_auto_fetch", False)
+    if not isinstance(broker_auto_fetch, bool):
+        raise ConfigValidationError("simulated.broker_auto_fetch must be boolean")
     if ui_data_enabled and mode != "paper":
         raise ConfigValidationError(
             "simulated.ui_data_enabled is supported only in paper mode"
+        )
+    if broker_auto_fetch and not ui_data_enabled:
+        raise ConfigValidationError(
+            "simulated.broker_auto_fetch requires simulated.ui_data_enabled"
+        )
+    if broker_auto_fetch and broker.strip().lower() == "simulated":
+        raise ConfigValidationError(
+            "broker must select a real broker when simulated.broker_auto_fetch is enabled"
         )
 
     session = _mapping(config, "session")
@@ -128,7 +139,9 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("session.only_market_hours must be boolean")
     _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
-    if mode == "live" or (mode == "paper" and not ui_data_enabled):
+    if mode == "live" or (
+        mode == "paper" and (not ui_data_enabled or broker_auto_fetch)
+    ):
         broker_config = _mapping(config, "broker_config")
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
             raise ConfigValidationError(f"broker_config.{broker} must be configured")

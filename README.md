@@ -118,7 +118,9 @@ Or pass an explicit configuration path:
 Windows Paper UI data: set `simulated.ui_data_enabled` to `true`, then run
 `python -m autotick.main`. The control panel and Paper runner use the same
 in-process simulated session, so balance, ticks, and bars are read directly by
-the running strategy. Keep the flag `false` for normal AngelOne-backed Paper data.
+the running strategy. Keep `simulated.broker_auto_fetch` false for UI-only data.
+Set it true and select a real `broker` to copy initial balance, tick, and bars
+through that broker's registered ProviderFactory adapter.
 
 Manual provider check: run `python provider_test.py` after placing `angelone_keys.env` inside root `config/`.
 Market-data calls remain disabled until `GET_MARKET_DATA` is changed to `True`.
