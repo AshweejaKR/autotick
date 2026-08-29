@@ -1,147 +1,173 @@
 # AutoTick
 
-AutoTick is a clean rebuild of a modular, broker-independent algorithmic trading framework.
+AutoTick is a modular, broker-independent algorithmic trading framework for Live, Paper, Backtest, and Replay modes.
 
 ## Goals
 
-- Support Live, Paper, Backtest, and Replay modes.
-- Use the same Strategy across every mode.
+- Use the same strategy contract in every mode.
 - Keep broker SDK code inside broker adapters.
-- Keep TradingEngine mode-neutral.
+- Select providers through ProviderFactory.
+- Keep order, risk, and session behavior outside strategies.
+- Add production features only in their planned phase.
 
-## Foundation
-
-Foundation is complete through Phase 4:
-
-- Phase 1: Project skeleton, packaging, entry point, and logging.
-- Phase 2: YAML configuration loading and validation.
-- Phase 3: Common market, signal, order, position, trade, account, and event models.
-- Phase 4: MarketData, Account, and Execution interfaces.
-
-## Mode-Neutral Core
-
-- Phase 5: ProviderFactory, ProviderBundle, and mode mapping — completed.
-- Phase 6: SessionPool and broker-session lifecycle — completed.
-- Phase 7: Mode-aware CalendarSessionManager — completed.
-- Phase 8: EventDispatcher and normalized events — completed.
-- Phase 9: TradingEngine lifecycle and event loop — completed.
-
-## Strategy Framework
-
-- Phase 10: Indicator base and simple moving average (SMA) — completed.
-- SMA default period: 20.
-- Additional indicators are deferred until a strategy needs them.
-- Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy — completed.
-- Simple strategy rule: BUY when LTP is more than 0.5% above previous-day close; otherwise no action.
-- Previous-day close is loaded through MarketDataProvider during initial setup.
-- Phase 12: Signal validation — completed.
-- SignalValidator lives in the engine layer; Strategy only generates signals.
-- Signal validation checks symbol, exchange, signal type, and positive quantity/price when supplied.
-- quantity=None is valid; RiskManager/TradeManager decides quantity from configuration.
-- Target, stop loss, duplicate-entry, re-entry, and other risk rules stay outside Strategy/SignalValidator.
-
-## Provider Layer
-
-- Phase 13: Shared HistoricalProvider — completed.
-- Backtest and Replay share the same normalized historical market-data provider.
-- Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
-- `get_bars()` accepts optional `start_date` and `end_date`; the end defaults to current provider time and the start defaults to 5 days earlier, or 30 days for daily bars.
-- Phase 14: Simulated provider adapters — completed.
-- Simulated session, market-data, account, and execution adapters implement the same normalized contracts as AngelOne.
-- AngelOne and simulated adapters use matching constructor arguments.
-- Simulated market data accepts `exchange`; ticks and bars are loaded with `set_tick()` and `set_bars()`.
-- The setter methods are simulation-only data-input helpers, not shared provider methods.
-- Simulated market data is a standalone in-memory adapter; Paper still uses AngelOne data and Backtest/Replay still use HistoricalProvider.
-- Account providers return the same normalized `Account` model.
-- Simulated providers keep simple in-memory market/account/order state.
-- Position/trade verification and reconciliation remain TradeManager responsibilities.
-- Phase 15: AngelOne SmartAPI session and account adapters — completed.
-- AngelOne session owns login, token refresh, logout, symbol resolution, and shared SmartConnect client.
-- AngelOne account adapter exposes profile, balance, margin, and buying power through the normalized account interface.
-- Phase 16: AngelOne SmartAPI market-data and execution adapters — completed.
-- Market-data adapter provides normalized LTP/ticks and historical OHLCV candles.
-- Execution adapter provides normalized orders, positions, holdings, trades, P&L, and order actions.
-
-## Execution and Risk
-
-- Phase 17: TradeManager and order state machine — completed.
-- Orders follow NEW -> VALIDATED -> SUBMITTED -> OPEN/PARTIAL/FILLED or terminal rejected/cancelled/expired states.
-- TradeManager validates transitions, timestamps state changes, tracks normalized orders, and reconciles execution-provider order state.
-- Phase 18: TradeManager position lifecycle, exposure, and P&L — completed.
-- Positions track pending/open/closed state, broker reconciliation, trades, realized/unrealized P&L, and total exposure.
-- Phase 19: Risk validation, sizing, stop loss, and targets — completed.
-- RiskManager caps configured quantity using capital, per-trade risk, price, and stop-loss distance.
-- Stop loss and target are percentage-based; `target_pct` is user-configurable and defaults to 5.
-- Market orders can use current LTP for risk sizing without forcing a limit price.
-- Phase 20: Daily limits, square-off, and kill switch — completed.
-- Daily P&L at or below configured `max_loss` activates the kill switch and blocks new trades until reset.
-- Orders carry explicit `ENTRY` or `EXIT` intent. Only a FILLED `ENTRY` increments the daily trade count.
-- Reaching `max_trades_per_day` activates the kill switch; EXIT, rejected, and cancelled orders do not consume the limit.
-- Positions have `INTRADAY` or `POSITIONAL` type; default is `POSITIONAL`.
-- Automatic square-off exits only `INTRADAY` positions. Positional/swing positions remain open overnight.
-
-## Trading Modes
-
-- Phase 21: Paper mode — completed.
-- Paper mode uses AngelOne live market data with simulated account and execution providers.
-- Paper MARKET orders fill immediately at the current AngelOne LTP; no broker order is sent.
-- Paper mode uses real-time CalendarSessionManager timing.
-- Phase 22: Backtest mode — completed.
-- Backtest mode uses HistoricalProvider with simulated account/execution and fast CalendarSessionManager timing.
-- Optional CSV source: enable `backtest.csv.enabled` and set `backtest.csv.data_file`.
-- CSV columns: `symbol,exchange,interval,timestamp,open,high,low,close,volume`.
-- When CSV is disabled, HistoricalProvider remains available for in-memory `MarketBar` data.
-- Backtest mode does not log in to a broker.
-- Phase 23: Replay mode — completed.
-- Replay mode reuses the Backtest HistoricalProvider and simulated account/execution providers.
-- Replay reads the same optional `backtest.csv` source and uses `session.replay_speed` for timed historical playback.
-- Replay mode does not log in to a broker and does not add a separate ReplayProvider.
-- TradingEngine detects historical date changes through `advance_time()`.
-- Each new day closes the prior strategy session, resets daily risk state, then runs `on_market_open()` and `on_initial_setup()` again for daily strategy calculations.
-- Phase 24: Live mode — completed.
-- Live mode uses one shared AngelOne session for live market data, broker account, and broker execution.
-- Live mode uses real-time CalendarSessionManager timing.
-- Orders carry `position_type`; AngelOne maps `INTRADAY` to broker intraday and `POSITIONAL` to delivery/carry-forward products.
-
-## Logging
-
-Console log colors: ERROR red, WARNING yellow, INFO white, and DONE green.
-Use `logger.done()` for successful completions such as login, logout, order placement, and shutdown.
-Rotating log files remain plain text without color codes.
-
-## Running
-
-Use the repository default configuration:
-
-`autotick`
-
-Or pass an explicit configuration path:
-
-`autotick --config path/to/config.yaml`
-
-`config/default.yaml` is the only default YAML file. `autotick/config/` contains configuration code only.
-
-Windows Paper UI data: set `simulated.ui_data_enabled` to `true`, then run
-`python -m autotick.main`. The control panel and Paper runner use the same
-in-process simulated session, so balance, ticks, and bars are read directly by
-the running strategy. Keep `simulated.broker_auto_fetch` false for UI-only data.
-Set it true and select a real `broker` to copy initial balance, tick, and bars
-through that broker's registered ProviderFactory adapter.
-
-Manual provider check: run `python provider_test.py` after placing `angelone_keys.env` inside root `config/`.
-Market-data calls remain disabled until `GET_MARKET_DATA` is changed to `True`.
-Live BUY/SELL calls remain disabled until `PLACE_LIVE_ORDERS` is changed to `True`.
-AngelOne order calls require the API application's registered static public IP.
-Rejected orders have no order ID, so the manual script skips their status lookup and continues other checks.
-
-## Status
+## Current Status
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
-- Completed: Phases 1-24
+- Completed phases: 1 through 24
+- Provider cleanup: completed
 - Current milestone: Recovery and Persistence
-- Current: Phase 25 - Persistence, recovery, and reconciliation
+- Next phase: Phase 25 - persistence, recovery, and reconciliation
+- Automated tests: intentionally deferred until Phase 29
 
-## Plan
+## Implemented Architecture
 
-See [PLAN.md](PLAN.md) for the implementation roadmap and [ARCHITECTURE_IMPLEMENTATION_GUIDE.txt](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) for detailed architecture rules.
+### Foundation and Core
+
+- YAML loading, path resolution, and validation.
+- Normalized market, signal, order, position, trade, account, and event models.
+- MarketData, Account, and Execution provider contracts.
+- ProviderFactory and ProviderBundle mode mapping.
+- Shared broker sessions through SessionPool.
+- CalendarSessionManager for realtime, fast, and replay clocks.
+- EventDispatcher and TradingEngine core components.
+- Centralized colored console logging and plain rotating file logging.
+
+### Strategy
+
+- SMA indicator with default period 20.
+- Strategy base and StrategyContext.
+- Simple long strategy:
+  - Load the latest completed daily close during initial setup.
+  - Generate BUY when LTP is greater than previous close by 0.5%.
+  - Generate no signal otherwise.
+- SignalValidator performs structural validation only.
+- RiskManager and TradeManager own quantity and order workflow.
+
+### Providers
+
+- HistoricalProvider returns normalized list[MarketBar] data.
+- get_bars() accepts optional start and end dates.
+- Default end: current provider time.
+- Default start: 5 days earlier, or 30 days for daily bars.
+- AngelOne session, account, market-data, and execution adapters.
+- Simulated session, shared state, account, market-data, and execution adapters.
+- AngelOne and simulated adapters use aligned constructors, exchanges, arguments, and normalized return models.
+- Simulated setters are input helpers, not shared interface methods.
+
+## Mode Mapping
+
+| Mode | Market data | Account | Execution | Clock |
+|---|---|---|---|---|
+| Live | Selected broker | Selected broker | Selected broker | Realtime |
+| Paper, UI disabled | Selected broker | Simulated | Simulated | Realtime |
+| Paper, UI enabled | Shared UI simulated data | Simulated | Simulated | Realtime |
+| Backtest | HistoricalProvider | Simulated | Simulated | Fast |
+| Replay | HistoricalProvider | Simulated | Simulated | Replay speed |
+
+Paper orders never reach the broker. MARKET orders use the active market-data provider's current LTP and fill in simulated execution.
+
+## Paper UI Behavior
+
+Set simulated.ui_data_enabled to true to start the Windows control panel and Paper runner in one process.
+
+- The UI controls balance, funds, ticks, LTP, volume, price changes, CSV data, and bars.
+- The UI and strategy share one SimulatedSession and SimulatedState.
+- broker_auto_fetch false keeps UI data fully manual.
+- broker_auto_fetch true copies initial data from the selected real broker.
+- broker_auto_fetch is used only when UI data is enabled.
+- When UI is disabled, normal Paper mode uses the selected broker for market data.
+
+## Realtime Market-Hours Behavior
+
+- only_market_hours true: if the market is closed, log a warning and exit the realtime loop.
+- only_market_hours false: ignore the market-hours gate and keep processing at engine.loop_sleep_s intervals.
+- Live and Paper use wall-clock time.
+- Backtest and Replay use historical timestamps.
+- POSITIONAL orders are not automatically squared off.
+- TradeManager exposes intraday square-off, but the current CLI runner does not call it yet.
+
+Running Paper with only_market_hours false can use stale after-market broker LTP. Use true for normal market-hours Paper runs.
+
+## Execution and Risk
+
+Implemented core behavior:
+
+- Order states: NEW, VALIDATED, SUBMITTED, OPEN, PARTIAL, FILLED, REJECTED, CANCELLED, EXPIRED.
+- Risk-based quantity cap using capital, risk percentage, price, and stop-loss distance.
+- Filled ENTRY orders increment the daily trade count.
+- max_trades_per_day activates the kill switch.
+- Stop-loss and target price helpers.
+- Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
+- Intraday-only square-off method.
+
+Current CLI runner wiring:
+
+- Uses signal validation, risk sizing, order creation, and filled-entry counting.
+- Does not yet monitor target, stop-loss, trailing stop, or P&L exits.
+- Does not yet call automatic square-off.
+- persistence configuration is validated but persistence starts in Phase 25.
+
+## Logging
+
+Console colors:
+
+- ERROR: red
+- WARNING: yellow
+- INFO: white
+- DONE: green
+
+Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating log files remain plain text without color codes.
+
+## Configuration
+
+The only default YAML is config/default.yaml. Relative credential and CSV paths resolve from the YAML file's directory.
+
+Important flags:
+
+- mode: live, paper, backtest, or replay
+- broker: selected broker adapter
+- simulated.ui_data_enabled: enable Paper control panel
+- simulated.broker_auto_fetch: load UI starting data from a real broker
+- session.only_market_hours: enforce or ignore the realtime market-hours gate
+- trade.position_type: INTRADAY or POSITIONAL
+
+## Running
+
+Install the package in editable mode:
+
+    python -m pip install -e .
+
+Run with the default configuration:
+
+    python -m autotick.main
+
+Run with another configuration:
+
+    python -m autotick.main --config path/to/config.yaml
+
+The installed command is also available:
+
+    autotick
+
+## Manual Tools
+
+Provider check:
+
+    python provider_test.py
+
+- Put angelone_keys.env beside config/default.yaml when that relative path is configured.
+- GET_MARKET_DATA stays false until manual market-data calls are intended.
+- PLACE_LIVE_ORDERS stays false until live BUY/SELL testing is explicitly intended.
+- AngelOne order APIs require the API application's registered static public IP.
+- Rejected orders have no broker order ID, so status lookup is skipped.
+
+Windows simulated control panel:
+
+    python simulated_control_panel.py
+
+The control panel is normally started automatically by main.py when simulated.ui_data_enabled is true.
+
+## Roadmap
+
+See [PLAN.md](PLAN.md) for milestone tracking and [ARCHITECTURE_IMPLEMENTATION_GUIDE.txt](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) for detailed architecture and current implementation rules.

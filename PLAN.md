@@ -1,4 +1,4 @@
-# AutoTick — Plan
+# AutoTick - Plan
 
 ## Project Goal
 
@@ -6,66 +6,93 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 
 ## Milestones
 
-- [x] Foundation: project structure, configuration, models, and interfaces.
-- [x] Mode-Neutral Core: providers, sessions, events, and TradingEngine.
-- [x] Strategy Framework: indicators, Strategy contract, simple strategy, and signal validation.
-- [x] Provider Layer: historical, simulated, and broker adapters.
-- [x] Execution and Risk: orders, positions, P&L, limits, and kill switch.
-- [x] Trading Modes: Paper, Backtest, Replay, and Live.
-- [ ] Recovery and Persistence: persistence, recovery, reconciliation, and reconnect.
-- [ ] Reports: performance metrics and trade export.
-- [ ] Testing: unit, integration, parity, recovery, and end-to-end tests.
-- [ ] Production: documentation, audit trail, soak test, and controlled rollout.
+- [x] Milestone 1 - Foundation: structure, configuration, models, interfaces, and logging.
+- [x] Milestone 2 - Mode-Neutral Core: providers, sessions, events, and TradingEngine.
+- [x] Milestone 3 - Strategy Framework: indicators, strategy contract, context, simple strategy, and signal validation.
+- [x] Milestone 4 - Provider Layer: historical, simulated, and AngelOne adapters.
+- [x] Milestone 5 - Execution and Risk: order states, positions, P&L, sizing, limits, and square-off methods.
+- [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
+- [ ] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
+- [ ] Milestone 8 - Reports: performance metrics and trade export.
+- [ ] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
+- [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
 
-## Detailed Plan
-Detailed phase definitions and architecture rules: ARCHITECTURE_IMPLEMENTATION_GUIDE.txt
+## Completed Phases
 
-## Current Status
+- [x] Phase 1 - Project skeleton, packaging, entry point, and logging.
+- [x] Phase 2 - YAML configuration loading and validation.
+- [x] Phase 3 - Common models.
+- [x] Phase 4 - Provider interfaces.
+- [x] Phase 5 - ProviderFactory and mode mapping.
+- [x] Phase 6 - SessionPool and broker-session lifecycle.
+- [x] Phase 7 - CalendarSessionManager.
+- [x] Phase 8 - EventDispatcher.
+- [x] Phase 9 - TradingEngine lifecycle and event loop.
+- [x] Phase 10 - Indicator base and SMA.
+- [x] Phase 11 - Strategy base, context, callbacks, and simple long strategy.
+- [x] Phase 12 - Engine-owned SignalValidator.
+- [x] Phase 13 - Shared HistoricalProvider.
+- [x] Phase 14 - Simulated providers and shared in-memory state.
+- [x] Phase 15 - AngelOne session and account adapters.
+- [x] Phase 16 - AngelOne market-data and execution adapters.
+- [x] Phase 17 - TradeManager and order state machine.
+- [x] Phase 18 - Position lifecycle, exposure, trades, and P&L.
+- [x] Phase 19 - Risk validation, quantity sizing, stop-loss, and target helpers.
+- [x] Phase 20 - Daily trade limit, kill switch, and intraday square-off method.
+- [x] Phase 21 - Paper mode.
+- [x] Phase 22 - Backtest mode.
+- [x] Phase 23 - Replay mode.
+- [x] Phase 24 - Live mode.
 
-- Completed milestone: Trading Modes
-- Completed phases: Phase 1 through Phase 24
-- Default YAML lives only at `config/default.yaml`; `autotick/config/` contains code only
-- Phase 10: Indicator base and simple moving average (default period 20)
-- Phase 11: Strategy base, StrategyContext, lifecycle callbacks, and simple long strategy
-- Phase 12: Engine-layer SignalValidator for structural signal validation
-- Phase 13: Shared HistoricalProvider for Backtest and Replay historical market data
-- Market-data providers support optional bar start/end dates with 5-day intraday and 30-day daily defaults
-- Phase 14: Simulated session, market-data, account, and execution providers with in-memory state
-- Simulated market data remains standalone; mode mapping keeps Paper on AngelOne and Backtest/Replay on HistoricalProvider
-- AngelOne and simulated account providers return the same normalized Account model
-- AngelOne and simulated adapters use matching constructor arguments
-- Phase 15: AngelOne SmartAPI shared session and account adapter
-- Phase 16: AngelOne SmartAPI market-data and execution adapters
-- Phase 17: TradeManager and validated, timestamped order state machine
-- Phase 18: TradeManager position lifecycle, broker reconciliation, exposure, trades, and realized/unrealized P&L
-- Phase 19: RiskManager validation, risk-based quantity cap, stop loss, and configurable target
-- Phase 20: Daily loss limit, filled-entry trade limit, kill switch, and intraday-only square-off
-- Phase 21: Paper mode uses AngelOne live market data with simulated account/execution and real-time session timing
-- Paper mode can optionally use the Windows simulated-data control panel when `simulated.ui_data_enabled` is true
-- UI-backed Paper mode shares one in-process simulated session with the running strategy
-- UI broker snapshot loading is controlled by generic `simulated.broker_auto_fetch`; false keeps all data manual
-- Paper MARKET orders fill immediately using current broker LTP without sending broker orders
-- Phase 22: Backtest mode uses HistoricalProvider with simulated account/execution and fast session timing
-- Backtest can optionally load normalized OHLCV bars from configured CSV; otherwise HistoricalProvider accepts in-memory bars
-- Backtest does not require broker login or broker credentials
-- Phase 23: Replay mode reuses HistoricalProvider and simulated account/execution with replay-speed session timing
-- Replay uses the same optional historical CSV source as Backtest and does not require broker login
-- Backtest and Replay detect trading-date changes through TradingEngine.advance_time()
-- New trading day closes prior strategy session, resets RiskManager daily state, then reruns on_market_open() and on_initial_setup()
-- Phase 24: Live mode uses one shared AngelOne session for market data, account, and execution with real-time session timing
-- Orders carry position_type; AngelOne maps INTRADAY to INTRADAY and POSITIONAL to DELIVERY/CARRYFORWARD
-- Strategy rule: BUY when LTP > previous-day close + 0.5%; otherwise no action
-- Previous-day close: fetched through MarketDataProvider during on_initial_setup()
-- quantity=None is valid at signal level; RiskManager/TradeManager decides sizing from configuration
-- Orders use explicit ENTRY/EXIT intent; only FILLED ENTRY orders increment the daily trade count
-- Reaching `risk.max_trades_per_day` activates the kill switch; default is 5
-- Position type defaults to POSITIONAL; only INTRADAY positions are auto squared off
-- Target and stop loss are risk configuration; duplicate-entry and re-entry remain outside Strategy/SignalValidator
-- Position/trade verification and reconciliation stay in TradeManager, not providers
-- Current milestone: Recovery and Persistence
-- Current phase: Phase 25 - Persistence, recovery, and reconciliation
-- Status: Milestones 1-6 and Phases 1-24 completed
+## Post-Phase Cleanup Completed
 
-## Development Rule
+- Aligned AngelOne and simulated interfaces, constructors, arguments, exchanges, and normalized return models.
+- Added shared SimulatedSession and SimulatedState.
+- Added optional get_bars() dates with 5-day intraday and 30-day daily defaults.
+- Removed duplicate YAML.
+- Added root provider_test.py.
+- Added Windows simulated_control_panel.py.
+- Connected UI balance, funds, ticks, LTP, volume, price changes, CSV, and bars to the running Paper strategy.
+- Added UI-only and broker-auto-fetch behavior.
+- Added colored console logging and logger.done().
+- Added market-closed warning and realtime-loop exit when only_market_hours is true.
+- Removed tests until the planned Testing milestone.
 
-Implement and commit one approved phase at a time.
+## Current Runtime Wiring
+
+- Paper with UI disabled: broker market data plus simulated account and execution.
+- Paper with UI enabled: shared UI simulated data plus simulated account and execution.
+- Backtest and Replay: HistoricalProvider plus simulated account and execution.
+- Live: broker market data, account, and execution.
+- Simple strategy buys when LTP exceeds previous close by 0.5%.
+- RiskManager caps configured quantity.
+- One filled ENTRY increments the daily trade count.
+- POSITIONAL is the default position type.
+
+Not yet wired in the CLI runner:
+
+- Target, stop-loss, trailing-stop monitoring and exit orders.
+- Daily P&L feed into max-loss enforcement.
+- Automatic square-off call.
+- Persistence, recovery, startup reconciliation, and reconnect.
+- Reports and exports.
+- Automated tests.
+
+## Current Work
+
+- Completed milestone: Milestone 6 - Trading Modes
+- Completed phases: 1 through 24
+- Current milestone: Milestone 7 - Recovery and Persistence
+- Next phase: Phase 25 - persistence, recovery, and reconciliation
+- Phase 25 status: not started
+- Test implementation starts at Phase 29
+
+## Development Rules
+
+- Implement and commit one approved phase at a time.
+- Keep the code short and simple.
+- Update README.md, PLAN.md, and ARCHITECTURE_IMPLEMENTATION_GUIDE.txt together.
+- Keep strategies focused on market conditions and signal generation.
+- Keep broker SDK calls inside broker adapters.
+- Keep normalized models and interfaces broker-independent.
+- Do not add optional components before their planned phase.
