@@ -59,6 +59,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
 - Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
 - Completed Phase 19-20 runtime wiring for stop-loss, target, trailing-stop, and exit orders.
+- Added simulated fill accounting for funds, positions, trades, realized P&L, and clear execution logs.
 - Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
 

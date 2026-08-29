@@ -8,10 +8,12 @@ Created on Mon Aug 24 19:56:33 2026
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
+from uuid import uuid4
 
 from autotick.interfaces.execution import ExecutionProvider
-from autotick.models.order import Order, OrderStatus, OrderType
-from autotick.models.position import Position
+from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
+from autotick.models.position import Position, PositionStatus
 from autotick.models.trade import Trade
 from autotick.providers.brokers.simulated.session import SimulatedSession
 
@@ -22,7 +24,7 @@ class SimulatedExecutionProvider(ExecutionProvider):
     def __init__(self, session: SimulatedSession) -> None:
         self.session = session
         self._orders: dict[str, Order] = {}
-        self._positions: list[Position] = []
+        self._positions: dict[tuple[str, str], Position] = {}
         self._holdings: list[Position] = []
         self._trades: list[Trade] = []
         self._pnl = 0.0
@@ -34,6 +36,8 @@ class SimulatedExecutionProvider(ExecutionProvider):
             if tick is None or tick.ltp is None or tick.ltp <= 0:
                 raise RuntimeError(f"No market price for {order.symbol}")
             submitted = replace(order, price=float(tick.ltp), status=OrderStatus.FILLED)
+            if not self._fill(submitted, tick.timestamp):
+                submitted = replace(submitted, status=OrderStatus.REJECTED)
         else:
             submitted = replace(order, status=OrderStatus.SUBMITTED)
         self._orders[submitted.order_id] = submitted
@@ -67,7 +71,7 @@ class SimulatedExecutionProvider(ExecutionProvider):
         return list(self._orders.values())
 
     def get_positions(self) -> list[Position]:
-        return list(self._positions)
+        return list(self._positions.values())
 
     def get_holdings(self) -> list[Position]:
         return list(self._holdings)
@@ -80,3 +84,54 @@ class SimulatedExecutionProvider(ExecutionProvider):
 
     def square_off(self) -> None:
         self._positions.clear()
+
+    def _fill(self, order: Order, timestamp: datetime | None) -> bool:
+        """Update simulated cash, position, trade, and realized P&L."""
+        price = float(order.price or 0.0)
+        value = price * order.quantity
+        key = (order.symbol, order.exchange)
+        position = self._positions.get(key)
+
+        if order.side == OrderSide.BUY:
+            if self.session.state.update_funds(-value) is None:
+                return False
+            quantity = order.quantity + (position.quantity if position else 0)
+            total = value + (
+                position.average_price * position.quantity if position else 0.0
+            )
+            self._positions[key] = Position(
+                symbol=order.symbol,
+                exchange=order.exchange,
+                quantity=quantity,
+                average_price=total / quantity,
+                realized_pnl=position.realized_pnl if position else 0.0,
+                position_type=order.position_type,
+            )
+        else:
+            if position is None or position.quantity < order.quantity:
+                return False
+            self.session.state.update_funds(value)
+            pnl = (price - position.average_price) * order.quantity
+            self._pnl += pnl
+            remaining = position.quantity - order.quantity
+            self._positions[key] = replace(
+                position,
+                quantity=remaining,
+                realized_pnl=position.realized_pnl + pnl,
+                unrealized_pnl=0.0,
+                status=PositionStatus.OPEN if remaining else PositionStatus.CLOSED,
+            )
+
+        self._trades.append(
+            Trade(
+                trade_id=str(uuid4()),
+                order_id=order.order_id,
+                symbol=order.symbol,
+                exchange=order.exchange,
+                side=order.side,
+                quantity=order.quantity,
+                price=price,
+                timestamp=timestamp or datetime.now(),
+            )
+        )
+        return True

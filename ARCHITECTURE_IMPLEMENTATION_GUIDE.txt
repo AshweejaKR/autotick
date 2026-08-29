@@ -211,6 +211,9 @@ Paper behavior:
 - broker_auto_fetch true: selected real broker supplies initial UI data.
 - broker_auto_fetch has no effect when UI is disabled.
 - Paper MARKET orders fill at the current active market-data LTP.
+- Filled simulated BUY orders subtract cost from balance, margin, and buying power.
+- Filled simulated SELL orders add proceeds and record realized P&L.
+- Simulated BUY orders are rejected when available funds cannot cover the cost.
 - Paper never sends an order to the broker.
 
 CONFIGURATION BEHAVIOR
@@ -348,6 +351,8 @@ TradeManager implemented behavior:
 - opens tracked positions only after filled entry orders.
 - monitors fixed stop-loss first, then target-activated trailing protection.
 - submits normalized exit orders and closes positions after filled exits.
+- records normalized simulated trades and updates simulated cash and realized P&L.
+- logs rounded execution prices, cost/proceeds, exit levels, P&L, and funds.
 
 Current CLI runner does not yet:
 

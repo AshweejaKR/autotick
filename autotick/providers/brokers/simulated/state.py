@@ -55,6 +55,21 @@ class SimulatedState:
         with self.lock:
             self.account = replace(account)
 
+    def update_funds(self, change: float) -> float | None:
+        """Atomically change available funds; return None when insufficient."""
+        with self.lock:
+            account = self.account or self.initialize_account(0.0)
+            funds = float(account.balance or 0.0) + float(change)
+            if funds < 0:
+                return None
+            self.account = replace(
+                account,
+                balance=funds,
+                available_margin=funds,
+                buying_power=funds,
+            )
+            return funds
+
     def set_tick(self, tick: MarketTick) -> None:
         """Store one latest tick."""
         with self.lock:

@@ -130,17 +130,38 @@ def _process_symbols(
         exit_result = trades.monitor_exit(symbol, tick.exchange, tick.ltp)
         if exit_result is not None:
             order, reason = exit_result
-            log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
-            log_order(
-                "%s %s exit order %s: %s qty=%s price=%s status=%s",
-                mode.upper(),
-                reason,
-                order.order_id,
-                symbol,
-                order.quantity,
-                order.price,
-                order.status.value,
-            )
+            if order.status == OrderStatus.FILLED:
+                position = trades.get_position(symbol, tick.exchange)
+                logger.done(
+                    "%s %s SELL filled %s: %s qty=%s buy_price=%.2f "
+                    "sell_price=%.2f proceeds=%.2f pnl=%.2f funds=%.2f",
+                    mode.upper(),
+                    reason,
+                    order.order_id,
+                    symbol,
+                    order.quantity,
+                    position.average_price,
+                    order.price,
+                    float(order.price) * order.quantity,
+                    position.realized_pnl,
+                    providers.account.get_balance(),
+                )
+            else:
+                log_order = (
+                    logger.error
+                    if order.status == OrderStatus.REJECTED
+                    else logger.info
+                )
+                log_order(
+                    "%s %s SELL order %s: %s qty=%s sell_price=%.2f status=%s",
+                    mode.upper(),
+                    reason,
+                    order.order_id,
+                    symbol,
+                    order.quantity,
+                    order.price,
+                    order.status.value,
+                )
             continue
 
         if trades.has_active_trade(symbol, tick.exchange) or symbol in entered:
@@ -170,16 +191,35 @@ def _process_symbols(
         order = _place_order(trades, risk, signal, quantity, position_type)
         if order.status != OrderStatus.REJECTED:
             entered.add(symbol)
-        log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
-        log_order(
-            "%s entry order %s: %s qty=%s price=%s status=%s",
-            mode.upper(),
-            order.order_id,
-            symbol,
-            order.quantity,
-            order.price,
-            order.status.value,
-        )
+        if order.status == OrderStatus.FILLED:
+            stop_loss, target, _ = trades.get_exit_prices(symbol, tick.exchange)
+            logger.done(
+                "%s BUY filled %s: %s qty=%s buy_price=%.2f cost=%.2f "
+                "stop_loss=%.2f target=%.2f funds=%.2f",
+                mode.upper(),
+                order.order_id,
+                symbol,
+                order.quantity,
+                order.price,
+                float(order.price) * order.quantity,
+                stop_loss,
+                target,
+                providers.account.get_balance(),
+            )
+        else:
+            log_order = (
+                logger.error if order.status == OrderStatus.REJECTED else logger.info
+            )
+            log_order(
+                "%s BUY order %s: %s qty=%s buy_price=%.2f status=%s funds=%.2f",
+                mode.upper(),
+                order.order_id,
+                symbol,
+                order.quantity,
+                order.price,
+                order.status.value,
+                providers.account.get_balance(),
+            )
 
 def _run_realtime(
     providers,

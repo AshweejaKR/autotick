@@ -107,6 +107,7 @@ class TradeManager:
         updated = replace(order, status=status, status_updated_at=datetime.now())
         self.track_order(updated)
         if status == OrderStatus.FILLED:
+            self._record_trade(updated)
             if updated.intent == OrderIntent.ENTRY:
                 if self.risk_manager is not None:
                     self.risk_manager.record_entry()
@@ -132,6 +133,19 @@ class TradeManager:
 
     def get_orders(self) -> list[Order]:
         return list(self._orders.values())
+
+    def get_position(self, symbol: str, exchange: str) -> Position | None:
+        return self._positions.get((symbol, exchange))
+
+    def get_exit_prices(
+        self,
+        symbol: str,
+        exchange: str,
+    ) -> tuple[float, float, float | None] | None:
+        levels = self._exit_levels.get((symbol, exchange))
+        if levels is None:
+            return None
+        return levels.stop_loss, levels.target, levels.trailing_stop
 
     def has_active_trade(self, symbol: str, exchange: str) -> bool:
         position = self._positions.get((symbol, exchange))
@@ -246,9 +260,35 @@ class TradeManager:
 
     def _close_filled_exit(self, order: Order) -> None:
         key = (order.symbol, order.exchange)
-        if key in self._positions:
-            self.close_position(*key)
+        position = self._positions.get(key)
+        if position is not None and order.price is not None:
+            direction = 1 if position.quantity > 0 else -1
+            pnl = (
+                (float(order.price) - position.average_price)
+                * abs(order.quantity)
+                * direction
+            )
+            self._positions[key] = replace(
+                position,
+                quantity=0,
+                realized_pnl=position.realized_pnl + pnl,
+                unrealized_pnl=0.0,
+                status=PositionStatus.CLOSED,
+            )
         self._exit_levels.pop(key, None)
+
+    def _record_trade(self, order: Order) -> None:
+        trade = Trade(
+            trade_id=str(uuid4()),
+            order_id=order.order_id,
+            symbol=order.symbol,
+            exchange=order.exchange,
+            side=order.side,
+            quantity=order.quantity,
+            price=float(order.price or 0.0),
+            timestamp=order.status_updated_at or datetime.now(),
+        )
+        self._trades[trade.trade_id] = trade
 
     def _submit_exit(self, position: Position, price: float) -> Order:
         order = self.create_order(

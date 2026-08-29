@@ -65,7 +65,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 | Backtest | HistoricalProvider | Simulated | Simulated | Fast |
 | Replay | HistoricalProvider | Simulated | Simulated | Replay speed |
 
-Paper orders never reach the broker. MARKET orders use the active market-data provider's current LTP and fill in simulated execution.
+Paper orders never reach the broker. MARKET orders use the active market-data provider's current LTP and fill in simulated execution. Filled buys subtract their cost from simulated funds; filled sells add proceeds and realized P&L. Buys with insufficient funds are rejected.
 
 ## Paper UI Behavior
 
@@ -118,6 +118,7 @@ Current CLI runner wiring:
 - Uses signal validation, risk sizing, order creation, and filled-entry counting.
 - Monitors fixed stop-loss and target-activated trailing-stop exits on every tick.
 - Reconciles pending broker orders before monitoring filled positions.
+- Logs rounded buy/sell prices, cost/proceeds, stop-loss, target, P&L, and remaining simulated funds.
 - Does not yet call automatic square-off.
 - persistence configuration is validated but persistence starts in Phase 25.
 
