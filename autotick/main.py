@@ -143,7 +143,7 @@ def _process_symbols(
             )
             continue
 
-        if symbol in entered:
+        if trades.has_active_trade(symbol, tick.exchange) or symbol in entered:
             continue
 
         strategy = strategies.get(symbol)

@@ -67,7 +67,10 @@ class TradeManager:
 
     def create_order(self, order: Order) -> Order:
         validated = self.update_order_state(order, OrderStatus.VALIDATED)
+        original_id = validated.order_id
         provider_order = self.execution.place_order(validated)
+        if provider_order.order_id != original_id:
+            self._orders.pop(original_id, None)
         submitted = self.update_order_state(
             replace(provider_order, status=OrderStatus.VALIDATED),
             OrderStatus.SUBMITTED,
@@ -130,6 +133,25 @@ class TradeManager:
     def get_orders(self) -> list[Order]:
         return list(self._orders.values())
 
+    def has_active_trade(self, symbol: str, exchange: str) -> bool:
+        position = self._positions.get((symbol, exchange))
+        if position is not None and position.status in {
+            PositionStatus.OPEN,
+            PositionStatus.EXIT_PENDING,
+        }:
+            return True
+        return any(
+            order.symbol == symbol
+            and order.exchange == exchange
+            and order.intent == OrderIntent.ENTRY
+            and order.status in {
+                OrderStatus.SUBMITTED,
+                OrderStatus.OPEN,
+                OrderStatus.PARTIAL,
+            }
+            for order in self._orders.values()
+        )
+
     def reconcile_orders(self) -> list[Order]:
         pending = {
             order_id: order
@@ -146,7 +168,11 @@ class TradeManager:
         changed = []
         for broker_order in self.execution.get_orders():
             current = pending.get(broker_order.order_id)
-            if current is None or current.status == broker_order.status:
+            if current is None:
+                if broker_order.order_id not in self._orders:
+                    self.track_order(broker_order)
+                continue
+            if current.status == broker_order.status:
                 continue
             price = broker_order.price or current.price
             changed.append(
