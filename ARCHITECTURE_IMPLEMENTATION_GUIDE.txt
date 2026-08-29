@@ -282,7 +282,9 @@ CalendarSessionManager.now()
   -> market-hours decision
   -> account balance updates RiskManager capital
   -> broker/UI get_tick()
-  -> SimpleStrategy.on_tick()
+  -> pending-order reconciliation
+  -> stop-loss, target, and trailing-stop monitoring
+  -> SimpleStrategy.on_tick() when no entry exists
   -> SignalValidator
   -> RiskManager sizing and validation
   -> TradeManager order state
@@ -330,7 +332,9 @@ RiskManager implemented behavior:
   stop-loss distance.
 - filled ENTRY orders increment trade_count.
 - max_trades_per_day activates the kill switch.
-- stop_loss() and target() calculate price levels.
+- stop_loss(), target(), and trailing_stop() calculate price levels.
+- trailing_sl_pct greater than zero activates trailing protection at target.
+- trailing_sl_pct zero closes directly at target.
 - check_daily_limits() can activate the max-loss kill switch.
 - reset_daily_state() clears daily count and kill switch.
 
@@ -341,10 +345,12 @@ TradeManager implemented behavior:
 - reconciles broker orders and positions.
 - tracks position state, exposure, realized P&L, and unrealized P&L.
 - provides intraday square-off orders.
+- opens tracked positions only after filled entry orders.
+- monitors fixed stop-loss first, then target-activated trailing protection.
+- submits normalized exit orders and closes positions after filled exits.
 
 Current CLI runner does not yet:
 
-- monitor stop-loss, target, or trailing-stop exits.
 - feed daily P&L into check_daily_limits().
 - call automatic square-off.
 - persist or recover state.

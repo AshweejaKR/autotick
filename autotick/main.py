@@ -23,7 +23,14 @@ from autotick.engine import (
     SignalValidator,
     TradeManager,
 )
-from autotick.models import Order, OrderSide, OrderStatus, PositionType, SignalType
+from autotick.models import (
+    Order,
+    OrderIntent,
+    OrderSide,
+    OrderStatus,
+    PositionType,
+    SignalType,
+)
 from autotick.providers.factory import ProviderFactory
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
@@ -96,6 +103,14 @@ def _place_order(
     return trades.create_order(risk.validate_order(order, signal.price))
 
 
+def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
+    """Refresh pending orders and allow retries after failed entries."""
+    failed = {OrderStatus.REJECTED, OrderStatus.CANCELLED, OrderStatus.EXPIRED}
+    for order in trades.reconcile_orders():
+        if order.intent == OrderIntent.ENTRY and order.status in failed:
+            entered.discard(order.symbol)
+
+
 def _process_symbols(
     providers,
     symbols: list[str],
@@ -108,6 +123,26 @@ def _process_symbols(
     mode: str,
 ) -> None:
     for symbol in symbols:
+        tick = providers.market_data.get_tick(symbol)
+        if tick is None or tick.ltp is None:
+            continue
+
+        exit_result = trades.monitor_exit(symbol, tick.exchange, tick.ltp)
+        if exit_result is not None:
+            order, reason = exit_result
+            log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
+            log_order(
+                "%s %s exit order %s: %s qty=%s price=%s status=%s",
+                mode.upper(),
+                reason,
+                order.order_id,
+                symbol,
+                order.quantity,
+                order.price,
+                order.status.value,
+            )
+            continue
+
         if symbol in entered:
             continue
 
@@ -118,9 +153,6 @@ def _process_symbols(
                 continue
             strategies[symbol] = strategy
 
-        tick = providers.market_data.get_tick(symbol)
-        if tick is None:
-            continue
         strategy.context.tick = tick
         signal = strategy.on_tick(tick)
         if signal is None or signal.signal_type != SignalType.BUY:
@@ -136,10 +168,11 @@ def _process_symbols(
             continue
 
         order = _place_order(trades, risk, signal, quantity, position_type)
-        entered.add(symbol)
+        if order.status != OrderStatus.REJECTED:
+            entered.add(symbol)
         log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
         log_order(
-            "%s order completed %s: %s qty=%s price=%s status=%s",
+            "%s entry order %s: %s qty=%s price=%s status=%s",
             mode.upper(),
             order.order_id,
             symbol,
@@ -147,7 +180,6 @@ def _process_symbols(
             order.price,
             order.status.value,
         )
-
 
 def _run_realtime(
     providers,
@@ -188,6 +220,7 @@ def _run_realtime(
         if not config["session"]["only_market_hours"] or market_open:
             balance = providers.account.get_balance()
             risk.update(balance)
+            _reconcile_orders(trades, entered)
             _process_symbols(
                 providers,
                 symbols,
@@ -236,6 +269,7 @@ def _run_historical(
         if config["session"]["only_market_hours"]:
             if not providers.calendar_session.is_market_open(value):
                 continue
+        _reconcile_orders(trades, entered)
         _process_symbols(
             providers,
             symbols,

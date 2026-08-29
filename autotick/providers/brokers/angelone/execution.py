@@ -137,7 +137,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             side=OrderSide(str(item.get("transactiontype", "BUY")).upper()),
             quantity=int(item.get("quantity", 0) or 0),
             order_type=OrderType.LIMIT if str(item.get("ordertype", "")).upper() == "LIMIT" else OrderType.MARKET,
-            price=float(item.get("price", 0) or 0) or None,
+            price=float(item.get("averageprice", item.get("price", 0)) or 0) or None,
             status=status_map.get(status, OrderStatus.SUBMITTED),
             position_type=PositionType.INTRADAY if product == "INTRADAY" else PositionType.POSITIONAL,
         )

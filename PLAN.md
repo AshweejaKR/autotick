@@ -58,6 +58,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added market-closed warning and realtime-loop exit when only_market_hours is true.
 - Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
 - Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
+- Completed Phase 19-20 runtime wiring for stop-loss, target, trailing-stop, and exit orders.
 - Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
 
@@ -70,12 +71,12 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Simple strategy buys when LTP exceeds previous close by 0.5%.
 - RiskManager caps configured quantity.
 - One filled ENTRY increments the daily trade count.
+- Filled positions use fixed stop-loss and target levels; target activates trailing protection when configured.
 - POSITIONAL is the default position type.
 - One configured CalendarSessionManager schedule applies to the run's single exchange.
 
 Not yet wired in the CLI runner:
 
-- Target, stop-loss, trailing-stop monitoring and exit orders.
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
 - Persistence, recovery, startup reconciliation, and reconnect.

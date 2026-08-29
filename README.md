@@ -107,14 +107,17 @@ Implemented core behavior:
 - Risk-based quantity cap using capital, risk percentage, price, and stop-loss distance.
 - Filled ENTRY orders increment the daily trade count.
 - max_trades_per_day activates the kill switch.
-- Stop-loss and target price helpers.
+- Stop-loss, target, and trailing-stop price helpers.
+- Filled entries create tracked positions with fixed stop-loss and target levels.
+- Target activates trailing protection when trailing_sl_pct is greater than zero; zero exits directly at target.
 - Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
 - Intraday-only square-off method.
 
 Current CLI runner wiring:
 
 - Uses signal validation, risk sizing, order creation, and filled-entry counting.
-- Does not yet monitor target, stop-loss, trailing stop, or P&L exits.
+- Monitors fixed stop-loss and target-activated trailing-stop exits on every tick.
+- Reconciles pending broker orders before monitoring filled positions.
 - Does not yet call automatic square-off.
 - persistence configuration is validated but persistence starts in Phase 25.
 

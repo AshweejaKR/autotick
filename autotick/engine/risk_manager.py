@@ -24,6 +24,7 @@ class RiskManager:
         self.risk_pct = float(risk["risk_per_trade_pct"])
         self.stoploss_pct = float(risk["stoploss_pct"])
         self.target_pct = float(risk["target_pct"])
+        self.trailing_pct = float(risk["trailing_sl_pct"])
         self.trade_count = 0
         self.kill_switch = False
 
@@ -61,6 +62,9 @@ class RiskManager:
 
     def target(self, entry_price: float) -> float:
         return entry_price * (1 + self.target_pct / 100)
+
+    def trailing_stop(self, highest_price: float) -> float:
+        return highest_price * (1 - self.trailing_pct / 100)
 
     def check_daily_limits(self, pnl: float) -> bool:
         if pnl <= self.max_loss or self.trade_count >= self.max_trades:

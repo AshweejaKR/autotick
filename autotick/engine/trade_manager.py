@@ -7,7 +7,7 @@ Created on Mon Aug 24 22:07:58 2026
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import uuid4
 
@@ -16,6 +16,14 @@ from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
+
+
+@dataclass(slots=True)
+class _ExitLevels:
+    stop_loss: float
+    target: float
+    highest_price: float
+    trailing_stop: float | None = None
 
 
 class TradeManager:
@@ -55,6 +63,7 @@ class TradeManager:
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, Trade] = {}
+        self._exit_levels: dict[tuple[str, str], _ExitLevels] = {}
 
     def create_order(self, order: Order) -> Order:
         validated = self.update_order_state(order, OrderStatus.VALIDATED)
@@ -94,12 +103,25 @@ class TradeManager:
             raise ValueError(f"Invalid order transition: {order.status} -> {status}")
         updated = replace(order, status=status, status_updated_at=datetime.now())
         self.track_order(updated)
-        if (
-            status == OrderStatus.FILLED
-            and updated.intent == OrderIntent.ENTRY
-            and self.risk_manager is not None
+        if status == OrderStatus.FILLED:
+            if updated.intent == OrderIntent.ENTRY:
+                if self.risk_manager is not None:
+                    self.risk_manager.record_entry()
+                self._open_filled_entry(updated)
+            else:
+                self._close_filled_exit(updated)
+        elif (
+            updated.intent == OrderIntent.EXIT
+            and status in {
+                OrderStatus.REJECTED,
+                OrderStatus.CANCELLED,
+                OrderStatus.EXPIRED,
+            }
         ):
-            self.risk_manager.record_entry()
+            key = (updated.symbol, updated.exchange)
+            position = self._positions.get(key)
+            if position is not None and position.status == PositionStatus.EXIT_PENDING:
+                self._positions[key] = replace(position, status=PositionStatus.OPEN)
         return updated
 
     def get_order(self, order_id: str) -> Order | None:
@@ -108,13 +130,124 @@ class TradeManager:
     def get_orders(self) -> list[Order]:
         return list(self._orders.values())
 
-    def reconcile_orders(self) -> None:
+    def reconcile_orders(self) -> list[Order]:
+        pending = {
+            order_id: order
+            for order_id, order in self._orders.items()
+            if order.status in {
+                OrderStatus.SUBMITTED,
+                OrderStatus.OPEN,
+                OrderStatus.PARTIAL,
+            }
+        }
+        if not pending:
+            return []
+
+        changed = []
         for broker_order in self.execution.get_orders():
-            current = self._orders.get(broker_order.order_id)
-            if current is None:
-                self.track_order(broker_order)
-            elif current.status != broker_order.status:
-                self.update_order_state(current, broker_order.status)
+            current = pending.get(broker_order.order_id)
+            if current is None or current.status == broker_order.status:
+                continue
+            price = broker_order.price or current.price
+            changed.append(
+                self.update_order_state(
+                    replace(current, price=price),
+                    broker_order.status,
+                )
+            )
+        return changed
+
+    def monitor_exit(
+        self,
+        symbol: str,
+        exchange: str,
+        price: float,
+    ) -> tuple[Order, str] | None:
+        """Submit an exit when fixed or trailing protection is hit."""
+        key = (symbol, exchange)
+        position = self._positions.get(key)
+        levels = self._exit_levels.get(key)
+        if (
+            price <= 0
+            or position is None
+            or position.status != PositionStatus.OPEN
+            or levels is None
+            or self.risk_manager is None
+        ):
+            return None
+
+        reason = None
+        if price <= levels.stop_loss:
+            reason = "STOP_LOSS"
+        elif levels.trailing_stop is not None:
+            if price > levels.highest_price:
+                levels.highest_price = price
+                levels.trailing_stop = self.risk_manager.trailing_stop(price)
+            if price <= levels.trailing_stop:
+                reason = "TRAILING_STOP"
+        elif price >= levels.target:
+            if self.risk_manager.trailing_pct > 0:
+                levels.highest_price = max(levels.highest_price, price)
+                levels.trailing_stop = self.risk_manager.trailing_stop(
+                    levels.highest_price
+                )
+                return None
+            reason = "TARGET"
+
+        if reason is None:
+            return None
+        return self._submit_exit(position, price), reason
+
+    def _open_filled_entry(self, order: Order) -> None:
+        price = float(order.price or 0)
+        if price <= 0:
+            return
+        position = self.open_position(
+            Position(
+                symbol=order.symbol,
+                exchange=order.exchange,
+                quantity=order.quantity,
+                average_price=price,
+                position_type=order.position_type,
+            )
+        )
+        if self.risk_manager is not None:
+            self._exit_levels[self._position_key(position)] = _ExitLevels(
+                stop_loss=self.risk_manager.stop_loss(price),
+                target=self.risk_manager.target(price),
+                highest_price=price,
+            )
+
+    def _close_filled_exit(self, order: Order) -> None:
+        key = (order.symbol, order.exchange)
+        if key in self._positions:
+            self.close_position(*key)
+        self._exit_levels.pop(key, None)
+
+    def _submit_exit(self, position: Position, price: float) -> Order:
+        order = self.create_order(
+            Order(
+                order_id=str(uuid4()),
+                symbol=position.symbol,
+                exchange=position.exchange,
+                side=OrderSide.SELL if position.quantity > 0 else OrderSide.BUY,
+                quantity=abs(position.quantity),
+                price=price,
+                intent=OrderIntent.EXIT,
+                position_type=position.position_type,
+            )
+        )
+        if order.status in {
+            OrderStatus.SUBMITTED,
+            OrderStatus.OPEN,
+            OrderStatus.PARTIAL,
+        }:
+            key = self._position_key(position)
+            self._positions[key] = replace(
+                position,
+                status=PositionStatus.EXIT_PENDING,
+            )
+        return order
 
     @staticmethod
     def _position_key(position: Position) -> tuple[str, str]:
