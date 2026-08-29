@@ -29,7 +29,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - MarketData, Account, and Execution provider contracts.
 - ProviderFactory and ProviderBundle mode mapping.
 - Shared broker sessions through SessionPool.
-- CalendarSessionManager for realtime, fast, and replay clocks.
+- CalendarSessionManager for DAILY, WEEKLY, and ALWAYS_OPEN schedules across realtime, fast, and replay clocks.
 - EventDispatcher and TradingEngine core components.
 - Centralized colored console logging and plain rotating file logging.
 
@@ -78,16 +78,25 @@ Set simulated.ui_data_enabled to true to start the Windows control panel and Pap
 - broker_auto_fetch is used only when UI data is enabled.
 - When UI is disabled, normal Paper mode uses the selected broker for market data.
 
-## Realtime Market-Hours Behavior
+## Market Schedule Behavior
 
-- only_market_hours true: if the market is closed, log a warning and exit the realtime loop.
-- only_market_hours false: ignore the market-hours gate and keep processing at engine.loop_sleep_s intervals.
-- Live and Paper use wall-clock time.
-- Backtest and Replay use historical timestamps.
-- POSITIONAL orders are not automatically squared off.
-- TradeManager exposes intraday square-off, but the current CLI runner does not call it yet.
+One AutoTick run supports one market and one exchange. Configure one calendar profile for all symbols in that run.
 
-Running Paper with only_market_hours false can use stale after-market broker LTP. Use true for normal market-hours Paper runs.
+| schedule_type | Use case | Required schedule fields |
+|---|---|---|
+| DAILY | Equity and other daily sessions | trading_days, market_start, market_end, square_off_time |
+| WEEKLY | Forex and other weekly sessions | week_start_day/time, week_end_day/time; optional daily_break_start/end |
+| ALWAYS_OPEN | Spot crypto and other continuous markets | no opening or closing times |
+
+- timezone is required and uses an IANA name such as Asia/Kolkata, America/New_York, or UTC.
+- closed_dates optionally closes specific dates for DAILY and WEEKLY schedules.
+- only_market_hours true: Live and Paper check the calendar before provider login, subscription, or strategy setup. A closed market logs a warning with the next opening and stops the runner.
+- only_market_hours false: the schedule gate is ignored and processing continues every engine.loop_sleep_s.
+- Live and Paper use wall-clock time. Backtest and Replay use historical timestamps.
+- DAILY supports configured square-off timing. WEEKLY and ALWAYS_OPEN do not create an automatic daily square-off signal.
+- POSITIONAL orders are not automatically squared off. TradeManager exposes intraday square-off, but the current CLI runner does not call it yet.
+
+Running Paper with only_market_hours false can use stale after-market broker LTP. Keep the gate enabled for normal exchange-hours Paper runs.
 
 ## Execution and Risk
 
@@ -127,10 +136,19 @@ Important flags:
 
 - mode: live, paper, backtest, or replay
 - broker: selected broker adapter
+- market.exchange: the single exchange used by this run
 - simulated.ui_data_enabled: enable Paper control panel
 - simulated.broker_auto_fetch: load UI starting data from a real broker
-- session.only_market_hours: enforce or ignore the realtime market-hours gate
+- session.schedule_type: DAILY, WEEKLY, or ALWAYS_OPEN
+- session.timezone: calendar timezone in IANA format
+- session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+
+Schedule-specific fields:
+
+- DAILY: trading_days, closed_dates, market_start, market_end, square_off_time
+- WEEKLY: closed_dates, week_start_day, week_start_time, week_end_day, week_end_time, and optional paired daily_break_start/daily_break_end
+- ALWAYS_OPEN: no day or time fields; weekends remain open
 
 ## Running
 

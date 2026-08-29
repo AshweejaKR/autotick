@@ -26,7 +26,7 @@ Core rules:
 - ProviderFactory selects market data, account, execution, and session timing.
 - Broker SDK code stays inside broker adapters.
 - Models and provider contracts stay normalized.
-- CalendarSessionManager owns session time and market-hours checks.
+- CalendarSessionManager owns the single-exchange schedule, timezone, session time, and market-hours checks.
 - RiskManager owns sizing and risk limits.
 - TradeManager owns order and position workflow.
 - Optional production components are added only in their planned phase.
@@ -230,11 +230,22 @@ simulated.broker_auto_fetch:
 - false keeps UI data manual.
 - true requires a real selected broker.
 
+market and session scope:
+- one run uses one market, one exchange, and one CalendarSessionManager profile.
+- all configured symbols must follow that exchange calendar.
+
+session.schedule_type:
+- DAILY: trading_days, market_start, market_end, and square_off_time are required.
+- WEEKLY: week_start_day/time and week_end_day/time are required; a paired
+  daily_break_start/end is optional.
+- ALWAYS_OPEN: no opening or closing fields; every day remains open.
+- timezone is required as an IANA timezone.
+- closed_dates optionally closes specific dates for DAILY and WEEKLY.
+
 session.only_market_hours:
-- true: closed market logs WARNING and exits the realtime loop.
-- false: the realtime runner ignores the market-hours gate and keeps processing.
-- current main.py performs initial strategy setup before the first closed-market
-  check, so broker setup calls may occur before the warning.
+- true: Live and Paper check the calendar before provider login, subscription,
+  or strategy setup. A closed market logs WARNING with next_open and stops.
+- false: the realtime runner ignores the schedule gate and keeps processing.
 
 engine.loop_sleep_s:
 - minimum realtime loop delay.
@@ -255,10 +266,11 @@ main.py
   -> resolve relative input paths
   -> configure logging
   -> select UI flow or ProviderFactory
-  -> create/connect providers
-  -> subscribe configured symbols
+  -> create the single-exchange calendar profile
+  -> for Live/Paper with the gate enabled, stop before provider setup when closed
+  -> connect providers and subscribe configured symbols
   -> create RiskManager and TradeManager
-  -> initialize strategies
+  -> initialize strategies after the open-market check
   -> run realtime or historical loop
   -> unsubscribe and disconnect providers
 
@@ -405,7 +417,7 @@ DESIGN PRINCIPLES
 5. Broker SDKs remain inside broker adapters.
 6. Strategy remains focused on market conditions and signals.
 7. RiskManager and TradeManager own risk and trade workflow.
-8. CalendarSessionManager owns time and session checks.
+8. One CalendarSessionManager owns the run's single-exchange schedule and time.
 9. Add optional components only in their planned phase.
 10. Keep README.md, PLAN.md, and this guide synchronized.
 
@@ -416,6 +428,7 @@ Version: 0.1.0
 Completed milestones: 1 through 6
 Completed phases: 1 through 24
 Provider cleanup: completed
+Schedule-aware calendar cleanup: completed
 Current milestone: Milestone 7 - Recovery and Persistence
 Next phase: Phase 25 - persistence, recovery, and reconciliation
 Phase 25 status: not started

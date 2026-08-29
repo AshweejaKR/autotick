@@ -150,7 +150,7 @@ def _run_realtime(
     position_type: PositionType,
     stop_event: Event | None = None,
 ) -> None:
-    strategies = _setup_strategies(providers, symbols)
+    strategies: dict[str, SimpleStrategy] | None = None
     entered: set[str] = set()
     trading_date = providers.calendar_session.now().date()
     loop_sleep = float(config["engine"]["loop_sleep_s"])
@@ -167,12 +167,15 @@ def _run_realtime(
             break
 
         if now.date() != trading_date and market_open:
-            for strategy in strategies.values():
+            for strategy in (strategies or {}).values():
                 strategy.on_market_close()
             risk.reset_daily_state()
             entered.clear()
-            strategies = _setup_strategies(providers, symbols)
+            strategies = None
             trading_date = now.date()
+
+        if strategies is None:
+            strategies = _setup_strategies(providers, symbols)
 
         if not config["session"]["only_market_hours"] or market_open:
             balance = providers.account.get_balance()
@@ -253,6 +256,16 @@ def _run_providers(
     )
 
     try:
+        if mode in {"live", "paper"} and config["session"]["only_market_hours"]:
+            now = providers.calendar_session.now()
+            if not providers.calendar_session.is_market_open(now):
+                logger.warning(
+                    "Market is closed at %s; next open is %s. Provider setup skipped.",
+                    now,
+                    providers.calendar_session.next_open(now),
+                )
+                return
+
         providers.market_data.connect()
         providers.account.connect()
         providers.market_data.subscribe(symbols)

@@ -56,6 +56,8 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added UI-only and broker-auto-fetch behavior.
 - Added colored console logging and logger.done().
 - Added market-closed warning and realtime-loop exit when only_market_hours is true.
+- Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
+- Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
 
 ## Current Runtime Wiring
@@ -68,6 +70,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - RiskManager caps configured quantity.
 - One filled ENTRY increments the daily trade count.
 - POSITIONAL is the default position type.
+- One configured CalendarSessionManager schedule applies to the run's single exchange.
 
 Not yet wired in the CLI runner:
 
