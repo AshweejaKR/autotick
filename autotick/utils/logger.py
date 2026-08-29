@@ -13,6 +13,8 @@ Provides:
 - Console + rotating file handlers
 - Configurable log level
 - Consistent log format
+- Colored console output
+- Custom DONE level for successful completions
 - Reusable get_logger()
 - Reusable log_call decorator
 """
@@ -34,8 +36,44 @@ DEFAULT_LOG_FORMAT = (
     "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s"
 )
 DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+DONE_LEVEL = 25
+COLOR_RESET = "\033[0m"
+COLOR_RED = "\033[31m"
+COLOR_YELLOW = "\033[33m"
+COLOR_WHITE = "\033[37m"
+COLOR_GREEN = "\033[32m"
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+class AutoTickLogger(logging.Logger):
+    """Logger with a green DONE level for successful operations."""
+
+    def done(self, message: object, *args: Any, **kwargs: Any) -> None:
+        if self.isEnabledFor(DONE_LEVEL):
+            self._log(DONE_LEVEL, message, args, **kwargs)
+
+
+class ColorFormatter(logging.Formatter):
+    """Color user-facing console levels while keeping file logs plain."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = super().format(record)
+        if record.levelno >= logging.ERROR:
+            color = COLOR_RED
+        elif record.levelno >= logging.WARNING:
+            color = COLOR_YELLOW
+        elif record.levelno == DONE_LEVEL:
+            color = COLOR_GREEN
+        elif record.levelno == logging.INFO:
+            color = COLOR_WHITE
+        else:
+            return message
+        return f"{color}{message}{COLOR_RESET}"
+
+
+logging.addLevelName(DONE_LEVEL, "DONE")
+logging.setLoggerClass(AutoTickLogger)
 
 
 def _timestamp_log_path(log_path: Path) -> Path:
@@ -55,6 +93,9 @@ def _resolve_log_level(level: str | int) -> int:
     """Convert a string/int log level into a logging level constant."""
     if isinstance(level, int):
         return level
+
+    if level.upper() == "DONE":
+        return DONE_LEVEL
 
     resolved = getattr(logging, level.upper(), None)
     if not isinstance(resolved, int):
@@ -89,11 +130,15 @@ def configure_logging(
         fmt=DEFAULT_LOG_FORMAT,
         datefmt=DEFAULT_DATE_FORMAT,
     )
+    console_formatter = ColorFormatter(
+        fmt=DEFAULT_LOG_FORMAT,
+        datefmt=DEFAULT_DATE_FORMAT,
+    )
 
     if console:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(resolved_level)
-        console_handler.setFormatter(formatter)
+        console_handler.setFormatter(console_formatter)
         root_logger.addHandler(console_handler)
 
     if file:
@@ -117,9 +162,9 @@ def configure_logging(
         root_logger.addHandler(file_handler)
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Return a named logger for a module."""
-    return logging.getLogger(name)
+def get_logger(name: str) -> AutoTickLogger:
+    """Return a named AutoTick logger."""
+    return cast(AutoTickLogger, logging.getLogger(name))
 
 
 def log_call(

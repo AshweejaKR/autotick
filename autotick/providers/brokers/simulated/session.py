@@ -13,9 +13,13 @@ from typing import TYPE_CHECKING
 
 from autotick.providers.brokers.simulated.state import SimulatedState
 from autotick.providers.session_pool import BrokerSession
+from autotick.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from autotick.interfaces.market_data import MarketDataProvider
+
+
+logger = get_logger(__name__)
 
 
 class SimulatedSession(BrokerSession):
@@ -36,13 +40,20 @@ class SimulatedSession(BrokerSession):
         self.market_data = market_data
 
     def login(self) -> None:
+        if self._connected:
+            return
         self._connected = True
+        logger.done("Simulated login completed")
 
     def logout(self) -> None:
+        if not self._connected:
+            return
         self._connected = False
+        logger.done("Simulated logout completed")
 
     def refresh(self) -> None:
         self._connected = True
+        logger.done("Simulated session refresh completed")
 
     def is_connected(self) -> bool:
         return self._connected

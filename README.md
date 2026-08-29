@@ -103,6 +103,12 @@ Foundation is complete through Phase 4:
 - Live mode uses real-time CalendarSessionManager timing.
 - Orders carry `position_type`; AngelOne maps `INTRADAY` to broker intraday and `POSITIONAL` to delivery/carry-forward products.
 
+## Logging
+
+Console log colors: ERROR red, WARNING yellow, INFO white, and DONE green.
+Use `logger.done()` for successful completions such as login, logout, order placement, and shutdown.
+Rotating log files remain plain text without color codes.
+
 ## Running
 
 Use the repository default configuration:

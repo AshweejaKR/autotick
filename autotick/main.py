@@ -23,7 +23,7 @@ from autotick.engine import (
     SignalValidator,
     TradeManager,
 )
-from autotick.models import Order, OrderSide, PositionType, SignalType
+from autotick.models import Order, OrderSide, OrderStatus, PositionType, SignalType
 from autotick.providers.factory import ProviderFactory
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
@@ -129,8 +129,9 @@ def _process_symbols(
         SignalValidator.validate(signal)
         order = _place_order(trades, risk, signal, quantity, position_type)
         entered.add(symbol)
-        logger.info(
-            "%s order %s: %s qty=%s price=%s status=%s",
+        log_order = logger.error if order.status == OrderStatus.REJECTED else logger.done
+        log_order(
+            "%s order completed %s: %s qty=%s price=%s status=%s",
             mode.upper(),
             order.order_id,
             symbol,
@@ -281,7 +282,7 @@ def _run_providers(
             providers.account.disconnect()
         with suppress(Exception):
             providers.market_data.disconnect()
-        logger.info("AutoTick provider shutdown complete")
+        logger.done("AutoTick provider shutdown completed")
 
 
 def _run_ui_data(config: dict) -> None:
@@ -330,7 +331,7 @@ def main() -> None:
         )
 
         mode = config["mode"].lower()
-        logger.info("Configuration loaded from %s", config_path)
+        logger.done("Configuration loaded from %s", config_path)
         logger.info("Starting mode=%s", mode.upper())
 
         if config.get("simulated", {}).get("ui_data_enabled", False):
@@ -340,7 +341,7 @@ def main() -> None:
             providers = ProviderFactory.create_bundle(mode, config)
             _run_providers(providers, config)
     except KeyboardInterrupt:
-        logger.info("AutoTick stopped by user")
+        logger.done("AutoTick stopped by user")
     except Exception:
         logger.exception("AutoTick runner failed")
         raise

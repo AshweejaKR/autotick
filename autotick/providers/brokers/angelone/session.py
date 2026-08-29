@@ -85,12 +85,15 @@ class AngelOneSession(BrokerSession):
             raise RuntimeError(f"AngelOne login failed: {(response or {}).get('message', 'unknown error')}")
         self.refresh_token = response["data"]["refreshToken"]
         self._connected = True
+        logger.done("AngelOne login completed")
 
     def logout(self) -> None:
-        if self._connected:
-            self._throttle()
-            self.client.terminateSession(self.client_id)
+        if not self._connected:
+            return
+        self._throttle()
+        self.client.terminateSession(self.client_id)
         self._connected = False
+        logger.done("AngelOne logout completed")
 
     def refresh(self) -> None:
         if not self.refresh_token:
@@ -103,6 +106,7 @@ class AngelOneSession(BrokerSession):
             self.login()
             return
         self._connected = True
+        logger.done("AngelOne token refresh completed")
 
     def is_connected(self) -> bool:
         return self._connected
