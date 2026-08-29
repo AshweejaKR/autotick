@@ -157,6 +157,14 @@ def _run_realtime(
     while stop_event is None or not stop_event.is_set():
         now = providers.calendar_session.now()
         market_open = providers.calendar_session.is_market_open(now)
+        if config["session"]["only_market_hours"] and not market_open:
+            logger.warning(
+                "Market is closed at %s; next open is %s. Exiting realtime runner.",
+                now,
+                providers.calendar_session.next_open(now),
+            )
+            break
+
         if now.date() != trading_date and market_open:
             for strategy in strategies.values():
                 strategy.on_market_close()
