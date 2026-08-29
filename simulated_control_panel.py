@@ -39,6 +39,7 @@ DEFAULT_EXCHANGE = "NSE"
 DEFAULT_SYMBOL = "INFY-EQ"
 DEFAULT_LTP = 100.0
 DEFAULT_VOLUME = 0
+ACCOUNT_REFRESH_MS = 500
 TIMEZONE = ZoneInfo("Asia/Kolkata")
 INTERVALS = ("1m", "3m", "5m", "10m", "15m", "30m", "1h", "1d")
 
@@ -573,6 +574,7 @@ class SimulatedControlPanel:
         self._refresh_bars()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self._poll_results)
+        self.root.after(ACCOUNT_REFRESH_MS, self._auto_refresh_account)
         if self.broker_auto_fetch:
             self.root.after(250, self._auto_fetch_broker)
         else:
@@ -803,6 +805,13 @@ class SimulatedControlPanel:
 
     def _refresh_account(self) -> None:
         self.balance_var.set(f"₹ {self.runtime.account.get_balance():,.2f}")
+
+    def _auto_refresh_account(self) -> None:
+        """Keep the displayed funds synchronized with simulated fills."""
+        if self._closing:
+            return
+        self._refresh_account()
+        self.root.after(ACCOUNT_REFRESH_MS, self._auto_refresh_account)
 
     def _refresh_ticks(self) -> None:
         children = self.tick_table.get_children()

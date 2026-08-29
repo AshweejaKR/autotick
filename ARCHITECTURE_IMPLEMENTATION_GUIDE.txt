@@ -409,6 +409,7 @@ simulated_control_panel.py:
 
 - Windows controls for balance, funds, ticks, LTP, volume, price changes,
   CSV data, and bars.
+- UI balance, margin, and buying power refresh from shared state every 500 ms.
 - can run standalone or be started by main.py for UI-backed Paper mode.
 
 TESTING POLICY

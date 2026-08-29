@@ -72,6 +72,7 @@ Paper orders never reach the broker. MARKET orders use the active market-data pr
 Set simulated.ui_data_enabled to true to start the Windows control panel and Paper runner in one process.
 
 - The UI controls balance, funds, ticks, LTP, volume, price changes, CSV data, and bars.
+- The displayed balance, margin, and buying power refresh every 500 ms after simulated fills.
 - The UI and strategy share one SimulatedSession and SimulatedState.
 - broker_auto_fetch false keeps UI data fully manual.
 - broker_auto_fetch true copies initial data from the selected real broker.

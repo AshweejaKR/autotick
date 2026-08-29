@@ -60,6 +60,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
 - Completed Phase 19-20 runtime wiring for stop-loss, target, trailing-stop, and exit orders.
 - Added simulated fill accounting for funds, positions, trades, realized P&L, and clear execution logs.
+- Added automatic 500 ms Paper UI account refresh from shared simulated state.
 - Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
 
