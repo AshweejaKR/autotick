@@ -1,0 +1,70 @@
+mode: live
+broker: angelone
+strategy: live_verification
+
+market:
+  symbols:
+    - NIFTYBEES-EQ
+  exchange: NSE
+
+capital: 100000
+
+trade:
+  quantity: 1
+  position_type: POSITIONAL
+
+risk:
+  max_loss: -500
+  max_trades_per_day: 1
+  risk_per_trade_pct: 1
+  stoploss_pct: 0.10
+  target_pct: 0.15
+  trailing_sl_pct: 0
+
+engine:
+  loop_sleep_s: 1
+
+reconnect:
+  enabled: true
+  initial_delay_s: 1
+  max_delay_s: 60
+  auth_max_attempts: 3
+
+simulated:
+  ui_data_enabled: false
+  broker_auto_fetch: false
+
+session:
+  schedule_type: DAILY
+  timezone: Asia/Kolkata
+  trading_days: [MON, TUE, WED, THU, FRI]
+  closed_dates: []
+  market_start: "09:15"
+  market_end: "15:30"
+  square_off_time: "15:15"
+  only_market_hours: true
+  replay_speed: 1.0
+
+backtest:
+  csv:
+    enabled: false
+    data_file: ""
+
+broker_config:
+  angelone:
+    credentials_file: "angelone_keys.env"
+
+persistence:
+  enabled: true
+  state_path: "../../state/live_verification.db"
+
+reports:
+  enabled: true
+  user_id: "live_verify"
+  output_dir: "../../reports"
+
+logging:
+  enabled: true
+  level: DEBUG
+  log_file: "../../logs/live_verification.log"
+  timestamp: true

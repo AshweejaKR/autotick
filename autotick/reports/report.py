@@ -57,6 +57,15 @@ class ReportManager:
                 except ValueError:
                     broker_user = None
         self.user_id = self._safe(configured_user or str(broker_user or "user"))
+        if self.enabled:
+            logger.info(
+                "Reports enabled broker=%s user=%s strategy=%s mode=%s output=%s",
+                self.broker,
+                self.user_id,
+                self.strategy,
+                self.mode,
+                self.output_dir,
+            )
 
     def record(self, entry: Trade, exit_trade: Trade, pnl: float) -> None:
         if not self.enabled:
@@ -83,8 +92,22 @@ class ReportManager:
             combined_base = f"{self.broker}_{self.user_id}_{self.mode}"
             for base in (strategy_base, combined_base):
                 trades_path = self.output_dir / f"{base}_trades.csv"
+                summary_path = self.output_dir / f"{base}_summary.csv"
                 if self._append_new(trades_path, row):
-                    self._write_summary(trades_path, self.output_dir / f"{base}_summary.csv")
+                    self._write_summary(trades_path, summary_path)
+                    logger.done(
+                        "Report updated trades=%s summary=%s exit_trade_id=%s pnl=%.2f",
+                        trades_path,
+                        summary_path,
+                        exit_trade.trade_id,
+                        pnl,
+                    )
+                else:
+                    logger.debug(
+                        "Report skipped duplicate exit_trade_id=%s file=%s",
+                        exit_trade.trade_id,
+                        trades_path,
+                    )
         except OSError:
             logger.exception("Report write failed")
 
