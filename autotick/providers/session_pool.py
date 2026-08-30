@@ -44,7 +44,7 @@ class BrokerSession(Protocol):
 
 
 class SessionPool:
-    """Create, reuse, refresh, and close shared broker sessions."""
+    """Create, reuse, and close shared broker sessions."""
 
     def __init__(self) -> None:
         self._sessions: dict[str, BrokerSession] = {}
@@ -54,17 +54,12 @@ class SessionPool:
         broker: str,
         factory: Callable[[], BrokerSession],
     ) -> BrokerSession:
-        """Return one healthy shared session for a broker."""
+        """Return one shared session without connecting it."""
         key = self._key(broker)
         session = self._sessions.get(key)
-
         if session is None:
             session = factory()
-            session.login()
             self._sessions[key] = session
-        elif not session.is_connected():
-            session.reconnect()
-
         return session
 
     def close(self, broker: str) -> None:
