@@ -34,7 +34,7 @@ from autotick.providers.session_pool import BrokerSession
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-CREDENTIALS_FILE = ROOT_DIR / "config" / "angelone_keys.env"
+CREDENTIALS_FILE = ROOT_DIR / "autotick" / "config" / "angelone_keys.env"
 
 EXCHANGE = "NSE"
 SYMBOLS = ("INFY-EQ", "RELIANCE-EQ", "TCS-EQ")
