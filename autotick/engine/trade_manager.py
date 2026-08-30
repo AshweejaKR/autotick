@@ -16,6 +16,7 @@ from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
+from autotick.reports import ReportManager
 
 
 @dataclass(slots=True)
@@ -72,6 +73,11 @@ class TradeManager:
     ) -> None:
         self.execution = execution
         self.risk_manager = risk_manager
+        self._reporter = (
+            ReportManager(risk_manager.config, execution)
+            if risk_manager is not None
+            else None
+        )
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, Trade] = {}
@@ -359,7 +365,36 @@ class TradeManager:
                 unrealized_pnl=0.0,
                 status=PositionStatus.CLOSED,
             )
+            self._report_completed_trade(order, pnl)
         self._exit_levels.pop(key, None)
+
+    def _report_completed_trade(self, exit_order: Order, pnl: float) -> None:
+        if self._reporter is None:
+            return
+        exit_trade = next(
+            (trade for trade in self._trades.values() if trade.order_id == exit_order.order_id),
+            None,
+        )
+        entry_orders = [
+            order
+            for order in self._orders.values()
+            if order.symbol == exit_order.symbol
+            and order.exchange == exit_order.exchange
+            and order.intent == OrderIntent.ENTRY
+            and order.status == OrderStatus.FILLED
+            and order.status_updated_at is not None
+            and exit_order.status_updated_at is not None
+            and order.status_updated_at <= exit_order.status_updated_at
+        ]
+        if exit_trade is None or not entry_orders:
+            return
+        entry_order = max(entry_orders, key=lambda item: item.status_updated_at)
+        entry_trade = next(
+            (trade for trade in self._trades.values() if trade.order_id == entry_order.order_id),
+            None,
+        )
+        if entry_trade is not None:
+            self._reporter.record(entry_trade, exit_trade, pnl)
 
     def _record_trade(self, order: Order) -> None:
         trade = Trade(

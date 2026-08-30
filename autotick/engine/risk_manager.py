@@ -16,6 +16,7 @@ class RiskManager:
     """Validate order risk, size quantity, and enforce daily limits."""
 
     def __init__(self, config: dict) -> None:
+        self.config = config
         risk = config["risk"]
         self.capital = float(config["capital"])
         self.quantity = int(config["trade"]["quantity"])

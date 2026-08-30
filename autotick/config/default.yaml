@@ -59,6 +59,11 @@ persistence:
   enabled: true
   state_path: "state/autotick.db"
 
+reports:
+  enabled: true
+  user_id: ""
+  output_dir: "reports"
+
 logging:
   enabled: true
   level: INFO

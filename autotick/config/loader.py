@@ -48,6 +48,13 @@ def _resolve_file_paths(config: dict[str, Any], config_path: Path) -> None:
             value if value.is_absolute() else (base / value).resolve()
         )
 
+    path = config.get("reports", {}).get("output_dir")
+    if path:
+        value = Path(path)
+        config["reports"]["output_dir"] = str(
+            value if value.is_absolute() else (base / value).resolve()
+        )
+
 
 def load_config(path: str | Path) -> dict[str, Any]:
     """Load a YAML file, resolve file paths, and validate its contents."""

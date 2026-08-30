@@ -165,6 +165,7 @@ cython_debug/
 instrument_list_file.json
 /data
 /logs
+reports/
 NSE.csv
 *.json
 /strategy_data

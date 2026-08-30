@@ -263,6 +263,21 @@ def validate_config(config: dict[str, Any]) -> None:
     if persistence_enabled and Path(state_path).suffix.lower() != ".db":
         raise ConfigValidationError("persistence.state_path must use a .db file")
 
+    reports = config.get("reports", {})
+    if not isinstance(reports, dict):
+        raise ConfigValidationError("reports must be a mapping")
+    reports_enabled = reports.get("enabled", False)
+    if not isinstance(reports_enabled, bool):
+        raise ConfigValidationError("reports.enabled must be boolean")
+    report_user = reports.get("user_id", "")
+    if not isinstance(report_user, str):
+        raise ConfigValidationError("reports.user_id must be a string")
+    output_dir = reports.get("output_dir", "reports")
+    if not isinstance(output_dir, str):
+        raise ConfigValidationError("reports.output_dir must be a string")
+    if reports_enabled and not output_dir.strip():
+        raise ConfigValidationError("reports.output_dir must be a non-empty string when enabled")
+
     logging_config = _mapping(config, "logging")
     logging_enabled = _require(logging_config, "enabled", "logging")
     if not isinstance(logging_enabled, bool):

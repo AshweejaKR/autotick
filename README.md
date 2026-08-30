@@ -13,11 +13,11 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 ## Current Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence
-- Completed phases: 1 through 27
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports
+- Completed phases: 1 through 28
 - Provider cleanup: completed
-- Current milestone: Reports
-- Next phase: Phase 28 - performance metrics, reports, and trade export
+- Current milestone: Testing
+- Next phase: Phase 29 - unit and provider-contract tests
 - Automated tests: intentionally deferred until Phase 29
 
 ## Implemented Architecture
@@ -34,6 +34,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - Broker-neutral ReconnectManager with hybrid retry policy.
 - Centralized colored console logging and plain rotating file logging.
 - Shared production secret-file validation for AngelOne broker access.
+- Append-only completed-trade CSV reporting with strategy and combined summaries.
 
 ### Strategy
 
@@ -134,7 +135,7 @@ Current CLI runner wiring:
 - Live reconciliation trusts broker status and quantity only for known AutoTick records.
 - Unknown manual broker orders and holdings are logged, left unmanaged, and blocked from duplicate AutoTick entries.
 - Same-day unresolved orders and runtime save failures activate the kill switch for new entries while protective exits remain available.
-- Backtest and Replay start fresh and save final state for later reporting; historical cursor resume is not part of Phase 25.
+- Backtest and Replay start fresh and save final state for reporting; historical cursor resume is not part of Phase 25.
 - Live and broker-backed Paper pause processing during broker recovery.
 - Temporary network and service outages retry indefinitely with exponential backoff capped at 60 seconds.
 - Authentication recovery tries token refresh before full TOTP login and stops safely after three failed attempts.
@@ -153,6 +154,19 @@ Current CLI runner wiring:
 - Live mode requires `persistence.enabled`, `reconnect.enabled`, `session.only_market_hours`, and `logging.enabled` to all be true.
 - `angelone_keys.env` is explicitly ignored by Git and must never be committed.
 
+## Reports
+
+A completed report trade is one filled ENTRY + one filled EXIT pair.
+
+- Trade CSV files append only new completed trades; duplicate exit trade IDs are skipped.
+- Summary CSV files are recalculated from the full accumulated trade CSV whenever a new trade is appended.
+- Strategy files use `broker_userid_strategy_mode_trades.csv` and `broker_userid_strategy_mode_summary.csv`.
+- Combined files use `broker_userid_mode_trades.csv` and `broker_userid_mode_summary.csv` and contain all strategies sharing that broker, user ID, and mode.
+- `reports.user_id` may contain any user label. When blank, AngelOne uses its broker client ID when available; otherwise `user` is used.
+- Metrics: completed trades, wins, losses, win rate, gross profit, gross loss, net P&L, average P&L, best trade, and worst trade.
+- Trade rows include strategy, broker, user ID, mode, symbol, exchange, quantity, entry/exit price, P&L, and entry/exit time.
+- No timestamp is added to report filenames.
+
 ## Logging
 
 Console colors:
@@ -162,11 +176,11 @@ Console colors:
 - INFO: white
 - DONE: green
 
-Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating log files remain plain text without color codes.
+Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
 
 ## Configuration
 
-The only default YAML is config/default.yaml. Relative credential, CSV, and persistence paths resolve from the YAML file's directory.
+The only default YAML is config/default.yaml. Relative credential, CSV, persistence, and report paths resolve from the YAML file's directory.
 
 Important flags:
 
@@ -184,6 +198,9 @@ Important flags:
 - reconnect.enabled: enable recovery for Live and broker-backed Paper
 - reconnect.initial_delay_s and reconnect.max_delay_s: exponential backoff range
 - reconnect.auth_max_attempts: bounded authentication recovery attempts
+- reports.enabled: enable completed-trade CSV export and summaries
+- reports.user_id: optional filename identity; blank uses broker client ID when available
+- reports.output_dir: directory for strategy and combined CSV files
 
 Schedule-specific fields:
 
