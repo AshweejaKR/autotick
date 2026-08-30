@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from autotick.config.secrets import load_secrets
+
 
 class ConfigValidationError(ValueError):
     """Raised when configuration values are invalid."""
@@ -107,19 +109,13 @@ def _validate_session(session: dict[str, Any]) -> None:
         if market_start >= market_end:
             raise ConfigValidationError("session.market_start must be before session.market_end")
         if not market_start <= square_off <= market_end:
-            raise ConfigValidationError(
-                "session.square_off_time must be inside market hours"
-            )
+            raise ConfigValidationError("session.square_off_time must be inside market hours")
 
     if schedule_type == "WEEKLY":
         start_day = _day(_require(session, "week_start_day", "session"), "session.week_start_day")
         end_day = _day(_require(session, "week_end_day", "session"), "session.week_end_day")
-        start_time = _hhmm(
-            _require(session, "week_start_time", "session"), "session.week_start_time"
-        )
-        end_time = _hhmm(
-            _require(session, "week_end_time", "session"), "session.week_end_time"
-        )
+        start_time = _hhmm(_require(session, "week_start_time", "session"), "session.week_start_time")
+        end_time = _hhmm(_require(session, "week_end_time", "session"), "session.week_end_time")
         if start_day == end_day and start_time == end_time:
             raise ConfigValidationError("weekly session start and end must differ")
 
@@ -145,9 +141,7 @@ def validate_config(config: dict[str, Any]) -> None:
     """Validate the AutoTick YAML configuration."""
     mode = _require(config, "mode")
     if mode not in _VALID_MODES:
-        raise ConfigValidationError(
-            f"mode must be one of: {', '.join(sorted(_VALID_MODES))}"
-        )
+        raise ConfigValidationError(f"mode must be one of: {', '.join(sorted(_VALID_MODES))}")
 
     broker = _require(config, "broker")
     if not isinstance(broker, str) or not broker.strip():
@@ -194,8 +188,7 @@ def validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError(f"risk.{key} must be between 0 and 100")
 
     engine = _mapping(config, "engine")
-    loop_sleep = _require(engine, "loop_sleep_s", "engine")
-    _number(loop_sleep, "engine.loop_sleep_s", positive=True)
+    _number(_require(engine, "loop_sleep_s", "engine"), "engine.loop_sleep_s", positive=True)
 
     reconnect = _mapping(config, "reconnect")
     reconnect_enabled = _require(reconnect, "enabled", "reconnect")
@@ -210,14 +203,8 @@ def validate_config(config: dict[str, Any]) -> None:
             "reconnect.max_delay_s must not be lower than reconnect.initial_delay_s"
         )
     auth_attempts = _require(reconnect, "auth_max_attempts", "reconnect")
-    if (
-        isinstance(auth_attempts, bool)
-        or not isinstance(auth_attempts, int)
-        or auth_attempts <= 0
-    ):
-        raise ConfigValidationError(
-            "reconnect.auth_max_attempts must be a positive integer"
-        )
+    if isinstance(auth_attempts, bool) or not isinstance(auth_attempts, int) or auth_attempts <= 0:
+        raise ConfigValidationError("reconnect.auth_max_attempts must be a positive integer")
 
     simulated = config.get("simulated", {})
     if not isinstance(simulated, dict):
@@ -229,26 +216,32 @@ def validate_config(config: dict[str, Any]) -> None:
     if not isinstance(broker_auto_fetch, bool):
         raise ConfigValidationError("simulated.broker_auto_fetch must be boolean")
     if ui_data_enabled and mode != "paper":
-        raise ConfigValidationError(
-            "simulated.ui_data_enabled is supported only in paper mode"
-        )
+        raise ConfigValidationError("simulated.ui_data_enabled is supported only in paper mode")
     if broker_auto_fetch and not ui_data_enabled:
-        raise ConfigValidationError(
-            "simulated.broker_auto_fetch requires simulated.ui_data_enabled"
-        )
+        raise ConfigValidationError("simulated.broker_auto_fetch requires simulated.ui_data_enabled")
     if broker_auto_fetch and broker.strip().lower() == "simulated":
         raise ConfigValidationError(
             "broker must select a real broker when simulated.broker_auto_fetch is enabled"
         )
 
-    _validate_session(_mapping(config, "session"))
+    session = _mapping(config, "session")
+    _validate_session(session)
 
-    if mode == "live" or (
+    broker_access = mode == "live" or (
         mode == "paper" and (not ui_data_enabled or broker_auto_fetch)
-    ):
+    )
+    if broker_access:
         broker_config = _mapping(config, "broker_config")
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
             raise ConfigValidationError(f"broker_config.{broker} must be configured")
+        if broker.strip().lower() == "angelone":
+            credentials_file = broker_config[broker].get("credentials_file")
+            if not isinstance(credentials_file, str) or not credentials_file.strip():
+                raise ConfigValidationError("broker_config.angelone.credentials_file is required")
+            try:
+                load_secrets(credentials_file)
+            except ValueError as exc:
+                raise ConfigValidationError(str(exc)) from exc
 
     if mode in {"backtest", "replay"}:
         backtest = config.get("backtest", {})
@@ -271,8 +264,8 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("persistence.state_path must use a .db file")
 
     logging_config = _mapping(config, "logging")
-    enabled = _require(logging_config, "enabled", "logging")
-    if not isinstance(enabled, bool):
+    logging_enabled = _require(logging_config, "enabled", "logging")
+    if not isinstance(logging_enabled, bool):
         raise ConfigValidationError("logging.enabled must be boolean")
 
     timestamp = _require(logging_config, "timestamp", "logging")
@@ -286,5 +279,16 @@ def validate_config(config: dict[str, Any]) -> None:
         )
 
     log_file = _require(logging_config, "log_file", "logging")
-    if enabled and (not isinstance(log_file, str) or not log_file.strip()):
+    if logging_enabled and (not isinstance(log_file, str) or not log_file.strip()):
         raise ConfigValidationError("logging.log_file must be a non-empty string when enabled")
+
+    if mode == "live":
+        required_flags = (
+            (persistence_enabled, "persistence.enabled"),
+            (reconnect_enabled, "reconnect.enabled"),
+            (session["only_market_hours"], "session.only_market_hours"),
+            (logging_enabled, "logging.enabled"),
+        )
+        for value, name in required_flags:
+            if value is not True:
+                raise ConfigValidationError(f"{name} must be true in live mode")

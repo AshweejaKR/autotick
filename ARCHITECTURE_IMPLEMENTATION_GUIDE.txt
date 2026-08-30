@@ -6,11 +6,11 @@ SOURCE OF TRUTH
 This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
-- Completed milestones: 1 through 6
-- Completed phases: 1 through 26
+- Completed milestones: 1 through 7
+- Completed phases: 1 through 27
 - Provider cleanup: completed
-- Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 27 - production configuration and secrets validation
+- Current milestone: Milestone 8 - Reports
+- Next phase: Phase 28 - performance metrics, reports, and trade export
 - Automated tests: deferred until Phase 29
 - Last updated: 2026-08-30
 
@@ -70,12 +70,12 @@ Milestone 6: Trading Modes - completed
 - Phase 23: Replay mode.
 - Phase 24: Live mode.
 
-Milestone 7: Recovery and Persistence - active
+Milestone 7: Recovery and Persistence - completed
 - Phase 25: Persistence, recovery, and reconciliation - completed.
 - Phase 26: Reconnect, token refresh, and subscription recovery - completed.
-- Phase 27: Production configuration and secrets validation.
+- Phase 27: Production configuration and secrets validation - completed.
 
-Milestone 8: Reports
+Milestone 8: Reports - active
 - Phase 28: Performance metrics, reports, and trade export.
 
 Milestone 9: Testing
@@ -97,6 +97,7 @@ autotick/
   main.py
   config/
     loader.py
+    secrets.py
     validator.py
   models/
     account.py
@@ -226,10 +227,29 @@ CONFIGURATION BEHAVIOR
 config/default.yaml is the only default YAML.
 
 Relative credentials, CSV paths, and persistence paths resolve from the YAML
-file directory.
+file directory before validation.
+
+production secrets:
+- AngelOne secrets remain in the configured angelone_keys.env file.
+- required values are API_KEY, CLIENT_ID, PASSWORD, and TOTP_SECRET.
+- the secrets path must exist, be a regular file, and be readable.
+- blank lines and # comments are ignored.
+- duplicate keys, missing required keys, and blank required values fail startup.
+- secret errors identify keys only and never expose secret values or file contents.
+- one shared parser is used by config validation and AngelOneSession.
+- Paper validates AngelOne secrets only when broker-backed market data or
+  broker_auto_fetch needs AngelOne access.
+- fully simulated Paper, Backtest, and Replay do not require AngelOne secrets.
+- angelone_keys.env is explicitly ignored by Git.
+
+LIVE production safety:
+- mode live requires persistence.enabled true.
+- mode live requires reconnect.enabled true.
+- mode live requires session.only_market_hours true.
+- mode live requires logging.enabled true.
 
 persistence:
-- enabled false keeps the previous in-memory behavior.
+- enabled false keeps the previous in-memory behavior outside Live mode.
 - enabled true requires a .db state_path.
 - one SQLite database stores isolated profiles keyed by mode, broker, exchange,
   strategy, and sorted symbols.
@@ -290,8 +310,9 @@ RUNTIME FLOW
 Current CLI startup:
 
 main.py
-  -> load and validate YAML
-  -> resolve relative input paths
+  -> load YAML and resolve relative file paths
+  -> validate configuration and required broker secrets
+  -> enforce LIVE production safety flags
   -> configure logging
   -> select UI flow or ProviderFactory
   -> create the single-exchange calendar profile
@@ -477,12 +498,12 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Completed milestones: 1 through 6
-Completed phases: 1 through 26
+Completed milestones: 1 through 7
+Completed phases: 1 through 27
 Provider cleanup: completed
 Schedule-aware calendar cleanup: completed
-Current milestone: Milestone 7 - Recovery and Persistence
-Next phase: Phase 27 - production configuration and secrets validation
-Phase 26 status: completed
+Current milestone: Milestone 8 - Reports
+Next phase: Phase 28 - performance metrics, reports, and trade export
+Phase 27 status: completed
 Automated tests begin: Phase 29
 Last updated: 2026-08-30

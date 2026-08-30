@@ -13,11 +13,11 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 ## Current Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
-- Completed phases: 1 through 26
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence
+- Completed phases: 1 through 27
 - Provider cleanup: completed
-- Current milestone: Recovery and Persistence
-- Next phase: Phase 27 - production configuration and secrets validation
+- Current milestone: Reports
+- Next phase: Phase 28 - performance metrics, reports, and trade export
 - Automated tests: intentionally deferred until Phase 29
 
 ## Implemented Architecture
@@ -33,6 +33,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - EventDispatcher and TradingEngine core components.
 - Broker-neutral ReconnectManager with hybrid retry policy.
 - Centralized colored console logging and plain rotating file logging.
+- Shared production secret-file validation for AngelOne broker access.
 
 ### Strategy
 
@@ -140,6 +141,17 @@ Current CLI runner wiring:
 - Configured market-data subscriptions restore before Phase 25 reconciliation and strategy processing resume.
 - Broker writes are never retried automatically. An uncertain write reconciles state, activates the kill switch, and stops safely.
 - Fully simulated Paper, Backtest, and Replay do not use broker reconnect behavior.
+
+## Production Configuration and Secrets
+
+- AngelOne secrets stay in the configured `angelone_keys.env` file beside `autotick/config/default.yaml` when using the default relative path.
+- Required keys are `API_KEY`, `CLIENT_ID`, `PASSWORD`, and `TOTP_SECRET`.
+- Missing files, directories, unreadable files, duplicate keys, missing keys, and blank required values fail before broker login.
+- Secret errors name keys only; secret values and file contents are not logged.
+- Paper validates AngelOne secrets only when it uses AngelOne market data or broker auto-fetch.
+- Fully simulated Paper, Backtest, and Replay do not require AngelOne secrets.
+- Live mode requires `persistence.enabled`, `reconnect.enabled`, `session.only_market_hours`, and `logging.enabled` to all be true.
+- `angelone_keys.env` is explicitly ignored by Git and must never be committed.
 
 ## Logging
 

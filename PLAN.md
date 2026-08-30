@@ -12,7 +12,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Milestone 4 - Provider Layer: historical, simulated, and AngelOne adapters.
 - [x] Milestone 5 - Execution and Risk: order states, positions, P&L, sizing, limits, and square-off methods.
 - [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
-- [ ] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
+- [x] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
 - [ ] Milestone 8 - Reports: performance metrics and trade export.
 - [ ] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
 - [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
@@ -45,6 +45,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 24 - Live mode.
 - [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
 - [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
+- [x] Phase 27 - Production configuration and secrets validation.
 
 ## Post-Phase Cleanup Completed
 
@@ -68,6 +69,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added SQLite snapshots with isolated mode/broker/exchange/strategy/symbol profiles.
 - Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
 - Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
+- Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
 
 ## Current Runtime Wiring
 
@@ -92,11 +94,11 @@ Not yet wired in the CLI runner:
 
 ## Current Work
 
-- Completed milestone: Milestone 6 - Trading Modes
-- Completed phases: 1 through 26
-- Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 27 - production configuration and secrets validation
-- Phase 26 status: completed
+- Completed milestone: Milestone 7 - Recovery and Persistence
+- Completed phases: 1 through 27
+- Current milestone: Milestone 8 - Reports
+- Next phase: Phase 28 - performance metrics, reports, and trade export
+- Phase 27 status: completed
 - Test implementation starts at Phase 29
 
 ## Development Rules

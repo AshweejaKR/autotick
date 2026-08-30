@@ -7,10 +7,10 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
-from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Callable
 
+from autotick.config.secrets import load_secrets
 from autotick.providers.session_pool import (
     BrokerAuthenticationError,
     BrokerConnectionError,
@@ -28,7 +28,7 @@ class AngelOneSession(BrokerSession):
     def __init__(self, credentials_file: str | None = None) -> None:
         if not credentials_file:
             raise ValueError("credentials_file is required for AngelOne")
-        keys = self._load_credentials(credentials_file)
+        keys = load_secrets(credentials_file)
         self.api_key = keys["API_KEY"]
         self.client_id = keys["CLIENT_ID"]
         self.password = keys["PASSWORD"]
@@ -207,21 +207,6 @@ class AngelOneSession(BrokerSession):
         if value is None or cls._is_retryable(value):
             raise BrokerConnectionError(f"AngelOne {operation} is temporarily unavailable")
         raise BrokerAuthenticationError(f"AngelOne {operation} failed")
-
-    @staticmethod
-    def _load_credentials(path: str) -> dict[str, str]:
-        credentials: dict[str, str] = {}
-        for line in Path(path).read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                credentials[key.strip()] = value.strip()
-
-        required = {"API_KEY", "CLIENT_ID", "PASSWORD", "TOTP_SECRET"}
-        missing = sorted(required - credentials.keys())
-        if missing:
-            raise ValueError(f"Missing AngelOne credentials: {', '.join(missing)}")
-        return credentials
 
     @staticmethod
     def _create_client(api_key: str) -> Any:
