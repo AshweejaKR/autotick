@@ -229,6 +229,9 @@ Report behavior:
 - trade CSV is append-only for unseen completed trades.
 - duplicate exit_trade_id values are skipped.
 - summary CSV is overwritten with recalculated accumulated metrics.
+- each report pair uses an OS file lock across Windows and Linux processes.
+- summary replacement is atomic and duplicate retries repair stale summaries.
+- corrupt report files log an error only for that report scope and never stop trading.
 - reporting uses Python standard-library csv only; no pandas or chart package.
 - reporting errors are logged and do not undo an already completed trade.
 

@@ -72,6 +72,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
 - Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
 - Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
+- Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
 
 ## Current Runtime Wiring
 

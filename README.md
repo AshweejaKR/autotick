@@ -160,6 +160,8 @@ A completed report trade is one filled ENTRY + one filled EXIT pair.
 
 - Trade CSV files append only new completed trades; duplicate exit trade IDs are skipped.
 - Summary CSV files are recalculated from the full accumulated trade CSV whenever a new trade is appended.
+- Per-report OS file locks protect concurrent strategy processes on Windows and Linux.
+- Summary replacement is atomic; corrupt report files are logged without stopping trading or blocking the other report scope.
 - Strategy files use `broker_userid_strategy_mode_trades.csv` and `broker_userid_strategy_mode_summary.csv`.
 - Combined files use `broker_userid_mode_trades.csv` and `broker_userid_mode_summary.csv` and contain all strategies sharing that broker, user ID, and mode.
 - `reports.user_id` may contain any user label. When blank, AngelOne uses its broker client ID when available; otherwise `user` is used.

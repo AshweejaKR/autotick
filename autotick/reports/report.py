@@ -8,8 +8,10 @@ Created on Sun Aug 30 09:25:06 2026
 from __future__ import annotations
 
 import csv
+import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from autotick.config.secrets import load_secrets
 from autotick.models.trade import Trade
@@ -88,13 +90,21 @@ class ReportManager:
         }
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            strategy_base = f"{self.broker}_{self.user_id}_{self.strategy}_{self.mode}"
-            combined_base = f"{self.broker}_{self.user_id}_{self.mode}"
-            for base in (strategy_base, combined_base):
+        except OSError:
+            logger.exception("Report directory creation failed: %s", self.output_dir)
+            return
+
+        strategy_base = f"{self.broker}_{self.user_id}_{self.strategy}_{self.mode}"
+        combined_base = f"{self.broker}_{self.user_id}_{self.mode}"
+        for base in (strategy_base, combined_base):
+            try:
                 trades_path = self.output_dir / f"{base}_trades.csv"
                 summary_path = self.output_dir / f"{base}_summary.csv"
-                if self._append_new(trades_path, row):
+                lock_path = self.output_dir / f".{base}.lock"
+                with self._file_lock(lock_path):
+                    appended = self._append_new(trades_path, row)
                     self._write_summary(trades_path, summary_path)
+                if appended:
                     logger.done(
                         "Report updated trades=%s summary=%s exit_trade_id=%s pnl=%.2f",
                         trades_path,
@@ -108,31 +118,43 @@ class ReportManager:
                         exit_trade.trade_id,
                         trades_path,
                     )
-        except OSError:
-            logger.exception("Report write failed")
+            except Exception:
+                logger.exception("Report update failed: %s", base)
 
-    def _append_new(self, path: Path, row: dict[str, Any]) -> bool:
-        existing = set()
-        if path.is_file():
-            with path.open("r", encoding="utf-8", newline="") as stream:
-                existing = {
-                    item.get("exit_trade_id", "")
-                    for item in csv.DictReader(stream)
-                }
+    @classmethod
+    def _append_new(cls, path: Path, row: dict[str, Any]) -> bool:
+        existing = {item["exit_trade_id"] for item in cls._read_rows(path)}
         if row["exit_trade_id"] in existing:
             return False
         write_header = not path.exists() or path.stat().st_size == 0
         with path.open("a", encoding="utf-8", newline="") as stream:
-            writer = csv.DictWriter(stream, fieldnames=self._FIELDS)
+            writer = csv.DictWriter(stream, fieldnames=cls._FIELDS)
             if write_header:
                 writer.writeheader()
             writer.writerow(row)
         return True
 
-    @staticmethod
-    def _write_summary(trades_path: Path, summary_path: Path) -> None:
-        with trades_path.open("r", encoding="utf-8", newline="") as stream:
-            rows = list(csv.DictReader(stream))
+    @classmethod
+    def _read_rows(cls, path: Path) -> list[dict[str, str]]:
+        if not path.is_file():
+            return []
+        with path.open("r", encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream)
+            missing = set(cls._FIELDS) - set(reader.fieldnames or ())
+            if missing:
+                raise ValueError(
+                    f"Report CSV missing fields: {', '.join(sorted(missing))}"
+                )
+            rows = list(reader)
+        for row in rows:
+            if not row.get("exit_trade_id"):
+                raise ValueError("Report CSV contains an empty exit_trade_id")
+            float(row["pnl"])
+        return rows
+
+    @classmethod
+    def _write_summary(cls, trades_path: Path, summary_path: Path) -> None:
+        rows = cls._read_rows(trades_path)
         pnls = [float(row["pnl"]) for row in rows]
         wins = [value for value in pnls if value > 0]
         losses = [value for value in pnls if value < 0]
@@ -149,10 +171,39 @@ class ReportManager:
             "best_trade": round(max(pnls), 4) if pnls else 0.0,
             "worst_trade": round(min(pnls), 4) if pnls else 0.0,
         }
-        with summary_path.open("w", encoding="utf-8", newline="") as stream:
+        temporary = summary_path.with_suffix(f"{summary_path.suffix}.tmp")
+        with temporary.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=summary.keys())
             writer.writeheader()
             writer.writerow(summary)
+        temporary.replace(summary_path)
+
+    @staticmethod
+    @contextmanager
+    def _file_lock(path: Path) -> Iterator[None]:
+        """Lock one report across processes on Windows and Linux."""
+        with path.open("a+b") as stream:
+            stream.seek(0, os.SEEK_END)
+            if stream.tell() == 0:
+                stream.write(b"0")
+                stream.flush()
+            stream.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                stream.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
     @staticmethod
     def _safe(value: str) -> str:
