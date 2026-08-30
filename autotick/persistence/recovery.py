@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any
 
+from autotick.config.secrets import load_secrets
 from autotick.engine.risk_manager import RiskManager
 from autotick.engine.trade_manager import ReconciliationResult, TradeManager
 from autotick.interfaces.account import AccountProvider
@@ -231,9 +232,16 @@ class RecoveryManager:
         symbols = config["market"]["symbols"]
         if isinstance(symbols, str):
             symbols = [symbols]
+        broker = str(config["broker"]).lower()
+        account_id = ""
+        if broker == "angelone":
+            path = config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
+            if path:
+                account_id = load_secrets(path)["CLIENT_ID"]
         return {
             "mode": str(config["mode"]).lower(),
-            "broker": str(config["broker"]).lower(),
+            "broker": broker,
+            "account_id": account_id,
             "exchange": str(config["market"]["exchange"]).upper(),
             "strategy": str(config["strategy"]).lower(),
             "symbols": sorted(str(symbol).upper() for symbol in symbols),
