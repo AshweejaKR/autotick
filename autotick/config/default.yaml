@@ -25,6 +25,12 @@ risk:
 engine:
   loop_sleep_s: 1
 
+reconnect:
+  enabled: true
+  initial_delay_s: 1
+  max_delay_s: 60
+  auth_max_attempts: 3
+
 simulated:
   ui_data_enabled: false
   broker_auto_fetch: false

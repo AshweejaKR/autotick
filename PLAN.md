@@ -44,6 +44,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 23 - Replay mode.
 - [x] Phase 24 - Live mode.
 - [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
+- [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
 
 ## Post-Phase Cleanup Completed
 
@@ -66,6 +67,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Removed tests until the planned Testing milestone.
 - Added SQLite snapshots with isolated mode/broker/exchange/strategy/symbol profiles.
 - Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
+- Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
 
 ## Current Runtime Wiring
 
@@ -85,17 +87,16 @@ Not yet wired in the CLI runner:
 
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
-- Reconnect, token refresh, and subscription recovery.
 - Reports and exports.
 - Automated tests.
 
 ## Current Work
 
 - Completed milestone: Milestone 6 - Trading Modes
-- Completed phases: 1 through 25
+- Completed phases: 1 through 26
 - Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
-- Phase 25 status: completed
+- Next phase: Phase 27 - production configuration and secrets validation
+- Phase 26 status: completed
 - Test implementation starts at Phase 29
 
 ## Development Rules

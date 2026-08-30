@@ -7,10 +7,10 @@ This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
 - Completed milestones: 1 through 6
-- Completed phases: 1 through 25
+- Completed phases: 1 through 26
 - Provider cleanup: completed
 - Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
+- Next phase: Phase 27 - production configuration and secrets validation
 - Automated tests: deferred until Phase 29
 - Last updated: 2026-08-30
 
@@ -72,7 +72,7 @@ Milestone 6: Trading Modes - completed
 
 Milestone 7: Recovery and Persistence - active
 - Phase 25: Persistence, recovery, and reconciliation - completed.
-- Phase 26: Reconnect, token refresh, and subscription recovery.
+- Phase 26: Reconnect, token refresh, and subscription recovery - completed.
 - Phase 27: Production configuration and secrets validation.
 
 Milestone 8: Reports
@@ -120,6 +120,7 @@ autotick/
   engine/
     dispatcher.py
     market_session.py
+    reconnect_manager.py
     risk_manager.py
     signal_validator.py
     trade_manager.py
@@ -235,6 +236,16 @@ persistence:
 - Live and Paper recover before subscription and strategy setup.
 - Backtest and Replay start fresh and save final state for reporting.
 
+reconnect:
+- enabled true applies only to Live and broker-backed Paper runs.
+- temporary network and broker-service failures retry indefinitely.
+- retry delay doubles from initial_delay_s up to max_delay_s.
+- authentication recovery is limited by auth_max_attempts.
+- token refresh runs before full TOTP login.
+- strategy processing stays paused until subscriptions and state reconcile.
+- broker writes remain once-only; uncertain writes reconcile, activate the kill
+  switch, and stop safely without automatic resubmission.
+
 simulated.ui_data_enabled:
 - false: normal ProviderFactory Paper bundle.
 - true: Windows control panel plus Paper runner in one process.
@@ -284,7 +295,7 @@ main.py
   -> configure logging
   -> select UI flow or ProviderFactory
   -> create the single-exchange calendar profile
-  -> create RiskManager, TradeManager, and optional RecoveryManager
+  -> create RiskManager, TradeManager, RecoveryManager, and optional ReconnectManager
   -> for Live/Paper with the gate enabled, stop before provider setup when closed
   -> connect providers
   -> restore SQLite state and reconcile known provider records
@@ -293,6 +304,9 @@ main.py
   -> run realtime or historical loop
   -> save changed state before provider shutdown
   -> unsubscribe and disconnect providers
+
+Live and broker-backed Paper startup failures enter the same reconnect path
+before strategy setup. Fully simulated Paper, Backtest, and Replay do not.
 
 Current realtime loop:
 
@@ -309,6 +323,11 @@ CalendarSessionManager.now()
   -> simulated or broker execution
   -> save the SQLite snapshot only when state changed
   -> wait engine.loop_sleep_s
+
+On a recoverable broker failure, the realtime loop pauses, refreshes or logs in,
+restores configured subscriptions, reconciles Phase 25 state, persists the
+result, rebuilds strategies, and resumes. Authentication exhaustion and
+uncertain writes activate safe shutdown.
 
 Current historical loop:
 
@@ -379,7 +398,6 @@ Current CLI runner does not yet:
 
 - feed daily P&L into check_daily_limits().
 - call automatic square-off.
-- reconnect sessions, refresh tokens, or recover subscriptions.
 - generate reports.
 
 ORDER STATE MACHINE
@@ -460,11 +478,11 @@ CURRENT STATUS
 
 Version: 0.1.0
 Completed milestones: 1 through 6
-Completed phases: 1 through 25
+Completed phases: 1 through 26
 Provider cleanup: completed
 Schedule-aware calendar cleanup: completed
 Current milestone: Milestone 7 - Recovery and Persistence
-Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
-Phase 25 status: completed
+Next phase: Phase 27 - production configuration and secrets validation
+Phase 26 status: completed
 Automated tests begin: Phase 29
 Last updated: 2026-08-30

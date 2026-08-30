@@ -15,10 +15,21 @@ from autotick.providers.brokers.simulated import (
 )
 from autotick.providers.factory import ModeMapping, ProviderBundle, ProviderFactory
 from autotick.providers.historical import HistoricalProvider
-from autotick.providers.session_pool import BrokerSession, SessionPool
+from autotick.providers.session_pool import (
+    BrokerAuthenticationError,
+    BrokerConnectionError,
+    BrokerError,
+    BrokerSession,
+    BrokerWriteUncertainError,
+    SessionPool,
+)
 
 __all__ = [
+    "BrokerAuthenticationError",
+    "BrokerConnectionError",
+    "BrokerError",
     "BrokerSession",
+    "BrokerWriteUncertainError",
     "HistoricalProvider",
     "ModeMapping",
     "ProviderBundle",

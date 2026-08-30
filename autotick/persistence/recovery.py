@@ -101,9 +101,7 @@ class RecoveryManager:
             except (KeyError, TypeError, ValueError) as exc:
                 raise PersistenceError("Persisted recovery state is invalid") from exc
 
-        differences = self.trades.reconcile_startup(trading_date)
-        self._handle_differences(differences)
-        entered = self.trades.entered_symbols(trading_date)
+        reconciled = self.reconcile(trading_date)
         if recovered:
             logger.done(
                 "Recovered state profile=%s orders=%s positions=%s trades=%s",
@@ -116,10 +114,20 @@ class RecoveryManager:
             logger.info("No saved state found for profile=%s", self.profile_key[:12])
         return RecoveryResult(
             trading_date=trading_date,
-            entered_symbols=frozenset(entered),
-            blocked_symbols=differences.blocked_symbols,
+            entered_symbols=reconciled.entered_symbols,
+            blocked_symbols=reconciled.blocked_symbols,
             last_processed_at=last_processed_at,
             recovered=recovered,
+        )
+
+    def reconcile(self, trading_date: date) -> RecoveryResult:
+        """Reconcile current in-memory state after a broker reconnect."""
+        differences = self.trades.reconcile_startup(trading_date)
+        self._handle_differences(differences)
+        return RecoveryResult(
+            trading_date=trading_date,
+            entered_symbols=frozenset(self.trades.entered_symbols(trading_date)),
+            blocked_symbols=differences.blocked_symbols,
         )
 
     def save(

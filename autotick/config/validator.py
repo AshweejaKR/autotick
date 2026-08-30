@@ -197,6 +197,28 @@ def validate_config(config: dict[str, Any]) -> None:
     loop_sleep = _require(engine, "loop_sleep_s", "engine")
     _number(loop_sleep, "engine.loop_sleep_s", positive=True)
 
+    reconnect = _mapping(config, "reconnect")
+    reconnect_enabled = _require(reconnect, "enabled", "reconnect")
+    if not isinstance(reconnect_enabled, bool):
+        raise ConfigValidationError("reconnect.enabled must be boolean")
+    initial_delay = _require(reconnect, "initial_delay_s", "reconnect")
+    max_delay = _require(reconnect, "max_delay_s", "reconnect")
+    _number(initial_delay, "reconnect.initial_delay_s", positive=True)
+    _number(max_delay, "reconnect.max_delay_s", positive=True)
+    if max_delay < initial_delay:
+        raise ConfigValidationError(
+            "reconnect.max_delay_s must not be lower than reconnect.initial_delay_s"
+        )
+    auth_attempts = _require(reconnect, "auth_max_attempts", "reconnect")
+    if (
+        isinstance(auth_attempts, bool)
+        or not isinstance(auth_attempts, int)
+        or auth_attempts <= 0
+    ):
+        raise ConfigValidationError(
+            "reconnect.auth_max_attempts must be a positive integer"
+        )
+
     simulated = config.get("simulated", {})
     if not isinstance(simulated, dict):
         raise ConfigValidationError("simulated must be a mapping")

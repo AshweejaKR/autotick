@@ -23,9 +23,14 @@ class AngelOneExecutionProvider(ExecutionProvider):
         self.session = session
 
     def place_order(self, order: Order) -> Order:
-        order_id = self.session.call_once(
-            self.session.client.placeOrder,
+        response = self.session.call_once(
+            self.session.client.placeOrderFullResponse,
             self._order_params(order),
+        )
+        order_id = (
+            (response.get("data") or {}).get("orderid")
+            if isinstance(response, dict) and response.get("status")
+            else None
         )
         if not order_id:
             order.status = OrderStatus.REJECTED

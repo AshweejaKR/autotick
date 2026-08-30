@@ -14,10 +14,10 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
-- Completed phases: 1 through 25
+- Completed phases: 1 through 26
 - Provider cleanup: completed
 - Current milestone: Recovery and Persistence
-- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
+- Next phase: Phase 27 - production configuration and secrets validation
 - Automated tests: intentionally deferred until Phase 29
 
 ## Implemented Architecture
@@ -31,6 +31,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - Shared broker sessions through SessionPool.
 - CalendarSessionManager for DAILY, WEEKLY, and ALWAYS_OPEN schedules across realtime, fast, and replay clocks.
 - EventDispatcher and TradingEngine core components.
+- Broker-neutral ReconnectManager with hybrid retry policy.
 - Centralized colored console logging and plain rotating file logging.
 
 ### Strategy
@@ -133,6 +134,12 @@ Current CLI runner wiring:
 - Unknown manual broker orders and holdings are logged, left unmanaged, and blocked from duplicate AutoTick entries.
 - Same-day unresolved orders and runtime save failures activate the kill switch for new entries while protective exits remain available.
 - Backtest and Replay start fresh and save final state for later reporting; historical cursor resume is not part of Phase 25.
+- Live and broker-backed Paper pause processing during broker recovery.
+- Temporary network and service outages retry indefinitely with exponential backoff capped at 60 seconds.
+- Authentication recovery tries token refresh before full TOTP login and stops safely after three failed attempts.
+- Configured market-data subscriptions restore before Phase 25 reconciliation and strategy processing resume.
+- Broker writes are never retried automatically. An uncertain write reconciles state, activates the kill switch, and stops safely.
+- Fully simulated Paper, Backtest, and Replay do not use broker reconnect behavior.
 
 ## Logging
 
@@ -162,6 +169,9 @@ Important flags:
 - trade.position_type: INTRADAY or POSITIONAL
 - persistence.enabled: enable SQLite persistence and startup recovery
 - persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
+- reconnect.enabled: enable recovery for Live and broker-backed Paper
+- reconnect.initial_delay_s and reconnect.max_delay_s: exponential backoff range
+- reconnect.auth_max_attempts: bounded authentication recovery attempts
 
 Schedule-specific fields:
 

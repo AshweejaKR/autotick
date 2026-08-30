@@ -13,6 +13,22 @@ from collections.abc import Callable
 from typing import Protocol
 
 
+class BrokerError(RuntimeError):
+    """Base error for recoverable broker failures."""
+
+
+class BrokerConnectionError(BrokerError):
+    """Raised for temporary broker connectivity or service failures."""
+
+
+class BrokerAuthenticationError(BrokerError):
+    """Raised when broker authentication recovery is required."""
+
+
+class BrokerWriteUncertainError(BrokerConnectionError):
+    """Raised when a once-only broker write may have reached the broker."""
+
+
 class BrokerSession(Protocol):
     """Minimal contract required by SessionPool."""
 
@@ -21,6 +37,8 @@ class BrokerSession(Protocol):
     def logout(self) -> None: ...
 
     def refresh(self) -> None: ...
+
+    def reconnect(self) -> None: ...
 
     def is_connected(self) -> bool: ...
 
@@ -45,7 +63,7 @@ class SessionPool:
             session.login()
             self._sessions[key] = session
         elif not session.is_connected():
-            session.refresh()
+            session.reconnect()
 
         return session
 
