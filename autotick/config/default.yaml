@@ -51,7 +51,7 @@ broker_config:
 
 persistence:
   enabled: true
-  state_path: "state/"
+  state_path: "state/autotick.db"
 
 logging:
   enabled: true

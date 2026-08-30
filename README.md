@@ -14,10 +14,10 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
-- Completed phases: 1 through 24
+- Completed phases: 1 through 25
 - Provider cleanup: completed
 - Current milestone: Recovery and Persistence
-- Next phase: Phase 25 - persistence, recovery, and reconciliation
+- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
 - Automated tests: intentionally deferred until Phase 29
 
 ## Implemented Architecture
@@ -121,7 +121,18 @@ Current CLI runner wiring:
 - Reconciles pending broker orders before monitoring filled positions.
 - Logs rounded buy/sell prices, cost/proceeds, stop-loss, target, P&L, and remaining simulated funds.
 - Does not yet call automatic square-off.
-- persistence configuration is validated but persistence starts in Phase 25.
+- Saves changed runtime state and reconciles it before strategy startup.
+
+## Persistence and Recovery
+
+- Python's built-in SQLite stores state in `state/autotick.db`; no extra database package is required.
+- One database file keeps separate profile rows by mode, broker, exchange, strategy, and symbols.
+- Live and Paper restore managed orders, positions, trades, exit levels, trailing state, and daily risk state.
+- Paper also restores simulated funds, positions, orders, trades, and realized P&L.
+- Live reconciliation trusts broker status and quantity only for known AutoTick records.
+- Unknown manual broker orders and holdings are logged, left unmanaged, and blocked from duplicate AutoTick entries.
+- Same-day unresolved orders and runtime save failures activate the kill switch for new entries while protective exits remain available.
+- Backtest and Replay start fresh and save final state for later reporting; historical cursor resume is not part of Phase 25.
 
 ## Logging
 
@@ -136,7 +147,7 @@ Use logger.done() for successful completions such as login, logout, token refres
 
 ## Configuration
 
-The only default YAML is config/default.yaml. Relative credential and CSV paths resolve from the YAML file's directory.
+The only default YAML is config/default.yaml. Relative credential, CSV, and persistence paths resolve from the YAML file's directory.
 
 Important flags:
 
@@ -149,6 +160,8 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+- persistence.enabled: enable SQLite persistence and startup recovery
+- persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
 
 Schedule-specific fields:
 

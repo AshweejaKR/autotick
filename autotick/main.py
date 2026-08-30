@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import suppress
+from datetime import date, datetime
 from pathlib import Path
 from threading import Event
 from time import sleep
@@ -31,11 +32,11 @@ from autotick.models import (
     PositionType,
     SignalType,
 )
+from autotick.persistence import PersistenceError, RecoveryManager, RecoveryResult
 from autotick.providers.factory import ProviderFactory
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
 from autotick.utils.logger import configure_logging, get_logger, log_call
-
 
 logger = get_logger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
@@ -109,6 +110,22 @@ def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
     for order in trades.reconcile_orders():
         if order.intent == OrderIntent.ENTRY and order.status in failed:
             entered.discard(order.symbol)
+
+
+def _save_state(
+    persistence: RecoveryManager | None,
+    risk: RiskManager,
+    trading_date: date,
+    last_processed_at: datetime | None = None,
+) -> None:
+    """Save changed state and block new entries after a write failure."""
+    if persistence is None:
+        return
+    try:
+        persistence.save(trading_date, last_processed_at)
+    except PersistenceError:
+        risk.activate_kill_switch()
+        logger.exception("State persistence failed; new entries blocked")
 
 
 def _process_symbols(
@@ -221,6 +238,7 @@ def _process_symbols(
                 providers.account.get_balance(),
             )
 
+
 def _run_realtime(
     providers,
     config: dict,
@@ -228,11 +246,18 @@ def _run_realtime(
     trades: TradeManager,
     risk: RiskManager,
     position_type: PositionType,
+    recovery: RecoveryResult | None = None,
+    persistence: RecoveryManager | None = None,
     stop_event: Event | None = None,
-) -> None:
+) -> date:
     strategies: dict[str, SimpleStrategy] | None = None
-    entered: set[str] = set()
-    trading_date = providers.calendar_session.now().date()
+    blocked = set(recovery.blocked_symbols) if recovery else set()
+    entered = set(recovery.entered_symbols) | blocked if recovery else set()
+    trading_date = (
+        recovery.trading_date
+        if recovery is not None
+        else providers.calendar_session.now().date()
+    )
     loop_sleep = float(config["engine"]["loop_sleep_s"])
 
     while stop_event is None or not stop_event.is_set():
@@ -250,7 +275,7 @@ def _run_realtime(
             for strategy in (strategies or {}).values():
                 strategy.on_market_close()
             risk.reset_daily_state()
-            entered.clear()
+            entered = set(blocked)
             strategies = None
             trading_date = now.date()
 
@@ -272,11 +297,13 @@ def _run_realtime(
                 position_type,
                 config["mode"],
             )
+            _save_state(persistence, risk, trading_date)
 
         if stop_event is None:
             sleep(loop_sleep)
         else:
             stop_event.wait(loop_sleep)
+    return trading_date
 
 
 def _run_historical(
@@ -286,13 +313,16 @@ def _run_historical(
     trades: TradeManager,
     risk: RiskManager,
     position_type: PositionType,
-) -> None:
+    persistence: RecoveryManager | None = None,
+) -> date | None:
     timestamps = providers.market_data.timestamps()
     strategies: dict[str, SimpleStrategy] = {}
     entered: set[str] = set()
     trading_date = None
+    last_processed_at = None
 
     for value in timestamps:
+        last_processed_at = value
         providers.calendar_session.wait_until(value)
         providers.calendar_session.update_time(value)
         providers.market_data.update_time(value)
@@ -321,6 +351,9 @@ def _run_historical(
             position_type,
             config["mode"],
         )
+    if trading_date is not None:
+        _save_state(persistence, risk, trading_date, last_processed_at)
+    return trading_date
 
 
 def _run_providers(
@@ -332,10 +365,21 @@ def _run_providers(
     symbols = _symbols(config["market"]["symbols"])
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
+    persistence = (
+        RecoveryManager(config, trades, risk, providers.account, providers.execution)
+        if config["persistence"]["enabled"]
+        else None
+    )
     position_type = PositionType(
         config["trade"].get("position_type", "POSITIONAL").upper()
     )
 
+    runtime_date = (
+        date.min
+        if mode in {"backtest", "replay"}
+        else providers.calendar_session.now().date()
+    )
+    persistence_ready = False
     try:
         if mode in {"live", "paper"} and config["session"]["only_market_hours"]:
             now = providers.calendar_session.now()
@@ -349,27 +393,42 @@ def _run_providers(
 
         providers.market_data.connect()
         providers.account.connect()
+        recovery = (
+            persistence.recover(runtime_date)
+            if persistence is not None
+            else RecoveryResult(runtime_date)
+        )
+        persistence_ready = persistence is not None
         providers.market_data.subscribe(symbols)
         if mode in {"backtest", "replay"}:
-            _run_historical(
+            runtime_date = _run_historical(
                 providers,
                 config,
                 symbols,
                 trades,
                 risk,
                 position_type,
+                persistence,
             )
         else:
-            _run_realtime(
+            runtime_date = _run_realtime(
                 providers,
                 config,
                 symbols,
                 trades,
                 risk,
                 position_type,
+                recovery,
+                persistence,
                 stop_event,
             )
     finally:
+        if (
+            persistence_ready
+            and runtime_date is not None
+            and mode not in {"backtest", "replay"}
+        ):
+            _save_state(persistence, risk, runtime_date)
         with suppress(Exception):
             providers.market_data.unsubscribe(symbols)
         with suppress(Exception):

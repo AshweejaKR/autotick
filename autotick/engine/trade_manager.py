@@ -8,7 +8,7 @@ Created on Mon Aug 24 22:07:58 2026
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from uuid import uuid4
 
 from autotick.engine.risk_manager import RiskManager
@@ -24,6 +24,18 @@ class _ExitLevels:
     target: float
     highest_price: float
     trailing_stop: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationResult:
+    """Summarize startup differences requiring runner action."""
+
+    changed_orders: int = 0
+    closed_positions: int = 0
+    unknown_orders: int = 0
+    unknown_positions: int = 0
+    unresolved_orders: int = 0
+    blocked_symbols: frozenset[str] = frozenset()
 
 
 class TradeManager:
@@ -133,6 +145,78 @@ class TradeManager:
 
     def get_orders(self) -> list[Order]:
         return list(self._orders.values())
+
+    def export_state(self) -> dict:
+        """Return managed state for persistence."""
+        return {
+            "orders": self.get_orders(),
+            "positions": self.get_positions(),
+            "trades": self.get_trades(),
+            "exit_levels": [
+                {
+                    "symbol": symbol,
+                    "exchange": exchange,
+                    "stop_loss": levels.stop_loss,
+                    "target": levels.target,
+                    "highest_price": levels.highest_price,
+                    "trailing_stop": levels.trailing_stop,
+                }
+                for (symbol, exchange), levels in self._exit_levels.items()
+            ],
+        }
+
+    def restore_state(
+        self,
+        orders: list[Order],
+        positions: list[Position],
+        trades: list[Trade],
+        exit_levels: list[dict],
+    ) -> None:
+        """Replace managed state from one validated snapshot."""
+        self._orders = {order.order_id: order for order in orders}
+        self._positions = {
+            self._position_key(position): position for position in positions
+        }
+        self._trades = {trade.trade_id: trade for trade in trades}
+        self._exit_levels = {
+            (item["symbol"], item["exchange"]): _ExitLevels(
+                stop_loss=float(item["stop_loss"]),
+                target=float(item["target"]),
+                highest_price=float(item["highest_price"]),
+                trailing_stop=(
+                    float(item["trailing_stop"])
+                    if item.get("trailing_stop") is not None
+                    else None
+                ),
+            )
+            for item in exit_levels
+        }
+
+    def entered_symbols(self, trading_date: date) -> set[str]:
+        """Return symbols entered or pending on one trading day."""
+        active = {
+            position.symbol
+            for position in self._positions.values()
+            if position.quantity != 0
+            and position.status in {
+                PositionStatus.OPEN,
+                PositionStatus.EXIT_PENDING,
+            }
+        }
+        return active | {
+            order.symbol
+            for order in self._orders.values()
+            if order.intent == OrderIntent.ENTRY
+            and order.status
+            in {
+                OrderStatus.SUBMITTED,
+                OrderStatus.OPEN,
+                OrderStatus.PARTIAL,
+                OrderStatus.FILLED,
+            }
+            and order.status_updated_at is not None
+            and order.status_updated_at.date() == trading_date
+        }
 
     def get_position(self, symbol: str, exchange: str) -> Position | None:
         return self._positions.get((symbol, exchange))
@@ -372,6 +456,106 @@ class TradeManager:
 
     def total_exposure(self) -> float:
         return sum(abs(position.quantity * position.average_price) for position in self._positions.values())
+
+    def reconcile_startup(self, trading_date: date) -> ReconciliationResult:
+        """Reconcile only known AutoTick records against provider truth."""
+        provider_orders = {
+            order.order_id: order
+            for order in self.execution.get_orders()
+            if order.order_id
+        }
+        known_ids = set(self._orders)
+        unknown_order_ids = set(provider_orders) - known_ids
+        unknown_orders = len(unknown_order_ids)
+        changed_orders = 0
+        unresolved_orders = 0
+        pending_statuses = {
+            OrderStatus.SUBMITTED,
+            OrderStatus.OPEN,
+            OrderStatus.PARTIAL,
+        }
+
+        for order_id, current in list(self._orders.items()):
+            if current.status not in pending_statuses:
+                continue
+            provider_order = provider_orders.get(order_id)
+            if provider_order is None:
+                updated_at = current.status_updated_at
+                if updated_at is not None and updated_at.date() < trading_date:
+                    self.update_order_state(current, OrderStatus.EXPIRED)
+                    changed_orders += 1
+                else:
+                    unresolved_orders += 1
+                continue
+            if provider_order.status == current.status:
+                continue
+            if provider_order.status in self._TRANSITIONS.get(current.status, set()):
+                self.update_order_state(
+                    replace(current, price=provider_order.price or current.price),
+                    provider_order.status,
+                )
+                changed_orders += 1
+            else:
+                unresolved_orders += 1
+
+        provider_positions: dict[tuple[str, str], Position] = {}
+        for position in self.execution.get_positions():
+            if position.quantity != 0:
+                provider_positions[self._position_key(position)] = position
+        for position in self.execution.get_holdings():
+            if position.quantity != 0:
+                provider_positions.setdefault(self._position_key(position), position)
+
+        managed_keys = {
+            key
+            for key, position in self._positions.items()
+            if position.quantity != 0
+            and position.status in {
+                PositionStatus.OPEN,
+                PositionStatus.EXIT_PENDING,
+            }
+        }
+        unknown_position_keys = set(provider_positions) - managed_keys
+        unknown_positions = len(unknown_position_keys)
+        closed_positions = 0
+        for key in managed_keys:
+            saved = self._positions[key]
+            provider_position = provider_positions.get(key)
+            if provider_position is None:
+                self.close_position(*key)
+                self._exit_levels.pop(key, None)
+                closed_positions += 1
+                continue
+            status = (
+                PositionStatus.EXIT_PENDING
+                if saved.status == PositionStatus.EXIT_PENDING
+                else PositionStatus.OPEN
+            )
+            self._positions[key] = replace(provider_position, status=status)
+
+        broker_trades = [
+            trade
+            for trade in self.execution.get_trades()
+            if trade.order_id in known_ids
+        ]
+        broker_order_ids = {trade.order_id for trade in broker_trades}
+        self._trades = {
+            trade_id: trade
+            for trade_id, trade in self._trades.items()
+            if trade.order_id not in broker_order_ids
+        }
+        self._trades.update({trade.trade_id: trade for trade in broker_trades})
+        return ReconciliationResult(
+            changed_orders=changed_orders,
+            closed_positions=closed_positions,
+            unknown_orders=unknown_orders,
+            unknown_positions=unknown_positions,
+            unresolved_orders=unresolved_orders,
+            blocked_symbols=frozenset(
+                [provider_orders[order_id].symbol for order_id in unknown_order_ids]
+                + [symbol for symbol, _ in unknown_position_keys]
+            ),
+        )
 
     def reconcile_positions(self) -> None:
         broker_positions = self.execution.get_positions()

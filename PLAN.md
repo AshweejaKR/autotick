@@ -43,6 +43,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 22 - Backtest mode.
 - [x] Phase 23 - Replay mode.
 - [x] Phase 24 - Live mode.
+- [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
 
 ## Post-Phase Cleanup Completed
 
@@ -63,6 +64,8 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added automatic 500 ms Paper UI account refresh from shared simulated state.
 - Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
 - Removed tests until the planned Testing milestone.
+- Added SQLite snapshots with isolated mode/broker/exchange/strategy/symbol profiles.
+- Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
 
 ## Current Runtime Wiring
 
@@ -76,22 +79,23 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Filled positions use fixed stop-loss and target levels; target activates trailing protection when configured.
 - POSITIONAL is the default position type.
 - One configured CalendarSessionManager schedule applies to the run's single exchange.
+- Live and Paper recover SQLite state before strategy setup; Backtest and Replay start fresh and save final state.
 
 Not yet wired in the CLI runner:
 
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
-- Persistence, recovery, startup reconciliation, and reconnect.
+- Reconnect, token refresh, and subscription recovery.
 - Reports and exports.
 - Automated tests.
 
 ## Current Work
 
 - Completed milestone: Milestone 6 - Trading Modes
-- Completed phases: 1 through 24
+- Completed phases: 1 through 25
 - Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 25 - persistence, recovery, and reconciliation
-- Phase 25 status: not started
+- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
+- Phase 25 status: completed
 - Test implementation starts at Phase 29
 
 ## Development Rules

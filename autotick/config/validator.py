@@ -10,6 +10,7 @@ Configuration validation for AutoTick.
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -238,11 +239,14 @@ def validate_config(config: dict[str, Any]) -> None:
                 raise ConfigValidationError("backtest.csv.data_file is required when enabled")
 
     persistence = _mapping(config, "persistence")
-    if not isinstance(_require(persistence, "enabled", "persistence"), bool):
+    persistence_enabled = _require(persistence, "enabled", "persistence")
+    if not isinstance(persistence_enabled, bool):
         raise ConfigValidationError("persistence.enabled must be boolean")
     state_path = _require(persistence, "state_path", "persistence")
     if not isinstance(state_path, str) or not state_path.strip():
         raise ConfigValidationError("persistence.state_path must be a non-empty string")
+    if persistence_enabled and Path(state_path).suffix.lower() != ".db":
+        raise ConfigValidationError("persistence.state_path must use a .db file")
 
     logging_config = _mapping(config, "logging")
     enabled = _require(logging_config, "enabled", "logging")

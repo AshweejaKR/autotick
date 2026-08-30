@@ -7,12 +7,12 @@ This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
 - Completed milestones: 1 through 6
-- Completed phases: 1 through 24
+- Completed phases: 1 through 25
 - Provider cleanup: completed
 - Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 25 - persistence, recovery, and reconciliation
+- Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
 - Automated tests: deferred until Phase 29
-- Last updated: 2026-08-29
+- Last updated: 2026-08-30
 
 PROJECT SUMMARY
 ================================================================================
@@ -70,8 +70,8 @@ Milestone 6: Trading Modes - completed
 - Phase 23: Replay mode.
 - Phase 24: Live mode.
 
-Milestone 7: Recovery and Persistence - next
-- Phase 25: Persistence, recovery, and reconciliation.
+Milestone 7: Recovery and Persistence - active
+- Phase 25: Persistence, recovery, and reconciliation - completed.
 - Phase 26: Reconnect, token refresh, and subscription recovery.
 - Phase 27: Production configuration and secrets validation.
 
@@ -140,6 +140,9 @@ autotick/
         account.py
         market_data.py
         execution.py
+  persistence/
+    sqlite_store.py
+    recovery.py
   utils/
     logger.py
 
@@ -150,8 +153,8 @@ README.md
 PLAN.md
 ARCHITECTURE_IMPLEMENTATION_GUIDE.txt
 
-Future folders such as persistence/ and reports/ are created only in their
-implementation phases. No AliceBlue adapter or separate ReplayProvider exists.
+Future folders such as reports/ are created only in their implementation
+phases. No AliceBlue adapter or separate ReplayProvider exists.
 
 PROVIDER CONTRACTS
 ================================================================================
@@ -221,7 +224,16 @@ CONFIGURATION BEHAVIOR
 
 config/default.yaml is the only default YAML.
 
-Relative credentials and CSV paths resolve from the YAML file directory.
+Relative credentials, CSV paths, and persistence paths resolve from the YAML
+file directory.
+
+persistence:
+- enabled false keeps the previous in-memory behavior.
+- enabled true requires a .db state_path.
+- one SQLite database stores isolated profiles keyed by mode, broker, exchange,
+  strategy, and sorted symbols.
+- Live and Paper recover before subscription and strategy setup.
+- Backtest and Replay start fresh and save final state for reporting.
 
 simulated.ui_data_enabled:
 - false: normal ProviderFactory Paper bundle.
@@ -272,11 +284,14 @@ main.py
   -> configure logging
   -> select UI flow or ProviderFactory
   -> create the single-exchange calendar profile
+  -> create RiskManager, TradeManager, and optional RecoveryManager
   -> for Live/Paper with the gate enabled, stop before provider setup when closed
-  -> connect providers and subscribe configured symbols
-  -> create RiskManager and TradeManager
+  -> connect providers
+  -> restore SQLite state and reconcile known provider records
+  -> subscribe configured symbols
   -> initialize strategies after the open-market check
   -> run realtime or historical loop
+  -> save changed state before provider shutdown
   -> unsubscribe and disconnect providers
 
 Current realtime loop:
@@ -292,6 +307,7 @@ CalendarSessionManager.now()
   -> RiskManager sizing and validation
   -> TradeManager order state
   -> simulated or broker execution
+  -> save the SQLite snapshot only when state changed
   -> wait engine.loop_sleep_s
 
 Current historical loop:
@@ -301,6 +317,7 @@ HistoricalProvider timestamps
   -> detect new trading day
   -> reset daily risk state and strategies
   -> process symbols through the same signal/risk/order flow
+  -> save final state for reporting without resuming the historical cursor
 
 TradingEngine and EventDispatcher are implemented core components. The current
 CLI runner uses a direct provider/risk/trade loop and does not yet route main.py
@@ -340,12 +357,16 @@ RiskManager implemented behavior:
 - trailing_sl_pct zero closes directly at target.
 - check_daily_limits() can activate the max-loss kill switch.
 - reset_daily_state() clears daily count and kill switch.
+- daily trade count and kill-switch state can be exported and restored.
 
 TradeManager implemented behavior:
 
 - validates order-state transitions.
 - tracks normalized orders.
 - reconciles broker orders and positions.
+- exports and restores normalized orders, positions, trades, and exit levels.
+- startup reconciliation updates only known AutoTick broker records.
+- unknown broker orders and holdings remain unmanaged and block duplicate entries.
 - tracks position state, exposure, realized P&L, and unrealized P&L.
 - provides intraday square-off orders.
 - opens tracked positions only after filled entry orders.
@@ -358,8 +379,7 @@ Current CLI runner does not yet:
 
 - feed daily P&L into check_daily_limits().
 - call automatic square-off.
-- persist or recover state.
-- run startup reconciliation or reconnect.
+- reconnect sessions, refresh tokens, or recover subscriptions.
 - generate reports.
 
 ORDER STATE MACHINE
@@ -440,11 +460,11 @@ CURRENT STATUS
 
 Version: 0.1.0
 Completed milestones: 1 through 6
-Completed phases: 1 through 24
+Completed phases: 1 through 25
 Provider cleanup: completed
 Schedule-aware calendar cleanup: completed
 Current milestone: Milestone 7 - Recovery and Persistence
-Next phase: Phase 25 - persistence, recovery, and reconciliation
-Phase 25 status: not started
+Next phase: Phase 26 - reconnect, token refresh, and subscription recovery
+Phase 25 status: completed
 Automated tests begin: Phase 29
-Last updated: 2026-08-29
+Last updated: 2026-08-30
