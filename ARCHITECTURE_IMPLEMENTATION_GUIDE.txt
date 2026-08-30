@@ -6,13 +6,12 @@ SOURCE OF TRUTH
 This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
-- Completed milestones: 1 through 6
-- Completed phases: 1 through 24
+- Completed milestones: 1 through 8
+- Completed phases: 1 through 28
 - Provider cleanup: completed
-- Current milestone: Milestone 7 - Recovery and Persistence
-- Next phase: Phase 25 - persistence, recovery, and reconciliation
-- Automated tests: deferred until Phase 29
-- Last updated: 2026-08-29
+- Current milestone: Milestone 9 - Testing
+- Next phase: Phase 29 - unit and provider-contract tests
+- Last updated: 2026-08-30
 
 PROJECT SUMMARY
 ================================================================================
@@ -26,10 +25,10 @@ Core rules:
 - ProviderFactory selects market data, account, execution, and session timing.
 - Broker SDK code stays inside broker adapters.
 - Models and provider contracts stay normalized.
-- CalendarSessionManager owns the single-exchange schedule, timezone, session time, and market-hours checks.
+- CalendarSessionManager owns the run's single-exchange calendar.
 - RiskManager owns sizing and risk limits.
-- TradeManager owns order and position workflow.
-- Optional production components are added only in their planned phase.
+- TradeManager owns order, position, completed-trade, and report triggering flow.
+- Optional components are added only in their planned phase.
 
 CURRENT MILESTONES
 ================================================================================
@@ -70,15 +69,15 @@ Milestone 6: Trading Modes - completed
 - Phase 23: Replay mode.
 - Phase 24: Live mode.
 
-Milestone 7: Recovery and Persistence - next
+Milestone 7: Recovery and Persistence - completed
 - Phase 25: Persistence, recovery, and reconciliation.
 - Phase 26: Reconnect, token refresh, and subscription recovery.
 - Phase 27: Production configuration and secrets validation.
 
-Milestone 8: Reports
-- Phase 28: Performance metrics, reports, and trade export.
+Milestone 8: Reports - completed
+- Phase 28: Performance metrics, strategy/combined reports, and trade export.
 
-Milestone 9: Testing
+Milestone 9: Testing - active
 - Phase 29: Unit and provider-contract tests.
 - Phase 30: Integration and cross-mode parity tests.
 - Phase 31: End-to-end, recovery, and reconciliation tests.
@@ -90,36 +89,21 @@ Milestone 10: Production
 CURRENT CODE STRUCTURE
 ================================================================================
 
-config/
-  default.yaml
-
 autotick/
   main.py
   config/
+    default.yaml
     loader.py
+    secrets.py
     validator.py
   models/
-    account.py
-    event.py
-    market.py
-    order.py
-    position.py
-    signal.py
-    trade.py
   interfaces/
-    account.py
-    execution.py
-    market_data.py
   indicators/
-    base.py
-    moving_average.py
   strategy/
-    base.py
-    context.py
-    simple_strategy.py
   engine/
     dispatcher.py
     market_session.py
+    reconnect_manager.py
     risk_manager.py
     signal_validator.py
     trade_manager.py
@@ -130,16 +114,13 @@ autotick/
     session_pool.py
     brokers/
       angelone/
-        session.py
-        account.py
-        market_data.py
-        execution.py
       simulated/
-        session.py
-        state.py
-        account.py
-        market_data.py
-        execution.py
+  persistence/
+    sqlite_store.py
+    recovery.py
+  reports/
+    __init__.py
+    report.py
   utils/
     logger.py
 
@@ -149,48 +130,6 @@ pyproject.toml
 README.md
 PLAN.md
 ARCHITECTURE_IMPLEMENTATION_GUIDE.txt
-
-Future folders such as persistence/ and reports/ are created only in their
-implementation phases. No AliceBlue adapter or separate ReplayProvider exists.
-
-PROVIDER CONTRACTS
-================================================================================
-
-Aligned constructors:
-
-- Session(credentials_file=None)
-- Account(session, configured_capital=0.0)
-- Execution(session)
-- MarketData(session, exchange="NSE")
-
-MarketDataProvider:
-
-- connect(), disconnect()
-- subscribe(), unsubscribe()
-- get_tick(): latest LTP, current volume, and timestamp
-- get_bars(): normalized OHLCV bars
-- get_bars() start_date and end_date are optional
-- default end: current provider time
-- default start: 5 days earlier, or 30 days for daily bars
-
-AccountProvider:
-
-- connect(), disconnect()
-- get_balance(), get_margin(), get_buying_power(), get_profile()
-- AngelOne and simulated providers return the same Account model
-
-ExecutionProvider:
-
-- place_order(), modify_order(), cancel_order(), cancel_all()
-- get_order(), get_order_status(), get_orders()
-- get_positions(), get_holdings(), get_trades(), get_pnl()
-- square_off()
-
-Simulation-only input helpers:
-
-- SimulatedMarketDataProvider.set_tick()
-- SimulatedMarketDataProvider.set_bars()
-- SimulatedState keeps shared account, tick, bar, subscription, and UI state
 
 MODE MAPPING
 ================================================================================
@@ -203,164 +142,137 @@ Paper, UI enabled    UI shared simulation Simulated     Simulated     Realtime
 Backtest             HistoricalProvider   Simulated     Simulated     Fast
 Replay               HistoricalProvider   Simulated     Simulated     Replay speed
 
-Paper behavior:
-
-- UI disabled: ProviderFactory creates selected-broker market data.
-- UI enabled: control panel and runner share SimulatedSession/SimulatedState.
-- broker_auto_fetch false: UI-only manual data.
-- broker_auto_fetch true: selected real broker supplies initial UI data.
-- broker_auto_fetch has no effect when UI is disabled.
-- Paper MARKET orders fill at the current active market-data LTP.
-- Filled simulated BUY orders subtract cost from balance, margin, and buying power.
-- Filled simulated SELL orders add proceeds and record realized P&L.
-- Simulated BUY orders are rejected when available funds cannot cover the cost.
-- Paper never sends an order to the broker.
-
 CONFIGURATION BEHAVIOR
 ================================================================================
 
 config/default.yaml is the only default YAML.
 
-Relative credentials and CSV paths resolve from the YAML file directory.
+Relative credential, CSV, persistence, and report paths resolve from the YAML
+file directory before validation.
 
-simulated.ui_data_enabled:
-- false: normal ProviderFactory Paper bundle.
-- true: Windows control panel plus Paper runner in one process.
-- supported only in Paper mode.
+production secrets:
+- AngelOne secrets remain in angelone_keys.env.
+- required values: API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET.
+- missing/unreadable files, duplicate keys, missing keys, and blank values fail.
+- secret values and file contents are never logged.
+- Paper validates AngelOne secrets only when broker access is needed.
+- Live requires persistence, reconnect, market-hours gate, and logging enabled.
 
-simulated.broker_auto_fetch:
-- requires ui_data_enabled true.
-- false keeps UI data manual.
-- true requires a real selected broker.
+reports:
+- reports.enabled enables completed-trade CSV export and summaries.
+- reports.user_id is optional and may be any user-selected label.
+- when reports.user_id is blank, AngelOne CLIENT_ID is used when available.
+- reports.output_dir selects the report directory.
+- no timestamp is added to report filenames.
 
-market and session scope:
-- one run uses one market, one exchange, and one CalendarSessionManager profile.
-- all configured symbols must follow that exchange calendar.
-
-session.schedule_type:
-- DAILY: trading_days, market_start, market_end, and square_off_time are required.
-- WEEKLY: week_start_day/time and week_end_day/time are required; a paired
-  daily_break_start/end is optional.
-- ALWAYS_OPEN: no opening or closing fields; every day remains open.
-- timezone is required as an IANA timezone.
-- closed_dates optionally closes specific dates for DAILY and WEEKLY.
-
-session.only_market_hours:
-- true: Live and Paper check the calendar before provider login, subscription,
-  or strategy setup. A closed market logs WARNING with next_open and stops.
-- false: the realtime runner ignores the schedule gate and keeps processing.
-- account balance does not gate strategy tick processing; zero balance produces
-  zero risk quantity and blocks order submission.
-
-engine.loop_sleep_s:
-- minimum realtime loop delay.
-- broker throttling and API response time can make a cycle longer.
-
-trade.position_type:
-- POSITIONAL is the default.
-- TradeManager square-off targets INTRADAY positions only.
-- current main.py does not yet invoke automatic square-off.
-
-RUNTIME FLOW
+REPORTING FLOW
 ================================================================================
 
-Current CLI startup:
+One report trade means one completed ENTRY + EXIT pair.
 
-main.py
-  -> load and validate YAML
-  -> resolve relative input paths
-  -> configure logging
-  -> select UI flow or ProviderFactory
-  -> create the single-exchange calendar profile
-  -> for Live/Paper with the gate enabled, stop before provider setup when closed
-  -> connect providers and subscribe configured symbols
-  -> create RiskManager and TradeManager
-  -> initialize strategies after the open-market check
-  -> run realtime or historical loop
-  -> unsubscribe and disconnect providers
+When a filled EXIT closes a managed position:
 
-Current realtime loop:
+TradeManager
+  -> locate the matching filled ENTRY trade
+  -> calculate completed-trade P&L
+  -> ReportManager.record()
+  -> append strategy trade CSV if exit_trade_id is new
+  -> recalculate strategy summary from accumulated CSV
+  -> append combined trade CSV if exit_trade_id is new
+  -> recalculate combined summary from accumulated CSV
 
-CalendarSessionManager.now()
-  -> market-hours decision
-  -> account balance updates RiskManager capital
-  -> broker/UI get_tick()
-  -> pending-order reconciliation
-  -> stop-loss, target, and trailing-stop monitoring
-  -> SimpleStrategy.on_tick() when no entry exists
-  -> SignalValidator
-  -> RiskManager sizing and validation
-  -> TradeManager order state
-  -> simulated or broker execution
-  -> wait engine.loop_sleep_s
+Strategy filenames:
 
-Current historical loop:
+broker_userid_strategy_mode_trades.csv
+broker_userid_strategy_mode_summary.csv
 
-HistoricalProvider timestamps
-  -> update simulated clock and market-data time
-  -> detect new trading day
-  -> reset daily risk state and strategies
-  -> process symbols through the same signal/risk/order flow
+Combined filenames:
 
-TradingEngine and EventDispatcher are implemented core components. The current
-CLI runner uses a direct provider/risk/trade loop and does not yet route main.py
-through TradingEngine/EventDispatcher.
+broker_userid_mode_trades.csv
+broker_userid_mode_summary.csv
 
-STRATEGY AND SIGNAL RULES
+Combined scope:
+- same broker
+- same user ID
+- same mode
+- all strategies using that identity
+
+Trade CSV fields:
+- exit_trade_id
+- entry_trade_id
+- strategy
+- broker
+- user_id
+- mode
+- symbol
+- exchange
+- quantity
+- entry_price
+- exit_price
+- pnl
+- entry_time
+- exit_time
+
+Summary metrics:
+- completed_trades
+- wins
+- losses
+- win_rate_pct
+- gross_profit
+- gross_loss
+- net_pnl
+- average_pnl
+- best_trade
+- worst_trade
+
+Report behavior:
+- trade CSV is append-only for unseen completed trades.
+- duplicate exit_trade_id values are skipped.
+- summary CSV is overwritten with recalculated accumulated metrics.
+- each report pair uses an OS file lock across Windows and Linux processes.
+- summary replacement is atomic and duplicate retries repair stale summaries.
+- corrupt report files log an error only for that report scope and never stop trading.
+- reporting uses Python standard-library csv only; no pandas or chart package.
+- reporting errors are logged and do not undo an already completed trade.
+
+PERSISTENCE AND RECOVERY
 ================================================================================
 
-SimpleStrategy:
+- SQLite state is stored in one configured .db file.
+- profiles are isolated by mode, broker, exchange, strategy, and symbols.
+- Live and Paper recover managed state before strategy setup.
+- Paper restores simulated account/trade state.
+- unknown broker orders/holdings stay unmanaged and block duplicate entries.
+- unresolved broker writes trigger reconciliation and safe shutdown.
+- Backtest and Replay start fresh and save final state for later use.
 
-- on_initial_setup() loads the latest completed daily bar.
-- previous close comes from that bar.
-- BUY when LTP > previous_close * 1.005.
-- no signal otherwise.
-- one entered-symbol set prevents another entry for that symbol in the same
-  active trading day.
+RECONNECT
+================================================================================
 
-SignalValidator:
-
-- requires symbol and exchange.
-- requires SignalType.
-- quantity may be None; supplied quantity must be positive.
-- price may be None; supplied price must be positive.
-- does not size, manage risk, or decide exits.
+- Live and broker-backed Paper use ReconnectManager when enabled.
+- temporary read/network failures retry with capped exponential backoff.
+- authentication recovery tries refresh before full login.
+- subscriptions restore before reconciliation and strategy resume.
+- broker writes are never automatically retried.
 
 RISK AND TRADE MANAGEMENT
 ================================================================================
 
-RiskManager implemented behavior:
+RiskManager:
+- caps configured quantity using capital, risk percentage, price, and stop loss.
+- filled ENTRY increments daily trade count.
+- max-trade limit activates the kill switch.
+- exposes stop-loss, target, trailing-stop, and daily-limit helpers.
+- keeps the validated runtime config used by report setup.
 
-- configured quantity is capped by capital, risk percentage, price, and
-  stop-loss distance.
-- filled ENTRY orders increment trade_count.
-- max_trades_per_day activates the kill switch.
-- stop_loss(), target(), and trailing_stop() calculate price levels.
-- trailing_sl_pct greater than zero activates trailing protection at target.
-- trailing_sl_pct zero closes directly at target.
-- check_daily_limits() can activate the max-loss kill switch.
-- reset_daily_state() clears daily count and kill switch.
-
-TradeManager implemented behavior:
-
-- validates order-state transitions.
-- tracks normalized orders.
-- reconciles broker orders and positions.
-- tracks position state, exposure, realized P&L, and unrealized P&L.
-- provides intraday square-off orders.
-- opens tracked positions only after filled entry orders.
-- monitors fixed stop-loss first, then target-activated trailing protection.
-- submits normalized exit orders and closes positions after filled exits.
-- records normalized simulated trades and updates simulated cash and realized P&L.
-- logs rounded execution prices, cost/proceeds, exit levels, P&L, and funds.
-
-Current CLI runner does not yet:
-
-- feed daily P&L into check_daily_limits().
-- call automatic square-off.
-- persist or recover state.
-- run startup reconciliation or reconnect.
-- generate reports.
+TradeManager:
+- owns order-state transitions.
+- tracks normalized orders, positions, trades, and exit levels.
+- reconciles known broker records.
+- monitors stop-loss, target, and trailing-stop exits.
+- closes positions only after filled exits.
+- calculates realized P&L for completed exits.
+- triggers Phase 28 reporting only for completed ENTRY + EXIT pairs.
 
 ORDER STATE MACHINE
 ================================================================================
@@ -377,45 +289,18 @@ POSITION STATE MACHINE
 
 NO_POSITION -> ENTRY_PENDING -> OPEN -> EXIT_PENDING -> CLOSED
 
-TradeManager owns position state. Provider adapters only normalize external
-position and trade data.
-
-LOGGING
+CURRENT CLI GAPS
 ================================================================================
 
-Console levels and colors:
-
-- ERROR: red
-- WARNING: yellow
-- INFO: white
-- DONE: green
-
-logger.done() is for successful completions such as login, logout, token
-refresh, configuration load, order placement, and shutdown.
-
-Rotating file logs remain plain and contain no ANSI color codes.
-
-MANUAL TOOLS
-================================================================================
-
-provider_test.py:
-
-- manual provider/session/account/market-data/execution check.
-- market-data calls are guarded by GET_MARKET_DATA.
-- live order calls are guarded by PLACE_LIVE_ORDERS.
-- rejected orders without IDs skip status lookup.
-
-simulated_control_panel.py:
-
-- Windows controls for balance, funds, ticks, LTP, volume, price changes,
-  CSV data, and bars.
-- UI balance, margin, and buying power refresh from shared state every 500 ms.
-- can run standalone or be started by main.py for UI-backed Paper mode.
+Not yet wired:
+- daily P&L feed into max-loss enforcement.
+- automatic intraday square-off call.
+- automated tests, starting in Phase 29.
 
 TESTING POLICY
 ================================================================================
 
-Automated tests were removed during cleanup. Test files return in Milestone 9:
+Automated tests return in Milestone 9:
 
 - Phase 29: unit and provider-contract tests.
 - Phase 30: integration and cross-mode parity tests.
@@ -429,9 +314,9 @@ DESIGN PRINCIPLES
 3. Maintainability before cleverness.
 4. One normalized contract per provider capability.
 5. Broker SDKs remain inside broker adapters.
-6. Strategy remains focused on market conditions and signals.
+6. Strategies remain focused on market conditions and signals.
 7. RiskManager and TradeManager own risk and trade workflow.
-8. One CalendarSessionManager owns the run's single-exchange schedule and time.
+8. One CalendarSessionManager owns the single-exchange schedule and time.
 9. Add optional components only in their planned phase.
 10. Keep README.md, PLAN.md, and this guide synchronized.
 
@@ -439,12 +324,10 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Completed milestones: 1 through 6
-Completed phases: 1 through 24
+Completed milestones: 1 through 8
+Completed phases: 1 through 28
 Provider cleanup: completed
-Schedule-aware calendar cleanup: completed
-Current milestone: Milestone 7 - Recovery and Persistence
-Next phase: Phase 25 - persistence, recovery, and reconciliation
-Phase 25 status: not started
-Automated tests begin: Phase 29
-Last updated: 2026-08-29
+Current milestone: Milestone 9 - Testing
+Next phase: Phase 29 - unit and provider-contract tests
+Phase 28 status: completed
+Last updated: 2026-08-30

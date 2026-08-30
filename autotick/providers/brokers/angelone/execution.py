@@ -14,6 +14,9 @@ from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
 from autotick.models.position import Position, PositionType
 from autotick.models.trade import Trade
 from autotick.providers.brokers.angelone.session import AngelOneSession
+from autotick.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AngelOneExecutionProvider(ExecutionProvider):
@@ -23,15 +26,43 @@ class AngelOneExecutionProvider(ExecutionProvider):
         self.session = session
 
     def place_order(self, order: Order) -> Order:
-        order_id = self.session.call_once(
-            self.session.client.placeOrder,
+        logger.warning(
+            "AngelOne PLACE ORDER side=%s symbol=%s exchange=%s qty=%s type=%s product=%s price=%s",
+            order.side.value,
+            order.symbol,
+            order.exchange,
+            order.quantity,
+            order.order_type.value,
+            order.position_type.value,
+            order.price,
+        )
+        response = self.session.call_once(
+            self.session.client.placeOrderFullResponse,
             self._order_params(order),
+        )
+        order_id = (
+            (response.get("data") or {}).get("orderid")
+            if isinstance(response, dict) and response.get("status")
+            else None
         )
         if not order_id:
             order.status = OrderStatus.REJECTED
+            logger.error(
+                "AngelOne order rejected side=%s symbol=%s qty=%s",
+                order.side.value,
+                order.symbol,
+                order.quantity,
+            )
             return order
         order.order_id = str(order_id)
         order.status = OrderStatus.SUBMITTED
+        logger.done(
+            "AngelOne order accepted broker_order_id=%s side=%s symbol=%s qty=%s",
+            order.order_id,
+            order.side.value,
+            order.symbol,
+            order.quantity,
+        )
         return order
 
     def modify_order(self, order: Order) -> Order:

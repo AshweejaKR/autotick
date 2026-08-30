@@ -13,11 +13,11 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 ## Current Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes
-- Completed phases: 1 through 24
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports
+- Completed phases: 1 through 28
 - Provider cleanup: completed
-- Current milestone: Recovery and Persistence
-- Next phase: Phase 25 - persistence, recovery, and reconciliation
+- Current milestone: Testing
+- Next phase: Phase 29 - unit and provider-contract tests
 - Automated tests: intentionally deferred until Phase 29
 
 ## Implemented Architecture
@@ -31,7 +31,10 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - Shared broker sessions through SessionPool.
 - CalendarSessionManager for DAILY, WEEKLY, and ALWAYS_OPEN schedules across realtime, fast, and replay clocks.
 - EventDispatcher and TradingEngine core components.
+- Broker-neutral ReconnectManager with hybrid retry policy.
 - Centralized colored console logging and plain rotating file logging.
+- Shared production secret-file validation for AngelOne broker access.
+- Append-only completed-trade CSV reporting with strategy and combined summaries.
 
 ### Strategy
 
@@ -121,7 +124,50 @@ Current CLI runner wiring:
 - Reconciles pending broker orders before monitoring filled positions.
 - Logs rounded buy/sell prices, cost/proceeds, stop-loss, target, P&L, and remaining simulated funds.
 - Does not yet call automatic square-off.
-- persistence configuration is validated but persistence starts in Phase 25.
+- Saves changed runtime state and reconciles it before strategy startup.
+
+## Persistence and Recovery
+
+- Python's built-in SQLite stores state in `state/autotick.db`; no extra database package is required.
+- One database file keeps separate profile rows by mode, broker, exchange, strategy, and symbols.
+- Live and Paper restore managed orders, positions, trades, exit levels, trailing state, and daily risk state.
+- Paper also restores simulated funds, positions, orders, trades, and realized P&L.
+- Live reconciliation trusts broker status and quantity only for known AutoTick records.
+- Unknown manual broker orders and holdings are logged, left unmanaged, and blocked from duplicate AutoTick entries.
+- Same-day unresolved orders and runtime save failures activate the kill switch for new entries while protective exits remain available.
+- Backtest and Replay start fresh and save final state for reporting; historical cursor resume is not part of Phase 25.
+- Live and broker-backed Paper pause processing during broker recovery.
+- Temporary network and service outages retry indefinitely with exponential backoff capped at 60 seconds.
+- Authentication recovery tries token refresh before full TOTP login and stops safely after three failed attempts.
+- Configured market-data subscriptions restore before Phase 25 reconciliation and strategy processing resume.
+- Broker writes are never retried automatically. An uncertain write reconciles state, activates the kill switch, and stops safely.
+- Fully simulated Paper, Backtest, and Replay do not use broker reconnect behavior.
+
+## Production Configuration and Secrets
+
+- AngelOne secrets stay in the configured `angelone_keys.env` file beside `autotick/config/default.yaml` when using the default relative path.
+- Required keys are `API_KEY`, `CLIENT_ID`, `PASSWORD`, and `TOTP_SECRET`.
+- Missing files, directories, unreadable files, duplicate keys, missing keys, and blank required values fail before broker login.
+- Secret errors name keys only; secret values and file contents are not logged.
+- Paper validates AngelOne secrets only when it uses AngelOne market data or broker auto-fetch.
+- Fully simulated Paper, Backtest, and Replay do not require AngelOne secrets.
+- Live mode requires `persistence.enabled`, `reconnect.enabled`, `session.only_market_hours`, and `logging.enabled` to all be true.
+- `angelone_keys.env` is explicitly ignored by Git and must never be committed.
+
+## Reports
+
+A completed report trade is one filled ENTRY + one filled EXIT pair.
+
+- Trade CSV files append only new completed trades; duplicate exit trade IDs are skipped.
+- Summary CSV files are recalculated from the full accumulated trade CSV whenever a new trade is appended.
+- Per-report OS file locks protect concurrent strategy processes on Windows and Linux.
+- Summary replacement is atomic; corrupt report files are logged without stopping trading or blocking the other report scope.
+- Strategy files use `broker_userid_strategy_mode_trades.csv` and `broker_userid_strategy_mode_summary.csv`.
+- Combined files use `broker_userid_mode_trades.csv` and `broker_userid_mode_summary.csv` and contain all strategies sharing that broker, user ID, and mode.
+- `reports.user_id` may contain any user label. When blank, AngelOne uses its broker client ID when available; otherwise `user` is used.
+- Metrics: completed trades, wins, losses, win rate, gross profit, gross loss, net P&L, average P&L, best trade, and worst trade.
+- Trade rows include strategy, broker, user ID, mode, symbol, exchange, quantity, entry/exit price, P&L, and entry/exit time.
+- No timestamp is added to report filenames.
 
 ## Logging
 
@@ -132,11 +178,11 @@ Console colors:
 - INFO: white
 - DONE: green
 
-Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating log files remain plain text without color codes.
+Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
 
 ## Configuration
 
-The only default YAML is config/default.yaml. Relative credential and CSV paths resolve from the YAML file's directory.
+The only default YAML is config/default.yaml. Relative credential, CSV, persistence, and report paths resolve from the YAML file's directory.
 
 Important flags:
 
@@ -149,6 +195,14 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+- persistence.enabled: enable SQLite persistence and startup recovery
+- persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
+- reconnect.enabled: enable recovery for Live and broker-backed Paper
+- reconnect.initial_delay_s and reconnect.max_delay_s: exponential backoff range
+- reconnect.auth_max_attempts: bounded authentication recovery attempts
+- reports.enabled: enable completed-trade CSV export and summaries
+- reports.user_id: optional filename identity; blank uses broker client ID when available
+- reports.output_dir: directory for strategy and combined CSV files
 
 Schedule-specific fields:
 

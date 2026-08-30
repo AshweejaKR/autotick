@@ -16,6 +16,7 @@ class RiskManager:
     """Validate order risk, size quantity, and enforce daily limits."""
 
     def __init__(self, config: dict) -> None:
+        self.config = config
         risk = config["risk"]
         self.capital = float(config["capital"])
         self.quantity = int(config["trade"]["quantity"])
@@ -77,6 +78,26 @@ class RiskManager:
     def reset_daily_state(self) -> None:
         self.trade_count = 0
         self.kill_switch = False
+
+    def export_state(self) -> dict[str, int | bool]:
+        """Return daily risk state for persistence."""
+        return {
+            "trade_count": self.trade_count,
+            "kill_switch": self.kill_switch,
+        }
+
+    def restore_state(self, state: dict) -> None:
+        """Restore validated daily risk state."""
+        trade_count = state.get("trade_count", 0)
+        kill_switch = state.get("kill_switch", False)
+        if isinstance(trade_count, bool) or not isinstance(trade_count, int):
+            raise ValueError("risk trade_count must be an integer")
+        if trade_count < 0:
+            raise ValueError("risk trade_count must not be negative")
+        if not isinstance(kill_switch, bool):
+            raise ValueError("risk kill_switch must be boolean")
+        self.trade_count = trade_count
+        self.kill_switch = kill_switch or trade_count >= self.max_trades
 
     def update(self, capital: float) -> None:
         if capital < 0:
