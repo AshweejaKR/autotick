@@ -8,7 +8,7 @@ Created on Mon Aug 24 19:56:33 2026
 from __future__ import annotations
 
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from autotick.interfaces.market_data import MarketDataProvider
 from autotick.models.market import MarketBar, MarketTick
@@ -95,8 +95,19 @@ class HistoricalProvider(MarketDataProvider):
             timestamp=bar.timestamp,
         )
 
-    def get_bars(self, symbol: str, interval: str) -> list[MarketBar]:
+    def get_bars(
+        self,
+        symbol: str,
+        interval: str,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[MarketBar]:
         bars = list(self._bars.get((symbol, interval), []))
         if self._current_time is None:
             return []
-        return [bar for bar in bars if bar.timestamp <= self._current_time]
+
+        end_date = min(end_date or self._current_time, self._current_time)
+        start_date = start_date or end_date - timedelta(days=30 if interval.lower() == "1d" else 5)
+        if start_date > end_date:
+            raise ValueError("start_date must not be after end_date")
+        return [bar for bar in bars if start_date <= bar.timestamp <= end_date]

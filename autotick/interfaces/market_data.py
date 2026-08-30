@@ -8,6 +8,7 @@ Created on Sun Aug 23 18:23:38 2026
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from autotick.models.market import MarketBar, MarketTick
 
@@ -36,5 +37,11 @@ class MarketDataProvider(ABC):
         """Return the latest LTP and current volume for a symbol."""
 
     @abstractmethod
-    def get_bars(self, symbol: str, interval: str) -> list[MarketBar]:
-        """Return normalized historical OHLCV candles."""
+    def get_bars(
+        self,
+        symbol: str,
+        interval: str,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[MarketBar]:
+        """Return normalized OHLCV candles for the requested date range."""

@@ -25,6 +25,7 @@ from autotick.providers.brokers.angelone import (
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
+    SimulatedSession,
 )
 from autotick.providers.historical import HistoricalProvider
 from autotick.providers.session_pool import SessionPool
@@ -89,6 +90,11 @@ class ProviderFactory:
         raise NotImplementedError(f"{normalized} mode is not implemented yet")
 
     @classmethod
+    def close_broker_session(cls, broker: str) -> None:
+        """Close one broker session created by this factory."""
+        cls._session_pool.close(broker)
+
+    @classmethod
     def _broker_session(cls, config: dict[str, Any]) -> tuple[str, AngelOneSession]:
         broker = str(config["broker"]).strip().lower()
         if broker != "angelone":
@@ -104,7 +110,7 @@ class ProviderFactory:
     def _create_live(cls, config: dict[str, Any]) -> ProviderBundle:
         _, session = cls._broker_session(config)
         market_data = AngelOneMarketDataProvider(session, config["market"]["exchange"])
-        account = AngelOneAccountProvider(session)
+        account = AngelOneAccountProvider(session, float(config["capital"]))
         execution = AngelOneExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode("live")
@@ -132,8 +138,10 @@ class ProviderFactory:
         config: dict[str, Any],
         market_data: MarketDataProvider,
     ) -> ProviderBundle:
-        account = SimulatedAccountProvider(float(config["capital"]))
-        execution = SimulatedExecutionProvider(market_data)
+        session = SimulatedSession()
+        session.set_market_data(market_data)
+        account = SimulatedAccountProvider(session, float(config["capital"]))
+        execution = SimulatedExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode(mode)
         return ProviderBundle(market_data, account, execution, calendar)

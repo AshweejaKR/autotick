@@ -25,7 +25,15 @@ risk:
 engine:
   loop_sleep_s: 1
 
+simulated:
+  ui_data_enabled: false
+  broker_auto_fetch: false
+
 session:
+  schedule_type: DAILY
+  timezone: Asia/Kolkata
+  trading_days: [MON, TUE, WED, THU, FRI]
+  closed_dates: []
   market_start: "09:15"
   market_end: "15:30"
   square_off_time: "15:15"

@@ -9,25 +9,34 @@ from __future__ import annotations
 
 from autotick.interfaces.account import AccountProvider
 from autotick.models.account import Account
+from autotick.providers.brokers.simulated.session import SimulatedSession
 
 
 class SimulatedAccountProvider(AccountProvider):
     """Simple in-memory account provider for simulated trading."""
 
-    def __init__(self, capital: float) -> None:
-        self._account = Account(
-            configured_capital=capital,
-            balance=capital,
-            available_margin=capital,
-            buying_power=capital,
-        )
-        self._connected = False
+    def __init__(
+        self,
+        session: SimulatedSession,
+        configured_capital: float = 0.0,
+    ) -> None:
+        self.session = session
+        self.session.state.initialize_account(configured_capital)
+
+    @property
+    def _account(self) -> Account:
+        """Keep existing simulated-account access backed by session state."""
+        return self.session.state.get_account()
+
+    @_account.setter
+    def _account(self, account: Account) -> None:
+        self.session.state.set_account(account)
 
     def connect(self) -> None:
-        self._connected = True
+        self.session.login()
 
     def disconnect(self) -> None:
-        self._connected = False
+        pass
 
     def get_balance(self) -> float:
         return float(self._account.balance or 0.0)

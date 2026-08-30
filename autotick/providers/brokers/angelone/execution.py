@@ -23,7 +23,10 @@ class AngelOneExecutionProvider(ExecutionProvider):
         self.session = session
 
     def place_order(self, order: Order) -> Order:
-        order_id = self.session.client.placeOrder(self._order_params(order))
+        order_id = self.session.call_once(
+            self.session.client.placeOrder,
+            self._order_params(order),
+        )
         if not order_id:
             order.status = OrderStatus.REJECTED
             return order
@@ -34,13 +37,17 @@ class AngelOneExecutionProvider(ExecutionProvider):
     def modify_order(self, order: Order) -> Order:
         params = self._order_params(order)
         params["orderid"] = order.order_id
-        response = self.session.client.modifyOrder(params)
+        response = self.session.call_once(self.session.client.modifyOrder, params)
         if response and response.get("status"):
             order.status = OrderStatus.SUBMITTED
         return order
 
     def cancel_order(self, order_id: str) -> bool:
-        response = self.session.client.cancelOrder(order_id, "NORMAL")
+        response = self.session.call_once(
+            self.session.client.cancelOrder,
+            order_id,
+            "NORMAL",
+        )
         return bool(response and response.get("status"))
 
     def cancel_all(self) -> None:
@@ -49,6 +56,8 @@ class AngelOneExecutionProvider(ExecutionProvider):
                 self.cancel_order(order.order_id)
 
     def get_order(self, order_id: str) -> Order | None:
+        if not order_id:
+            return None
         return next((order for order in self.get_orders() if order.order_id == order_id), None)
 
     def get_order_status(self, order_id: str) -> OrderStatus | None:
@@ -56,19 +65,19 @@ class AngelOneExecutionProvider(ExecutionProvider):
         return order.status if order else None
 
     def get_orders(self) -> list[Order]:
-        response = self.session.client.orderBook()
+        response = self.session.call(self.session.client.orderBook) or {}
         return [self._to_order(item) for item in (response.get("data") or [])]
 
     def get_positions(self) -> list[Position]:
-        response = self.session.client.position()
+        response = self.session.call(self.session.client.position) or {}
         return [self._to_position(item) for item in (response.get("data") or [])]
 
     def get_holdings(self) -> list[Position]:
-        response = self.session.client.holding()
+        response = self.session.call(self.session.client.holding) or {}
         return [self._to_position(item) for item in (response.get("data") or [])]
 
     def get_trades(self) -> list[Trade]:
-        response = self.session.client.tradeBook()
+        response = self.session.call(self.session.client.tradeBook) or {}
         return [self._to_trade(item) for item in (response.get("data") or [])]
 
     def get_pnl(self) -> float:
@@ -128,7 +137,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             side=OrderSide(str(item.get("transactiontype", "BUY")).upper()),
             quantity=int(item.get("quantity", 0) or 0),
             order_type=OrderType.LIMIT if str(item.get("ordertype", "")).upper() == "LIMIT" else OrderType.MARKET,
-            price=float(item.get("price", 0) or 0) or None,
+            price=float(item.get("averageprice", item.get("price", 0)) or 0) or None,
             status=status_map.get(status, OrderStatus.SUBMITTED),
             position_type=PositionType.INTRADAY if product == "INTRADAY" else PositionType.POSITIONAL,
         )

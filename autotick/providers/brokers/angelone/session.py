@@ -11,24 +11,24 @@ from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Callable
 
-import pyotp
-from SmartApi import SmartConnect
-
+from autotick.providers.session_pool import BrokerSession
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class AngelOneSession:
+class AngelOneSession(BrokerSession):
     """Shared AngelOne SmartAPI authenticated session."""
 
-    def __init__(self, credentials_file: str) -> None:
+    def __init__(self, credentials_file: str | None = None) -> None:
+        if not credentials_file:
+            raise ValueError("credentials_file is required for AngelOne")
         keys = self._load_credentials(credentials_file)
         self.api_key = keys["API_KEY"]
         self.client_id = keys["CLIENT_ID"]
         self.password = keys["PASSWORD"]
         self.totp_secret = keys["TOTP_SECRET"]
-        self.client = SmartConnect(api_key=self.api_key)
+        self.client = self._create_client(self.api_key)
         self.refresh_token: str | None = None
         self._connected = False
         self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
@@ -68,22 +68,32 @@ class AngelOneSession:
             return response
         return None
 
+    def call_once(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Call a broker write once with throttling and no automatic retry."""
+        self._throttle()
+        return func(*args, **kwargs)
+
     def login(self) -> None:
         if self._connected:
             return
+        from pyotp import TOTP
+
         self._throttle()
-        totp = pyotp.TOTP(self.totp_secret).now()
+        totp = TOTP(self.totp_secret).now()
         response = self.client.generateSession(self.client_id, self.password, totp)
         if not response or not response.get("status"):
             raise RuntimeError(f"AngelOne login failed: {(response or {}).get('message', 'unknown error')}")
         self.refresh_token = response["data"]["refreshToken"]
         self._connected = True
+        logger.done("AngelOne login completed")
 
     def logout(self) -> None:
-        if self._connected:
-            self._throttle()
-            self.client.terminateSession(self.client_id)
+        if not self._connected:
+            return
+        self._throttle()
+        self.client.terminateSession(self.client_id)
         self._connected = False
+        logger.done("AngelOne logout completed")
 
     def refresh(self) -> None:
         if not self.refresh_token:
@@ -96,6 +106,7 @@ class AngelOneSession:
             self.login()
             return
         self._connected = True
+        logger.done("AngelOne token refresh completed")
 
     def is_connected(self) -> bool:
         return self._connected
@@ -144,7 +155,7 @@ class AngelOneSession:
         else:
             text = str(value).lower()
         return any(word in text for word in (
-            "rate limit", "too many", "timeout", "timed out",
+            "rate limit", "access rate", "too many", "timeout", "timed out",
             "temporarily", "service unavailable", "connection", "429", "503",
         ))
 
@@ -162,3 +173,9 @@ class AngelOneSession:
         if missing:
             raise ValueError(f"Missing AngelOne credentials: {', '.join(missing)}")
         return credentials
+
+    @staticmethod
+    def _create_client(api_key: str) -> Any:
+        from SmartApi import SmartConnect
+
+        return SmartConnect(api_key=api_key)

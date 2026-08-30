@@ -9,8 +9,9 @@ Configuration validation for AutoTick.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class ConfigValidationError(ValueError):
@@ -20,6 +21,8 @@ class ConfigValidationError(ValueError):
 _VALID_MODES = {"live", "paper", "backtest", "replay"}
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _VALID_POSITION_TYPES = {"INTRADAY", "POSITIONAL"}
+_VALID_SCHEDULE_TYPES = {"DAILY", "WEEKLY", "ALWAYS_OPEN"}
+_VALID_DAYS = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}
 
 
 def _require(config: dict[str, Any], key: str, path: str = "") -> Any:
@@ -44,13 +47,97 @@ def _number(value: Any, name: str, *, positive: bool = False) -> None:
         raise ConfigValidationError(f"{name} must be greater than 0")
 
 
-def _hhmm(value: Any, name: str) -> None:
+def _hhmm(value: Any, name: str) -> time:
     if not isinstance(value, str):
         raise ConfigValidationError(f"{name} must be a HH:MM string")
     try:
-        datetime.strptime(value, "%H:%M")
+        return datetime.strptime(value, "%H:%M").time()
     except ValueError as exc:
         raise ConfigValidationError(f"{name} must use HH:MM format") from exc
+
+
+def _day(value: Any, name: str) -> str:
+    if not isinstance(value, str) or value.upper() not in _VALID_DAYS:
+        raise ConfigValidationError(f"{name} must be one of: {', '.join(sorted(_VALID_DAYS))}")
+    return value.upper()
+
+
+def _validate_session(session: dict[str, Any]) -> None:
+    schedule_type = _require(session, "schedule_type", "session")
+    if not isinstance(schedule_type, str) or schedule_type.upper() not in _VALID_SCHEDULE_TYPES:
+        raise ConfigValidationError(
+            f"session.schedule_type must be one of: {', '.join(sorted(_VALID_SCHEDULE_TYPES))}"
+        )
+    schedule_type = schedule_type.upper()
+
+    timezone = _require(session, "timezone", "session")
+    if not isinstance(timezone, str) or not timezone.strip():
+        raise ConfigValidationError("session.timezone must be a non-empty IANA timezone")
+    try:
+        ZoneInfo(timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise ConfigValidationError(f"Unknown session.timezone: {timezone}") from exc
+
+    closed_dates = session.get("closed_dates", [])
+    if not isinstance(closed_dates, list):
+        raise ConfigValidationError("session.closed_dates must be a list")
+    for value in closed_dates:
+        if not isinstance(value, str):
+            raise ConfigValidationError("session.closed_dates must contain YYYY-MM-DD strings")
+        try:
+            date.fromisoformat(value)
+        except ValueError as exc:
+            raise ConfigValidationError(
+                "session.closed_dates must contain valid YYYY-MM-DD dates"
+            ) from exc
+
+    if schedule_type == "DAILY":
+        trading_days = _require(session, "trading_days", "session")
+        if not isinstance(trading_days, list) or not trading_days:
+            raise ConfigValidationError("session.trading_days must be a non-empty list")
+        normalized_days = [_day(value, "session.trading_days") for value in trading_days]
+        if len(set(normalized_days)) != len(normalized_days):
+            raise ConfigValidationError("session.trading_days must not contain duplicates")
+        market_start = _hhmm(_require(session, "market_start", "session"), "session.market_start")
+        market_end = _hhmm(_require(session, "market_end", "session"), "session.market_end")
+        square_off = _hhmm(
+            _require(session, "square_off_time", "session"), "session.square_off_time"
+        )
+        if market_start >= market_end:
+            raise ConfigValidationError("session.market_start must be before session.market_end")
+        if not market_start <= square_off <= market_end:
+            raise ConfigValidationError(
+                "session.square_off_time must be inside market hours"
+            )
+
+    if schedule_type == "WEEKLY":
+        start_day = _day(_require(session, "week_start_day", "session"), "session.week_start_day")
+        end_day = _day(_require(session, "week_end_day", "session"), "session.week_end_day")
+        start_time = _hhmm(
+            _require(session, "week_start_time", "session"), "session.week_start_time"
+        )
+        end_time = _hhmm(
+            _require(session, "week_end_time", "session"), "session.week_end_time"
+        )
+        if start_day == end_day and start_time == end_time:
+            raise ConfigValidationError("weekly session start and end must differ")
+
+        break_start = session.get("daily_break_start")
+        break_end = session.get("daily_break_end")
+        if (break_start is None) != (break_end is None):
+            raise ConfigValidationError(
+                "session.daily_break_start and session.daily_break_end must be set together"
+            )
+        if break_start is not None:
+            parsed_start = _hhmm(break_start, "session.daily_break_start")
+            parsed_end = _hhmm(break_end, "session.daily_break_end")
+            if parsed_start == parsed_end:
+                raise ConfigValidationError("daily break start and end must differ")
+
+    only_market_hours = _require(session, "only_market_hours", "session")
+    if not isinstance(only_market_hours, bool):
+        raise ConfigValidationError("session.only_market_hours must be boolean")
+    _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
 
 def validate_config(config: dict[str, Any]) -> None:
@@ -109,15 +196,33 @@ def validate_config(config: dict[str, Any]) -> None:
     loop_sleep = _require(engine, "loop_sleep_s", "engine")
     _number(loop_sleep, "engine.loop_sleep_s", positive=True)
 
-    session = _mapping(config, "session")
-    for key in ("market_start", "market_end", "square_off_time"):
-        _hhmm(_require(session, key, "session"), f"session.{key}")
-    only_market_hours = _require(session, "only_market_hours", "session")
-    if not isinstance(only_market_hours, bool):
-        raise ConfigValidationError("session.only_market_hours must be boolean")
-    _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
+    simulated = config.get("simulated", {})
+    if not isinstance(simulated, dict):
+        raise ConfigValidationError("simulated must be a mapping")
+    ui_data_enabled = simulated.get("ui_data_enabled", False)
+    if not isinstance(ui_data_enabled, bool):
+        raise ConfigValidationError("simulated.ui_data_enabled must be boolean")
+    broker_auto_fetch = simulated.get("broker_auto_fetch", False)
+    if not isinstance(broker_auto_fetch, bool):
+        raise ConfigValidationError("simulated.broker_auto_fetch must be boolean")
+    if ui_data_enabled and mode != "paper":
+        raise ConfigValidationError(
+            "simulated.ui_data_enabled is supported only in paper mode"
+        )
+    if broker_auto_fetch and not ui_data_enabled:
+        raise ConfigValidationError(
+            "simulated.broker_auto_fetch requires simulated.ui_data_enabled"
+        )
+    if broker_auto_fetch and broker.strip().lower() == "simulated":
+        raise ConfigValidationError(
+            "broker must select a real broker when simulated.broker_auto_fetch is enabled"
+        )
 
-    if mode in {"live", "paper"}:
+    _validate_session(_mapping(config, "session"))
+
+    if mode == "live" or (
+        mode == "paper" and (not ui_data_enabled or broker_auto_fetch)
+    ):
         broker_config = _mapping(config, "broker_config")
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
             raise ConfigValidationError(f"broker_config.{broker} must be configured")

@@ -10,6 +10,8 @@ Provider selection, bundling, and shared broker sessions for AutoTick.
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
+    SimulatedMarketDataProvider,
+    SimulatedSession,
 )
 from autotick.providers.factory import ModeMapping, ProviderBundle, ProviderFactory
 from autotick.providers.historical import HistoricalProvider
@@ -24,4 +26,6 @@ __all__ = [
     "SessionPool",
     "SimulatedAccountProvider",
     "SimulatedExecutionProvider",
+    "SimulatedMarketDataProvider",
+    "SimulatedSession",
 ]
