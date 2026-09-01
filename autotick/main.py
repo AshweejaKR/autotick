@@ -63,18 +63,23 @@ def _symbols(value: str | list[str]) -> list[str]:
 
 def _setup_strategy(providers, symbol: str) -> SimpleStrategy | None:
     """Create one strategy when its tick and completed daily bars are ready."""
+    logger.debug("_setup_strategy entry symbol=%s strategy_class=%s", symbol, SimpleStrategy.__name__)
     tick = providers.market_data.get_tick(symbol)
     if tick is None:
+        logger.debug("_setup_strategy exit symbol=%s reason=no_tick", symbol)
         return None
 
     strategy = SimpleStrategy()
+    logger.debug("_setup_strategy created symbol=%s strategy=%s", symbol, type(strategy).__name__)
     strategy.initialize(StrategyContext(providers.market_data, symbol, tick=tick))
     strategy.on_market_open()
     try:
         strategy.on_initial_setup()
     except RuntimeError as exc:
         logger.debug("Strategy waiting for %s data: %s", symbol, exc)
+        logger.debug("_setup_strategy exit symbol=%s reason=waiting", symbol)
         return None
+    logger.debug("_setup_strategy exit symbol=%s strategy=%s", symbol, type(strategy).__name__)
     return strategy
 
 
@@ -146,11 +151,26 @@ def _process_symbols(
     position_type: PositionType,
     mode: str,
 ) -> None:
+    logger.debug(
+        "_process_symbols entry mode=%s symbols=%s strategies=%s entered=%s",
+        mode,
+        symbols,
+        sorted(strategies),
+        sorted(entered),
+    )
     for symbol in symbols:
+        logger.debug("_process_symbols symbol entry symbol=%s", symbol)
         tick = providers.market_data.get_tick(symbol)
         if tick is None or tick.ltp is None:
+            logger.debug("_process_symbols symbol exit symbol=%s reason=no_tick", symbol)
             continue
 
+        logger.debug(
+            "_process_symbols tick symbol=%s exchange=%s ltp=%s",
+            symbol,
+            tick.exchange,
+            tick.ltp,
+        )
         exit_result = trades.monitor_exit(symbol, tick.exchange, tick.ltp)
         if exit_result is not None:
             order, reason = exit_result
@@ -186,21 +206,44 @@ def _process_symbols(
                     order.price,
                     order.status.value,
                 )
+            logger.debug("_process_symbols symbol exit symbol=%s reason=exit_order", symbol)
             continue
 
-        if trades.has_active_trade(symbol, tick.exchange) or symbol in entered:
+        active_trade = trades.has_active_trade(symbol, tick.exchange)
+        already_entered = symbol in entered
+        if active_trade or already_entered:
+            logger.debug(
+                "Strategy skipped symbol=%s active_trade=%s already_entered=%s",
+                symbol,
+                active_trade,
+                already_entered,
+            )
             continue
 
         strategy = strategies.get(symbol)
         if strategy is None:
+            logger.debug("Strategy missing for %s; setup requested", symbol)
             strategy = _setup_strategy(providers, symbol)
             if strategy is None:
+                logger.debug("_process_symbols symbol exit symbol=%s reason=strategy_not_ready", symbol)
                 continue
             strategies[symbol] = strategy
 
+        logger.debug(
+            "Calling strategy.on_tick symbol=%s strategy=%s",
+            symbol,
+            type(strategy).__name__,
+        )
         strategy.context.tick = tick
         signal = strategy.on_tick(tick)
+        logger.debug(
+            "strategy.on_tick returned symbol=%s strategy=%s signal=%s",
+            symbol,
+            type(strategy).__name__,
+            signal.signal_type.value if signal is not None else None,
+        )
         if signal is None or signal.signal_type != SignalType.BUY:
+            logger.debug("_process_symbols symbol exit symbol=%s reason=no_buy_signal", symbol)
             continue
 
         SignalValidator.validate(signal)
@@ -244,6 +287,8 @@ def _process_symbols(
                 order.status.value,
                 providers.account.get_balance(),
             )
+        logger.debug("_process_symbols symbol exit symbol=%s order_status=%s", symbol, order.status.value)
+    logger.debug("_process_symbols exit")
 
 
 def _run_realtime(
@@ -268,10 +313,29 @@ def _run_realtime(
         else providers.calendar_session.now().date()
     )
     loop_sleep = float(config["engine"]["loop_sleep_s"])
+    loop_count = 0
+    logger.debug(
+        "_run_realtime entry symbols=%s trading_date=%s blocked=%s entered=%s loop_sleep=%s",
+        symbols,
+        trading_date,
+        sorted(blocked),
+        sorted(entered),
+        loop_sleep,
+    )
 
     while stop_event is None or not stop_event.is_set():
+        loop_count += 1
         now = providers.calendar_session.now()
         market_open = providers.calendar_session.is_market_open(now)
+        logger.debug(
+            "_run_realtime loop=%s now=%s market_open=%s strategies=%s entered=%s blocked=%s",
+            loop_count,
+            now,
+            market_open,
+            sorted(strategies or {}),
+            sorted(entered),
+            sorted(blocked),
+        )
         if config["session"]["only_market_hours"] and not market_open:
             logger.warning(
                 "Market is closed at %s; next open is %s. Exiting realtime runner.",
@@ -287,13 +351,17 @@ def _run_realtime(
             entered = set(blocked)
             strategies = None
             trading_date = now.date()
+            logger.debug("_run_realtime new trading day=%s", trading_date)
 
         try:
             if strategies is None:
+                logger.debug("_run_realtime setting up strategies")
                 strategies = _setup_strategies(providers, symbols)
+                logger.debug("_run_realtime strategies ready=%s", sorted(strategies))
 
             if not config["session"]["only_market_hours"] or market_open:
                 balance = providers.account.get_balance()
+                logger.debug("_run_realtime balance=%s", balance)
                 risk.update(balance)
                 _reconcile_orders(trades, entered)
                 _process_symbols(
@@ -309,6 +377,7 @@ def _run_realtime(
                 )
                 _save_state(persistence, risk, trading_date)
         except BrokerError as exc:
+            logger.debug("_run_realtime broker error=%s", type(exc).__name__)
             if reconnect is None or state_manager is None:
                 raise
             uncertain_write = isinstance(exc, BrokerWriteUncertainError)
@@ -332,6 +401,11 @@ def _run_realtime(
             entered = set(reconciled.entered_symbols) | blocked
             strategies = None
             _save_state(persistence, risk, trading_date)
+            logger.debug(
+                "_run_realtime recovery completed blocked=%s entered=%s",
+                sorted(blocked),
+                sorted(entered),
+            )
             if uncertain_write:
                 risk.activate_kill_switch()
                 _save_state(persistence, risk, trading_date)
@@ -346,6 +420,7 @@ def _run_realtime(
             sleep(loop_sleep)
         else:
             stop_event.wait(loop_sleep)
+    logger.debug("_run_realtime exit trading_date=%s loops=%s", trading_date, loop_count)
     return trading_date
 
 
@@ -358,6 +433,7 @@ def _run_historical(
     position_type: PositionType,
     persistence: RecoveryManager | None = None,
 ) -> date | None:
+    logger.debug("_run_historical entry symbols=%s", symbols)
     timestamps = providers.market_data.timestamps()
     strategies: dict[str, SimpleStrategy] = {}
     entered: set[str] = set()
@@ -365,6 +441,7 @@ def _run_historical(
     last_processed_at = None
 
     for value in timestamps:
+        logger.debug("_run_historical loop timestamp=%s", value)
         last_processed_at = value
         providers.calendar_session.wait_until(value)
         providers.calendar_session.update_time(value)
@@ -396,6 +473,7 @@ def _run_historical(
         )
     if trading_date is not None:
         _save_state(persistence, risk, trading_date, last_processed_at)
+    logger.debug("_run_historical exit trading_date=%s", trading_date)
     return trading_date
 
 
@@ -406,6 +484,7 @@ def _run_providers(
 ) -> None:
     mode = config["mode"].lower()
     symbols = _symbols(config["market"]["symbols"])
+    logger.debug("_run_providers entry mode=%s symbols=%s", mode, symbols)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
     state_manager = RecoveryManager(
@@ -451,15 +530,24 @@ def _run_providers(
                 return
 
         try:
+            logger.debug("_run_providers connecting market data")
             providers.market_data.connect()
+            logger.debug("_run_providers connecting account")
             providers.account.connect()
             recovery = (
                 persistence.recover(runtime_date)
                 if persistence is not None
                 else RecoveryResult(runtime_date)
             )
+            logger.debug(
+                "_run_providers recovery complete entered=%s blocked=%s",
+                sorted(recovery.entered_symbols),
+                sorted(recovery.blocked_symbols),
+            )
             providers.market_data.subscribe(symbols)
+            logger.debug("_run_providers subscribed symbols=%s", symbols)
         except BrokerError as exc:
+            logger.debug("_run_providers startup broker error=%s", type(exc).__name__)
             if reconnect is None:
                 raise
             try:
@@ -483,6 +571,7 @@ def _run_providers(
                 return
         persistence_ready = persistence is not None
         if mode in {"backtest", "replay"}:
+            logger.debug("_run_providers entering historical runner")
             runtime_date = _run_historical(
                 providers,
                 config,
@@ -493,6 +582,7 @@ def _run_providers(
                 persistence,
             )
         else:
+            logger.debug("_run_providers entering realtime runner")
             runtime_date = _run_realtime(
                 providers,
                 config,
@@ -507,6 +597,7 @@ def _run_providers(
                 stop_event,
             )
     finally:
+        logger.debug("_run_providers shutdown entry runtime_date=%s", runtime_date)
         if (
             persistence_ready
             and runtime_date is not None
@@ -523,6 +614,7 @@ def _run_providers(
             with suppress(Exception):
                 providers.broker_session.logout()
         logger.done("AutoTick provider shutdown completed")
+        logger.debug("_run_providers exit")
 
 
 def _run_ui_data(config: dict) -> None:
@@ -571,6 +663,7 @@ def main() -> None:
         )
 
         mode = config["mode"].lower()
+        logger.debug("main entry config=%s strategy_class=%s", config_path, SimpleStrategy.__name__)
         logger.done("Configuration loaded from %s", config_path)
         logger.info("Starting mode=%s", mode.upper())
 
@@ -578,7 +671,14 @@ def main() -> None:
             logger.info("Starting Paper mode with simulated UI data")
             _run_ui_data(config)
         else:
+            logger.debug("main creating providers mode=%s", mode)
             providers = ProviderFactory.create_bundle(mode, config)
+            logger.debug(
+                "main providers created market_data=%s account=%s execution=%s",
+                type(providers.market_data).__name__,
+                type(providers.account).__name__,
+                type(providers.execution).__name__,
+            )
             _run_providers(providers, config)
     except KeyboardInterrupt:
         logger.done("AutoTick stopped by user")
@@ -586,6 +686,7 @@ def main() -> None:
         logger.exception("AutoTick runner failed")
         raise
     finally:
+        logger.debug("main exit")
         print("..... main   end .....")
 
 
