@@ -4,7 +4,7 @@ strategy: live_verification
 
 market:
   symbols:
-    - SILVER10030SEP26FUT
+    - GOLDPETAL30SEP26FUT
   exchange: MCX
 
 capital: 100000
