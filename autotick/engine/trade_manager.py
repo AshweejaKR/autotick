@@ -580,6 +580,18 @@ class TradeManager:
             if trade.order_id not in broker_order_ids
         }
         self._trades.update({trade.trade_id: trade for trade in broker_trades})
+
+        blocking_order_statuses = {
+            OrderStatus.SUBMITTED,
+            OrderStatus.OPEN,
+            OrderStatus.PARTIAL,
+            OrderStatus.FILLED,
+        }
+        blocked_order_symbols = {
+            provider_orders[order_id].symbol
+            for order_id in unknown_order_ids
+            if provider_orders[order_id].status in blocking_order_statuses
+        }
         return ReconciliationResult(
             changed_orders=changed_orders,
             closed_positions=closed_positions,
@@ -587,8 +599,8 @@ class TradeManager:
             unknown_positions=unknown_positions,
             unresolved_orders=unresolved_orders,
             blocked_symbols=frozenset(
-                [provider_orders[order_id].symbol for order_id in unknown_order_ids]
-                + [symbol for symbol, _ in unknown_position_keys]
+                blocked_order_symbols
+                | {symbol for symbol, _ in unknown_position_keys}
             ),
         )
 
