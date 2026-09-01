@@ -4,8 +4,8 @@ strategy: live_verification
 
 market:
   symbols:
-    - NIFTYBEES-EQ
-  exchange: NSE
+    - SILVER10030SEP26FUT
+  exchange: MCX
 
 capital: 100000
 
@@ -39,9 +39,9 @@ session:
   timezone: Asia/Kolkata
   trading_days: [MON, TUE, WED, THU, FRI]
   closed_dates: []
-  market_start: "09:15"
-  market_end: "15:30"
-  square_off_time: "15:15"
+  market_start: "09:00"
+  market_end: "23:30"
+  square_off_time: "23:20"
   only_market_hours: true
   replay_speed: 1.0
 
