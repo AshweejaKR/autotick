@@ -5,14 +5,16 @@ This is a temporary manual smoke flow for validating the implemented AutoTick ru
 ## Safety Scope
 
 - Uses real Live mode and places real broker orders.
-- Default verification symbol: `NIFTYBEES-EQ`.
-- Quantity: `1`.
+- Default verification contract: `SILVER10030SEP26FUT` on `MCX`.
+- Silver100 is the 100 gram MCX silver futures contract.
+- Quantity: `1` lot.
 - Maximum filled entries per day: `1`.
 - Position type: `POSITIONAL`.
 - Stop-loss: `0.10%`.
 - Target: `0.15%`.
 - Trailing stop: disabled.
 - Entry trigger: LTP above previous close by `0.05%`.
+- Verification market window: `09:00` to `23:30` Asia/Kolkata.
 - Uses separate SQLite state: `state/live_verification.db`.
 - Uses separate log: `logs/live_verification.log`.
 
@@ -22,8 +24,8 @@ These values are only for plumbing verification and are not a trading recommenda
 
 1. Use branch `feature/autotick-rebuild-phase_25_28`.
 2. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
-3. Confirm the configured symbol is valid and tradable in the AngelOne account.
-4. Confirm there is enough cash for one unit plus charges.
+3. Confirm `SILVER10030SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
+4. Confirm sufficient commodity margin is available for one lot plus charges.
 5. Delete `state/live_verification.db` only when intentionally starting a completely fresh verification profile.
 
 ## Run
