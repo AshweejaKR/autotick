@@ -22,7 +22,7 @@ risk:
   trailing_sl_pct: 0
 
 engine:
-  loop_sleep_s: 1
+  loop_sleep_s: 20
 
 reconnect:
   enabled: true
