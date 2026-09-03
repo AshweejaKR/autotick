@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import suppress
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Event
 from time import sleep
@@ -26,6 +26,7 @@ from autotick.engine import (
     SignalValidator,
     TradeManager,
 )
+from autotick.indicators import AverageTrueRange
 from autotick.models import (
     Order,
     OrderIntent,
@@ -140,6 +141,37 @@ def _save_state(
         logger.exception("State persistence failed; new entries blocked")
 
 
+def _trailing_atr(providers, risk: RiskManager, symbol: str, now: datetime | None) -> float | None:
+    """Calculate ATR from the latest completed configured candles."""
+    if not risk.trailing_enabled or now is None:
+        return None
+    interval = risk.trailing_atr_interval
+    bars = providers.market_data.get_bars(symbol, interval)
+    if interval == "1d":
+        completed = [bar for bar in bars if bar.timestamp.date() < now.date()]
+    else:
+        completed = [
+            bar
+            for bar in bars
+            if _comparable_time(bar.timestamp) + timedelta(minutes=15)
+            <= _comparable_time(now)
+        ]
+    value = AverageTrueRange(risk.trailing_atr_period).calculate(completed)
+    if value is None:
+        logger.warning(
+            "ATR unavailable for %s interval=%s period=%s; target exit will be used",
+            symbol,
+            interval,
+            risk.trailing_atr_period,
+        )
+    return value
+
+
+def _comparable_time(value: datetime) -> datetime:
+    """Compare provider timestamps safely when CSV bars are timezone-naive."""
+    return value.replace(tzinfo=None)
+
+
 def _process_symbols(
     providers,
     symbols: list[str],
@@ -171,7 +203,39 @@ def _process_symbols(
             tick.exchange,
             tick.ltp,
         )
-        exit_result = trades.monitor_exit(symbol, tick.exchange, tick.ltp)
+        exit_prices = trades.get_exit_prices(symbol, tick.exchange)
+        trailing_atr = None
+        if (
+            exit_prices is not None
+            and risk.trailing_enabled
+            and exit_prices[2] is None
+            and tick.ltp >= exit_prices[1]
+        ):
+            trailing_atr = _trailing_atr(
+                providers,
+                risk,
+                symbol,
+                tick.timestamp,
+            )
+        exit_result = trades.monitor_exit(
+            symbol,
+            tick.exchange,
+            tick.ltp,
+            trailing_atr,
+        )
+        updated_prices = trades.get_exit_prices(symbol, tick.exchange)
+        if trailing_atr is not None and exit_result is None:
+            if updated_prices is not None and updated_prices[2] is not None:
+                logger.info(
+                    "ATR trailing stop activated %s: interval=%s period=%s "
+                    "atr=%.2f multiplier=%.2f stop=%.2f",
+                    symbol,
+                    risk.trailing_atr_interval,
+                    risk.trailing_atr_period,
+                    trailing_atr,
+                    risk.trailing_atr_multiplier,
+                    updated_prices[2],
+                )
         if exit_result is not None:
             order, reason = exit_result
             if order.status == OrderStatus.FILLED:

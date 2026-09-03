@@ -17,6 +17,9 @@ from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
 from autotick.reports import ReportManager
+from autotick.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -25,6 +28,7 @@ class _ExitLevels:
     target: float
     highest_price: float
     trailing_stop: float | None = None
+    trailing_atr: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +170,7 @@ class TradeManager:
                     "target": levels.target,
                     "highest_price": levels.highest_price,
                     "trailing_stop": levels.trailing_stop,
+                    "trailing_atr": levels.trailing_atr,
                 }
                 for (symbol, exchange), levels in self._exit_levels.items()
             ],
@@ -192,6 +197,11 @@ class TradeManager:
                 trailing_stop=(
                     float(item["trailing_stop"])
                     if item.get("trailing_stop") is not None
+                    else None
+                ),
+                trailing_atr=(
+                    float(item["trailing_atr"])
+                    if item.get("trailing_atr") is not None
                     else None
                 ),
             )
@@ -292,6 +302,7 @@ class TradeManager:
         symbol: str,
         exchange: str,
         price: float,
+        trailing_atr: float | None = None,
     ) -> tuple[Order, str] | None:
         """Submit an exit when fixed or trailing protection is hit."""
         key = (symbol, exchange)
@@ -312,14 +323,30 @@ class TradeManager:
         elif levels.trailing_stop is not None:
             if price > levels.highest_price:
                 levels.highest_price = price
-                levels.trailing_stop = self.risk_manager.trailing_stop(price)
+                if levels.trailing_atr is not None:
+                    updated_stop = max(
+                        levels.trailing_stop,
+                        self.risk_manager.trailing_stop(price, levels.trailing_atr),
+                    )
+                    if updated_stop > levels.trailing_stop:
+                        logger.debug(
+                            "Updated TSL %.2f to %.2f",
+                            levels.trailing_stop,
+                            updated_stop,
+                        )
+                        levels.trailing_stop = updated_stop
             if price <= levels.trailing_stop:
                 reason = "TRAILING_STOP"
         elif price >= levels.target:
-            if self.risk_manager.trailing_pct > 0:
+            if self.risk_manager.trailing_enabled and trailing_atr is not None:
                 levels.highest_price = max(levels.highest_price, price)
-                levels.trailing_stop = self.risk_manager.trailing_stop(
-                    levels.highest_price
+                levels.trailing_atr = trailing_atr
+                levels.trailing_stop = max(
+                    levels.stop_loss,
+                    self.risk_manager.trailing_stop(
+                        levels.highest_price,
+                        trailing_atr,
+                    ),
                 )
                 return None
             reason = "TARGET"
@@ -342,10 +369,18 @@ class TradeManager:
             )
         )
         if self.risk_manager is not None:
-            self._exit_levels[self._position_key(position)] = _ExitLevels(
+            levels = _ExitLevels(
                 stop_loss=self.risk_manager.stop_loss(price),
                 target=self.risk_manager.target(price),
                 highest_price=price,
+            )
+            self._exit_levels[self._position_key(position)] = levels
+            logger.debug(
+                "Entry levels %s: entry_price=%.2f stop_loss=%.2f target=%.2f",
+                order.symbol,
+                price,
+                levels.stop_loss,
+                levels.target,
             )
 
     def _close_filled_exit(self, order: Order) -> None:

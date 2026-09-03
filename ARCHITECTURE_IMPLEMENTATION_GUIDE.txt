@@ -11,7 +11,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Provider cleanup: completed
 - Current milestone: Milestone 9 - Testing
 - Next phase: Phase 29 - unit and provider-contract tests
-- Last updated: 2026-08-30
+- Last updated: 2026-09-03
 
 PROJECT SUMMARY
 ================================================================================
@@ -262,8 +262,17 @@ RiskManager:
 - caps configured quantity using capital, risk percentage, price, and stop loss.
 - filled ENTRY increments daily trade count.
 - max-trade limit activates the kill switch.
-- exposes stop-loss, target, trailing-stop, and daily-limit helpers.
+- exposes stop-loss, target, ATR trailing-stop, and daily-limit helpers.
 - keeps the validated runtime config used by report setup.
+
+ATR trailing stop:
+- target activates trailing protection when trailing_atr_multiplier is greater than zero.
+- ATR(14) uses completed candles only and is retained for the open trade.
+- highest price is tick-based and the trailing stop never moves downward.
+- DEBUG logs record entry stop-loss/target levels and every upward TSL change.
+- MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
+- positional swing default: daily at 2.5x.
+- zero multiplier disables trailing and keeps direct target exit behavior.
 
 TradeManager:
 - owns order-state transitions.
@@ -330,4 +339,4 @@ Provider cleanup: completed
 Current milestone: Milestone 9 - Testing
 Next phase: Phase 29 - unit and provider-contract tests
 Phase 28 status: completed
-Last updated: 2026-08-30
+Last updated: 2026-09-03

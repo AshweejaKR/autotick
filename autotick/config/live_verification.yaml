@@ -19,7 +19,9 @@ risk:
   risk_per_trade_pct: 1
   stoploss_pct: 0.10
   target_pct: 0.15
-  trailing_sl_pct: 0
+  trailing_atr_period: 14
+  trailing_atr_interval: 1d
+  trailing_atr_multiplier: 0
 
 engine:
   loop_sleep_s: 20

@@ -25,7 +25,9 @@ class RiskManager:
         self.risk_pct = float(risk["risk_per_trade_pct"])
         self.stoploss_pct = float(risk["stoploss_pct"])
         self.target_pct = float(risk["target_pct"])
-        self.trailing_pct = float(risk["trailing_sl_pct"])
+        self.trailing_atr_period = int(risk["trailing_atr_period"])
+        self.trailing_atr_interval = str(risk["trailing_atr_interval"]).lower()
+        self.trailing_atr_multiplier = float(risk["trailing_atr_multiplier"])
         self.trade_count = 0
         self.kill_switch = False
 
@@ -64,8 +66,14 @@ class RiskManager:
     def target(self, entry_price: float) -> float:
         return entry_price * (1 + self.target_pct / 100)
 
-    def trailing_stop(self, highest_price: float) -> float:
-        return highest_price * (1 - self.trailing_pct / 100)
+    @property
+    def trailing_enabled(self) -> bool:
+        return self.trailing_atr_multiplier > 0
+
+    def trailing_stop(self, highest_price: float, atr: float) -> float:
+        if atr <= 0:
+            raise ValueError("ATR must be greater than zero")
+        return highest_price - atr * self.trailing_atr_multiplier
 
     def check_daily_limits(self, pnl: float) -> bool:
         if pnl <= self.max_loss or self.trade_count >= self.max_trades:

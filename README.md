@@ -38,7 +38,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 
 ### Strategy
 
-- SMA indicator with default period 20.
+- SMA indicator with default period 20 and Wilder ATR with default period 14.
 - Strategy base and StrategyContext.
 - Simple long strategy:
   - Load the latest completed daily close during initial setup.
@@ -111,9 +111,11 @@ Implemented core behavior:
 - Risk-based quantity cap using capital, risk percentage, price, and stop-loss distance.
 - Filled ENTRY orders increment the daily trade count.
 - max_trades_per_day activates the kill switch.
-- Stop-loss, target, and trailing-stop price helpers.
+- Stop-loss, target, and ATR trailing-stop price helpers.
 - Filled entries create tracked positions with fixed stop-loss and target levels.
-- Target activates trailing protection when trailing_sl_pct is greater than zero; zero exits directly at target.
+- Target activates ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
+- ATR uses completed candles only. The activation ATR is retained while the tick-based highest price moves the stop upward.
+- Recommended defaults: MCX intraday uses 15m ATR(14) at 2.0x; positional swing uses daily ATR(14) at 2.5x. Noisy MCX contracts may use 2.5x.
 - Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
 - Intraday-only square-off method.
 
@@ -179,6 +181,7 @@ Console colors:
 - DONE: green
 
 Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
+DEBUG logs show entry stop-loss/target levels and every upward TSL change.
 
 ## Configuration
 
@@ -195,6 +198,9 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+- risk.trailing_atr_period: ATR lookback; default 14
+- risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
+- risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing
 - persistence.enabled: enable SQLite persistence and startup recovery
 - persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
 - reconnect.enabled: enable recovery for Live and broker-backed Paper

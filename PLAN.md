@@ -73,6 +73,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
 - Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
 - Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
+- Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
 
 ## Current Runtime Wiring
 
@@ -83,7 +84,8 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Simple strategy buys when LTP exceeds previous close by 0.5%.
 - RiskManager caps configured quantity.
 - One filled ENTRY increments the daily trade count.
-- Filled positions use fixed stop-loss and target levels; target activates trailing protection when configured.
+- Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.
+- MCX intraday uses 15m ATR at 2.0x; positional swing uses daily ATR at 2.5x. The activation ATR and tick-based trailing state survive restart.
 - Completed ENTRY + EXIT pairs append once to strategy-specific and combined CSV reports.
 - Summary files recalculate from accumulated trade CSV history.
 - POSITIONAL is the default position type.

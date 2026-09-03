@@ -24,6 +24,7 @@ class ConfigValidationError(ValueError):
 _VALID_MODES = {"live", "paper", "backtest", "replay"}
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _VALID_POSITION_TYPES = {"INTRADAY", "POSITIONAL"}
+_VALID_ATR_INTERVALS = {"15m", "1d"}
 _VALID_SCHEDULE_TYPES = {"DAILY", "WEEKLY", "ALWAYS_OPEN"}
 _VALID_DAYS = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}
 
@@ -181,11 +182,21 @@ def validate_config(config: dict[str, Any]) -> None:
     max_trades = _require(risk, "max_trades_per_day", "risk")
     if isinstance(max_trades, bool) or not isinstance(max_trades, int) or max_trades <= 0:
         raise ConfigValidationError("risk.max_trades_per_day must be a positive integer")
-    for key in ("risk_per_trade_pct", "stoploss_pct", "target_pct", "trailing_sl_pct"):
+    for key in ("risk_per_trade_pct", "stoploss_pct", "target_pct"):
         value = _require(risk, key, "risk")
         _number(value, f"risk.{key}")
         if value < 0 or value > 100:
             raise ConfigValidationError(f"risk.{key} must be between 0 and 100")
+    atr_period = _require(risk, "trailing_atr_period", "risk")
+    if isinstance(atr_period, bool) or not isinstance(atr_period, int) or atr_period <= 0:
+        raise ConfigValidationError("risk.trailing_atr_period must be a positive integer")
+    atr_interval = _require(risk, "trailing_atr_interval", "risk")
+    if not isinstance(atr_interval, str) or atr_interval.lower() not in _VALID_ATR_INTERVALS:
+        raise ConfigValidationError("risk.trailing_atr_interval must be 15m or 1d")
+    atr_multiplier = _require(risk, "trailing_atr_multiplier", "risk")
+    _number(atr_multiplier, "risk.trailing_atr_multiplier")
+    if atr_multiplier < 0:
+        raise ConfigValidationError("risk.trailing_atr_multiplier must not be negative")
 
     engine = _mapping(config, "engine")
     _number(_require(engine, "loop_sleep_s", "engine"), "engine.loop_sleep_s", positive=True)
