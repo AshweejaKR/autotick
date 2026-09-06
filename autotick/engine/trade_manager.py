@@ -349,6 +349,8 @@ class TradeManager:
                     ),
                 )
                 return None
+            if self.risk_manager.trailing_enabled and self.risk_manager.target_pct == 0:
+                return None
             reason = "TARGET"
 
         if reason is None:

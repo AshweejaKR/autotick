@@ -44,6 +44,11 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
   - Load the latest completed daily close during initial setup.
   - Generate BUY when LTP is greater than previous close by 0.5%.
   - Generate no signal otherwise.
+- CSV swing strategy:
+  - Load `symbol,trigger_price` rows from one fixed watchlist file.
+  - Generate BUY when LTP moves above the configured trigger price.
+  - Reload the same CSV at each trading-day open without restarting.
+  - Keep removed symbols subscribed while their managed positions remain open.
 - SignalValidator performs structural validation only.
 - RiskManager and TradeManager own quantity and order workflow.
 
@@ -94,7 +99,7 @@ One AutoTick run supports one market and one exchange. Configure one calendar pr
 
 - timezone is required and uses an IANA name such as Asia/Kolkata, America/New_York, or UTC.
 - closed_dates optionally closes specific dates for DAILY and WEEKLY schedules.
-- only_market_hours true: Live and Paper check the calendar before provider login, subscription, or strategy setup. A closed market logs a warning with the next opening and stops the runner.
+- only_market_hours true: normal Live and Paper runs stop when closed. The swing runner stays idle and reloads its CSV at the next trading-day open.
 - only_market_hours false: the schedule gate is ignored and processing continues every engine.loop_sleep_s.
 - Realtime strategy tick processing is independent of account balance. A zero balance keeps on_tick() active while RiskManager blocks order submission.
 - Live and Paper use wall-clock time. Backtest and Replay use historical timestamps.
@@ -113,7 +118,8 @@ Implemented core behavior:
 - max_trades_per_day activates the kill switch.
 - Stop-loss, target, and ATR trailing-stop price helpers.
 - Filled entries create tracked positions with fixed stop-loss and target levels.
-- Target activates ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
+- The configured activation gain starts ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
+- A zero target_pct leaves profit open; if ATR is temporarily unavailable, the fixed stop remains active and ATR setup retries.
 - ATR uses completed candles only. The activation ATR is retained while the tick-based highest price moves the stop upward.
 - Recommended defaults: MCX intraday uses 15m ATR(14) at 2.0x; positional swing uses daily ATR(14) at 2.5x. Noisy MCX contracts may use 2.5x.
 - Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
@@ -132,6 +138,7 @@ Current CLI runner wiring:
 
 - Python's built-in SQLite stores state in `state/autotick.db`; no extra database package is required.
 - One database file keeps separate profile rows by mode, broker, exchange, strategy, and symbols.
+- The swing strategy uses one stable recovery profile so daily CSV edits do not lose open-position state.
 - Live and Paper restore managed orders, positions, trades, exit levels, trailing state, and daily risk state.
 - Paper also restores simulated funds, positions, orders, trades, and realized P&L.
 - Live reconciliation trusts broker status and quantity only for known AutoTick records.
@@ -201,6 +208,8 @@ Important flags:
 - risk.trailing_atr_period: ATR lookback; default 14
 - risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
 - risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing
+- risk.trailing_activation_pct: gain that activates ATR trailing; the swing observation config uses 5
+- strategy_config.csv_file: fixed `symbol,trigger_price` swing watchlist path
 - persistence.enabled: enable SQLite persistence and startup recovery
 - persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
 - reconnect.enabled: enable recovery for Live and broker-backed Paper
@@ -229,6 +238,10 @@ Run with the default configuration:
 Run with another configuration:
 
     python -m autotick.main --config path/to/config.yaml
+
+Run the Live swing observation after updating its fixed CSV:
+
+    python -m autotick.swing_verification_main
 
 The installed command is also available:
 

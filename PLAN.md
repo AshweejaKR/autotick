@@ -74,6 +74,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
 - Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
 - Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
+- Added a Live CSV swing strategy with daily watchlist reload, 5% ATR activation, and stable recovery for positions removed from the next watchlist.
 
 ## Current Runtime Wiring
 
@@ -82,6 +83,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Backtest and Replay: HistoricalProvider plus simulated account and execution.
 - Live: broker market data, account, and execution.
 - Simple strategy buys when LTP exceeds previous close by 0.5%.
+- Swing strategy buys when LTP moves above its daily CSV trigger and leaves profit open under target-activated ATR trailing protection.
 - RiskManager caps configured quantity.
 - One filled ENTRY increments the daily trade count.
 - Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.

@@ -151,6 +151,7 @@ def validate_config(config: dict[str, Any]) -> None:
     strategy = _require(config, "strategy")
     if not isinstance(strategy, str) or not strategy.strip():
         raise ConfigValidationError("strategy must be a non-empty string")
+    strategy_name = strategy.strip().lower()
 
     market = _mapping(config, "market")
     symbols = _require(market, "symbols", "market")
@@ -158,7 +159,9 @@ def validate_config(config: dict[str, Any]) -> None:
         if not symbols.strip():
             raise ConfigValidationError("market.symbols must not be empty")
     elif isinstance(symbols, list):
-        if not symbols or not all(isinstance(item, str) and item.strip() for item in symbols):
+        if strategy_name != "swing" and not symbols:
+            raise ConfigValidationError("market.symbols must not be empty")
+        if not all(isinstance(item, str) and item.strip() for item in symbols):
             raise ConfigValidationError("market.symbols must contain non-empty strings")
     else:
         raise ConfigValidationError("market.symbols must be a string or list of strings")
@@ -187,6 +190,13 @@ def validate_config(config: dict[str, Any]) -> None:
         _number(value, f"risk.{key}")
         if value < 0 or value > 100:
             raise ConfigValidationError(f"risk.{key} must be between 0 and 100")
+    trailing_activation_pct = risk.get("trailing_activation_pct")
+    if trailing_activation_pct is not None:
+        _number(trailing_activation_pct, "risk.trailing_activation_pct")
+        if trailing_activation_pct < 0 or trailing_activation_pct > 100:
+            raise ConfigValidationError(
+                "risk.trailing_activation_pct must be between 0 and 100"
+            )
     atr_period = _require(risk, "trailing_atr_period", "risk")
     if isinstance(atr_period, bool) or not isinstance(atr_period, int) or atr_period <= 0:
         raise ConfigValidationError("risk.trailing_atr_period must be a positive integer")
@@ -197,6 +207,22 @@ def validate_config(config: dict[str, Any]) -> None:
     _number(atr_multiplier, "risk.trailing_atr_multiplier")
     if atr_multiplier < 0:
         raise ConfigValidationError("risk.trailing_atr_multiplier must not be negative")
+
+    if strategy_name == "swing":
+        strategy_config = _mapping(config, "strategy_config")
+        csv_file = _require(strategy_config, "csv_file", "strategy_config")
+        if not isinstance(csv_file, str) or not csv_file.strip():
+            raise ConfigValidationError(
+                "strategy_config.csv_file must be a non-empty path"
+            )
+        if trailing_activation_pct is None or trailing_activation_pct <= 0:
+            raise ConfigValidationError(
+                "swing strategy requires risk.trailing_activation_pct greater than 0"
+            )
+        if atr_multiplier <= 0:
+            raise ConfigValidationError(
+                "swing strategy requires risk.trailing_atr_multiplier greater than 0"
+            )
 
     engine = _mapping(config, "engine")
     _number(_require(engine, "loop_sleep_s", "engine"), "engine.loop_sleep_s", positive=True)

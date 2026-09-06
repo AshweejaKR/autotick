@@ -20,6 +20,13 @@ This is a temporary manual smoke flow for validating the implemented AutoTick ru
 
 These values are only for plumbing verification and are not a trading recommendation.
 
+## Swing Live Observation
+
+- Edit the same `autotick/config/swing_watchlist.csv` each day using the header `symbol,trigger_price`.
+- Run `python -m autotick.swing_verification_main`; this places real NSE orders with quantity 1 and maximum 5 filled entries per day.
+- Entry requires LTP above the CSV trigger. Fixed stop-loss is 2%; daily ATR(14) at 2.5x starts after a 5% gain, with no fixed profit target.
+- Keep the process running for automatic next-day reload. Removing a row blocks new entries but does not abandon an open managed position.
+
 ## Before Market
 
 1. Use branch `feature/autotick-rebuild-phase_25_28`.

@@ -44,6 +44,7 @@ def _resolve_file_paths(config: dict[str, Any], config_path: Path) -> None:
     backtest = config.get("backtest", {})
     csv_config = backtest.get("csv", {}) if isinstance(backtest, dict) else {}
     _resolve_path(csv_config, "data_file", base)
+    _resolve_path(config.get("strategy_config"), "csv_file", base)
     _resolve_path(config.get("persistence"), "state_path", base)
     _resolve_path(config.get("reports"), "output_dir", base)
 

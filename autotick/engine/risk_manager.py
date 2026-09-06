@@ -25,6 +25,9 @@ class RiskManager:
         self.risk_pct = float(risk["risk_per_trade_pct"])
         self.stoploss_pct = float(risk["stoploss_pct"])
         self.target_pct = float(risk["target_pct"])
+        self.trailing_activation_pct = float(
+            risk.get("trailing_activation_pct", self.target_pct)
+        )
         self.trailing_atr_period = int(risk["trailing_atr_period"])
         self.trailing_atr_interval = str(risk["trailing_atr_interval"]).lower()
         self.trailing_atr_multiplier = float(risk["trailing_atr_multiplier"])
@@ -64,7 +67,10 @@ class RiskManager:
         return entry_price * (1 - self.stoploss_pct / 100)
 
     def target(self, entry_price: float) -> float:
-        return entry_price * (1 + self.target_pct / 100)
+        activation_pct = (
+            self.trailing_activation_pct if self.trailing_enabled else self.target_pct
+        )
+        return entry_price * (1 + activation_pct / 100)
 
     @property
     def trailing_enabled(self) -> bool:

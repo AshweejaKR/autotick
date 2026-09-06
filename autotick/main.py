@@ -42,8 +42,10 @@ from autotick.providers.session_pool import (
     BrokerError,
     BrokerWriteUncertainError,
 )
+from autotick.strategy.base import Strategy
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
+from autotick.strategy.swing_strategy import SwingStrategy, load_swing_watchlist
 from autotick.utils.logger import configure_logging, get_logger, log_call
 
 logger = get_logger(__name__)
@@ -62,15 +64,41 @@ def _symbols(value: str | list[str]) -> list[str]:
     return value if isinstance(value, list) else [value]
 
 
-def _setup_strategy(providers, symbol: str) -> SimpleStrategy | None:
+def _is_swing(config: dict) -> bool:
+    return str(config["strategy"]).strip().lower() == "swing"
+
+
+def _configured_symbols(config: dict) -> list[str]:
+    """Return static symbols or the latest validated swing CSV symbols."""
+    if not _is_swing(config):
+        return _symbols(config["market"]["symbols"])
+    watchlist = load_swing_watchlist(config["strategy_config"]["csv_file"])
+    if watchlist:
+        logger.info("Swing watchlist loaded symbols=%s", len(watchlist))
+    else:
+        logger.warning("Swing watchlist is empty; no new entries will be placed")
+    return sorted(watchlist)
+
+
+def _new_strategy(config: dict) -> Strategy:
+    if _is_swing(config):
+        return SwingStrategy(config["strategy_config"]["csv_file"])
+    return SimpleStrategy()
+
+
+def _setup_strategy(providers, symbol: str, config: dict) -> Strategy | None:
     """Create one strategy when its tick and completed daily bars are ready."""
-    logger.debug("_setup_strategy entry symbol=%s strategy_class=%s", symbol, SimpleStrategy.__name__)
+    strategy = _new_strategy(config)
+    logger.debug(
+        "_setup_strategy entry symbol=%s strategy_class=%s",
+        symbol,
+        type(strategy).__name__,
+    )
     tick = providers.market_data.get_tick(symbol)
     if tick is None:
         logger.debug("_setup_strategy exit symbol=%s reason=no_tick", symbol)
         return None
 
-    strategy = SimpleStrategy()
     logger.debug("_setup_strategy created symbol=%s strategy=%s", symbol, type(strategy).__name__)
     strategy.initialize(StrategyContext(providers.market_data, symbol, tick=tick))
     strategy.on_market_open()
@@ -88,10 +116,11 @@ def _setup_strategy(providers, symbol: str) -> SimpleStrategy | None:
 def _setup_strategies(
     providers,
     symbols: list[str],
-) -> dict[str, SimpleStrategy]:
-    strategies: dict[str, SimpleStrategy] = {}
+    config: dict,
+) -> dict[str, Strategy]:
+    strategies: dict[str, Strategy] = {}
     for symbol in symbols:
-        strategy = _setup_strategy(providers, symbol)
+        strategy = _setup_strategy(providers, symbol, config)
         if strategy is not None:
             strategies[symbol] = strategy
     return strategies
@@ -158,11 +187,17 @@ def _trailing_atr(providers, risk: RiskManager, symbol: str, now: datetime | Non
         ]
     value = AverageTrueRange(risk.trailing_atr_period).calculate(completed)
     if value is None:
+        fallback = (
+            "target exit will be used"
+            if risk.target_pct > 0
+            else "fixed stop remains active"
+        )
         logger.warning(
-            "ATR unavailable for %s interval=%s period=%s; target exit will be used",
+            "ATR unavailable for %s interval=%s period=%s; %s",
             symbol,
             interval,
             risk.trailing_atr_period,
+            fallback,
         )
     return value
 
@@ -172,17 +207,44 @@ def _comparable_time(value: datetime) -> datetime:
     return value.replace(tzinfo=None)
 
 
+def _reload_swing_symbols(
+    providers,
+    config: dict,
+    symbols: list[str],
+    trades: TradeManager,
+    trading_date: date,
+) -> None:
+    """Apply the daily CSV watchlist while retaining every managed position."""
+    desired = set(_configured_symbols(config))
+    desired.update(trades.entered_symbols(trading_date))
+    updated = sorted(desired)
+    added = sorted(set(updated) - set(symbols))
+    removed = sorted(set(symbols) - set(updated))
+    if removed:
+        providers.market_data.unsubscribe(removed)
+    if added:
+        providers.market_data.subscribe(added)
+    symbols[:] = updated
+    logger.info(
+        "Swing watchlist reloaded active=%s added=%s removed=%s",
+        len(symbols),
+        added,
+        removed,
+    )
+
+
 def _process_symbols(
     providers,
     symbols: list[str],
-    strategies: dict[str, SimpleStrategy],
+    strategies: dict[str, Strategy],
     trades: TradeManager,
     risk: RiskManager,
     entered: set[str],
     quantity: int,
     position_type: PositionType,
-    mode: str,
+    config: dict,
 ) -> None:
+    mode = config["mode"]
     logger.debug(
         "_process_symbols entry mode=%s symbols=%s strategies=%s entered=%s",
         mode,
@@ -287,7 +349,7 @@ def _process_symbols(
         strategy = strategies.get(symbol)
         if strategy is None:
             logger.debug("Strategy missing for %s; setup requested", symbol)
-            strategy = _setup_strategy(providers, symbol)
+            strategy = _setup_strategy(providers, symbol, config)
             if strategy is None:
                 logger.debug("_process_symbols symbol exit symbol=%s reason=strategy_not_ready", symbol)
                 continue
@@ -368,7 +430,7 @@ def _run_realtime(
     reconnect: ReconnectManager | None = None,
     stop_event: Event | None = None,
 ) -> date:
-    strategies: dict[str, SimpleStrategy] | None = None
+    strategies: dict[str, Strategy] | None = None
     blocked = set(recovery.blocked_symbols) if recovery else set()
     entered = set(recovery.entered_symbols) | blocked if recovery else set()
     trading_date = (
@@ -378,6 +440,9 @@ def _run_realtime(
     )
     loop_sleep = float(config["engine"]["loop_sleep_s"])
     loop_count = 0
+    keep_running = _is_swing(config)
+    market_closed_logged = False
+    last_watchlist_date: date | None = None
     logger.debug(
         "_run_realtime entry symbols=%s trading_date=%s blocked=%s entered=%s loop_sleep=%s",
         symbols,
@@ -401,12 +466,31 @@ def _run_realtime(
             sorted(blocked),
         )
         if config["session"]["only_market_hours"] and not market_open:
-            logger.warning(
-                "Market is closed at %s; next open is %s. Exiting realtime runner.",
-                now,
-                providers.calendar_session.next_open(now),
+            next_open = providers.calendar_session.next_open(now)
+            if not keep_running:
+                logger.warning(
+                    "Market is closed at %s; next open is %s. Exiting realtime runner.",
+                    now,
+                    next_open,
+                )
+                break
+            if not market_closed_logged:
+                logger.info(
+                    "Swing runner waiting for market open at %s; next open is %s",
+                    now,
+                    next_open,
+                )
+                market_closed_logged = True
+            wait_seconds = min(
+                60.0,
+                max(1.0, (next_open - now).total_seconds()),
             )
-            break
+            if stop_event is None:
+                sleep(wait_seconds)
+            else:
+                stop_event.wait(wait_seconds)
+            continue
+        market_closed_logged = False
 
         if now.date() != trading_date and market_open:
             for strategy in (strategies or {}).values():
@@ -418,9 +502,20 @@ def _run_realtime(
             logger.debug("_run_realtime new trading day=%s", trading_date)
 
         try:
+            if keep_running and market_open and last_watchlist_date != now.date():
+                _reload_swing_symbols(
+                    providers,
+                    config,
+                    symbols,
+                    trades,
+                    now.date(),
+                )
+                strategies = None
+                last_watchlist_date = now.date()
+
             if strategies is None:
                 logger.debug("_run_realtime setting up strategies")
-                strategies = _setup_strategies(providers, symbols)
+                strategies = _setup_strategies(providers, symbols, config)
                 logger.debug("_run_realtime strategies ready=%s", sorted(strategies))
 
             if not config["session"]["only_market_hours"] or market_open:
@@ -437,7 +532,7 @@ def _run_realtime(
                     entered,
                     config["trade"]["quantity"],
                     position_type,
-                    config["mode"],
+                    config,
                 )
                 _save_state(persistence, risk, trading_date)
         except BrokerError as exc:
@@ -499,7 +594,7 @@ def _run_historical(
 ) -> date | None:
     logger.debug("_run_historical entry symbols=%s", symbols)
     timestamps = providers.market_data.timestamps()
-    strategies: dict[str, SimpleStrategy] = {}
+    strategies: dict[str, Strategy] = {}
     entered: set[str] = set()
     trading_date = None
     last_processed_at = None
@@ -517,7 +612,7 @@ def _run_historical(
             if trading_date is not None:
                 risk.reset_daily_state()
             entered.clear()
-            strategies = _setup_strategies(providers, symbols)
+            strategies = _setup_strategies(providers, symbols, config)
             trading_date = value.date()
 
         if config["session"]["only_market_hours"]:
@@ -533,7 +628,7 @@ def _run_historical(
             entered,
             config["trade"]["quantity"],
             position_type,
-            config["mode"],
+            config,
         )
     if trading_date is not None:
         _save_state(persistence, risk, trading_date, last_processed_at)
@@ -547,7 +642,7 @@ def _run_providers(
     stop_event: Event | None = None,
 ) -> None:
     mode = config["mode"].lower()
-    symbols = _symbols(config["market"]["symbols"])
+    symbols = _configured_symbols(config)
     logger.debug("_run_providers entry mode=%s symbols=%s", mode, symbols)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
@@ -583,7 +678,11 @@ def _run_providers(
     )
     persistence_ready = False
     try:
-        if mode in {"live", "paper"} and config["session"]["only_market_hours"]:
+        if (
+            mode in {"live", "paper"}
+            and config["session"]["only_market_hours"]
+            and not _is_swing(config)
+        ):
             now = providers.calendar_session.now()
             if not providers.calendar_session.is_market_open(now):
                 logger.warning(
@@ -593,6 +692,7 @@ def _run_providers(
                 )
                 return
 
+        startup_reconnected = False
         try:
             logger.debug("_run_providers connecting market data")
             providers.market_data.connect()
@@ -608,6 +708,8 @@ def _run_providers(
                 sorted(recovery.entered_symbols),
                 sorted(recovery.blocked_symbols),
             )
+            if _is_swing(config):
+                symbols[:] = sorted(set(symbols) | set(recovery.entered_symbols))
             providers.market_data.subscribe(symbols)
             logger.debug("_run_providers subscribed symbols=%s", symbols)
         except BrokerError as exc:
@@ -633,6 +735,14 @@ def _run_providers(
                     "Broker authentication recovery exhausted; startup stopped safely"
                 )
                 return
+            startup_reconnected = True
+        if startup_reconnected and _is_swing(config):
+            recovered_symbols = sorted(
+                set(recovery.entered_symbols) - set(symbols)
+            )
+            if recovered_symbols:
+                providers.market_data.subscribe(recovered_symbols)
+                symbols[:] = sorted(set(symbols) | set(recovered_symbols))
         persistence_ready = persistence is not None
         if mode in {"backtest", "replay"}:
             logger.debug("_run_providers entering historical runner")
@@ -685,7 +795,9 @@ def _run_ui_data(config: dict) -> None:
     """Run Paper mode with UI-backed simulated providers in one process."""
     from simulated_control_panel import run_control_panel
 
-    symbols = _symbols(config["market"]["symbols"])
+    symbols = _configured_symbols(config)
+    if not symbols:
+        raise ValueError("Simulated UI requires at least one configured symbol")
     broker = str(config["broker"]).strip().lower()
     simulated_config = config.get("simulated", {})
     broker_auto_fetch = simulated_config.get("broker_auto_fetch", False)
@@ -712,11 +824,13 @@ def _run_ui_data(config: dict) -> None:
     )
 
 
-def main() -> None:
+def main(config_path: str | Path | None = None) -> None:
     print("..... main start .....")
     try:
-        args = _parse_args()
-        config_path = args.config.expanduser().resolve()
+        if config_path is None:
+            args = _parse_args()
+            config_path = args.config
+        config_path = Path(config_path).expanduser().resolve()
         config = load_config(config_path)
         logging_config = config["logging"]
         configure_logging(
@@ -727,7 +841,11 @@ def main() -> None:
         )
 
         mode = config["mode"].lower()
-        logger.debug("main entry config=%s strategy_class=%s", config_path, SimpleStrategy.__name__)
+        logger.debug(
+            "main entry config=%s strategy=%s",
+            config_path,
+            config["strategy"],
+        )
         logger.done("Configuration loaded from %s", config_path)
         logger.info("Starting mode=%s", mode.upper())
 
