@@ -49,6 +49,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
   - Generate BUY when LTP moves above the configured trigger price.
   - Reload the same CSV at each trading-day open without restarting.
   - Keep removed symbols subscribed while their managed positions remain open.
+  - Remove a symbol from runtime subscriptions immediately after its position closes.
 - SignalValidator performs structural validation only.
 - RiskManager and TradeManager own quantity and order workflow.
 
@@ -205,6 +206,7 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+- trade.max_position_value: optional maximum amount per trade; whole-share quantity rounds down
 - risk.trailing_atr_period: ATR lookback; default 14
 - risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
 - risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing

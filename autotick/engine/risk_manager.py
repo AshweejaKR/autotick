@@ -18,8 +18,14 @@ class RiskManager:
     def __init__(self, config: dict) -> None:
         self.config = config
         risk = config["risk"]
+        trade = config["trade"]
         self.capital = float(config["capital"])
-        self.quantity = int(config["trade"]["quantity"])
+        self.quantity = int(trade["quantity"]) if "quantity" in trade else None
+        self.max_position_value = (
+            float(trade["max_position_value"])
+            if "max_position_value" in trade
+            else None
+        )
         self.max_loss = float(risk["max_loss"])
         self.max_trades = int(risk["max_trades_per_day"])
         self.risk_pct = float(risk["risk_per_trade_pct"])
@@ -39,7 +45,12 @@ class RiskManager:
             return 0
         risk_amount = self.capital * self.risk_pct / 100
         risk_per_unit = price * self.stoploss_pct / 100
-        return min(self.quantity, int(risk_amount / risk_per_unit))
+        quantity_limit = (
+            int(self.max_position_value / price)
+            if self.max_position_value is not None
+            else int(self.quantity or 0)
+        )
+        return min(quantity_limit, int(risk_amount / risk_per_unit))
 
     def validate_order(self, order: Order, price: float | None = None) -> Order:
         current_price = price if price is not None else order.price

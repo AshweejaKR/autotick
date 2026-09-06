@@ -131,7 +131,6 @@ def _place_order(
     trades: TradeManager,
     risk: RiskManager,
     signal,
-    quantity: int,
     position_type: PositionType,
 ) -> Order:
     order = Order(
@@ -139,7 +138,7 @@ def _place_order(
         symbol=signal.symbol,
         exchange=signal.exchange,
         side=OrderSide.BUY,
-        quantity=quantity,
+        quantity=risk.position_size(float(signal.price or 0)),
         price=signal.price,
         position_type=position_type,
     )
@@ -240,7 +239,6 @@ def _process_symbols(
     trades: TradeManager,
     risk: RiskManager,
     entered: set[str],
-    quantity: int,
     position_type: PositionType,
     config: dict,
 ) -> None:
@@ -252,7 +250,7 @@ def _process_symbols(
         sorted(strategies),
         sorted(entered),
     )
-    for symbol in symbols:
+    for symbol in list(symbols):
         logger.debug("_process_symbols symbol entry symbol=%s", symbol)
         tick = providers.market_data.get_tick(symbol)
         if tick is None or tick.ltp is None:
@@ -316,6 +314,14 @@ def _process_symbols(
                     position.realized_pnl,
                     providers.account.get_balance(),
                 )
+                if _is_swing(config) and not trades.has_active_trade(
+                    symbol,
+                    tick.exchange,
+                ):
+                    providers.market_data.unsubscribe([symbol])
+                    symbols.remove(symbol)
+                    strategies.pop(symbol, None)
+                    logger.info("Swing symbol removed after position close: %s", symbol)
             else:
                 log_order = (
                     logger.error
@@ -381,7 +387,7 @@ def _process_symbols(
             )
             continue
 
-        order = _place_order(trades, risk, signal, quantity, position_type)
+        order = _place_order(trades, risk, signal, position_type)
         if order.status != OrderStatus.REJECTED:
             entered.add(symbol)
         if order.status == OrderStatus.FILLED:
@@ -530,7 +536,6 @@ def _run_realtime(
                     trades,
                     risk,
                     entered,
-                    config["trade"]["quantity"],
                     position_type,
                     config,
                 )
@@ -626,7 +631,6 @@ def _run_historical(
             trades,
             risk,
             entered,
-            config["trade"]["quantity"],
             position_type,
             config,
         )

@@ -156,8 +156,10 @@ file directory before validation.
 
 swing strategy:
 - strategy_config.csv_file points to one fixed symbol,trigger_price watchlist.
+- max_position_value 5000 sizes whole shares without exceeding the configured amount.
 - the watchlist reloads once at each trading-day open without restart.
 - CSV removal blocks new entries but never stops management of an open position.
+- a filled position close removes the symbol from runtime subscriptions immediately.
 - its recovery profile uses a stable CSV_WATCHLIST identity across daily edits.
 
 production secrets:

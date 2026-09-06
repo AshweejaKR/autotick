@@ -23,9 +23,9 @@ These values are only for plumbing verification and are not a trading recommenda
 ## Swing Live Observation
 
 - Edit the same `autotick/config/swing_watchlist.csv` each day using the header `symbol,trigger_price`.
-- Run `python -m autotick.swing_verification_main`; this places real NSE orders with quantity 1 and maximum 5 filled entries per day.
+- Run `python -m autotick.swing_verification_main`; this places real NSE orders up to ₹5,000 each and maximum 5 filled entries per day.
 - Entry requires LTP above the CSV trigger. Fixed stop-loss is 2%; daily ATR(14) at 2.5x starts after a 5% gain, with no fixed profit target.
-- Keep the process running for automatic next-day reload. Removing a row blocks new entries but does not abandon an open managed position.
+- Keep the process running for automatic next-day reload. Open positions stay managed; after close, their symbols leave runtime subscriptions immediately.
 
 ## Before Market
 

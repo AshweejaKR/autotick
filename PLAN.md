@@ -74,7 +74,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
 - Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
 - Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
-- Added a Live CSV swing strategy with daily watchlist reload, 5% ATR activation, and stable recovery for positions removed from the next watchlist.
+- Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
 
 ## Current Runtime Wiring
 

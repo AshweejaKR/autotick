@@ -173,9 +173,18 @@ def validate_config(config: dict[str, Any]) -> None:
     _number(_require(config, "capital"), "capital", positive=True)
 
     trade = _mapping(config, "trade")
-    quantity = _require(trade, "quantity", "trade")
-    if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+    quantity = trade.get("quantity")
+    max_position_value = trade.get("max_position_value")
+    if quantity is None and max_position_value is None:
+        raise ConfigValidationError(
+            "trade.quantity or trade.max_position_value is required"
+        )
+    if quantity is not None and (
+        isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0
+    ):
         raise ConfigValidationError("trade.quantity must be a positive integer")
+    if max_position_value is not None:
+        _number(max_position_value, "trade.max_position_value", positive=True)
     position_type = trade.get("position_type", "POSITIONAL")
     if not isinstance(position_type, str) or position_type.upper() not in _VALID_POSITION_TYPES:
         raise ConfigValidationError("trade.position_type must be INTRADAY or POSITIONAL")

@@ -12,7 +12,7 @@ strategy_config:
 capital: 100000
 
 trade:
-  quantity: 1
+  max_position_value: 5000
   position_type: POSITIONAL
 
 risk:
