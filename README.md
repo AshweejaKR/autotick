@@ -44,6 +44,10 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
   - Load the latest completed daily close during initial setup.
   - Generate BUY when LTP is greater than previous close by 0.5%.
   - Generate no signal otherwise.
+- Live verification strategy:
+  - Load the latest completed daily high and low.
+  - Buy above previous high plus 0.15%, or sell below previous low minus 0.15%.
+  - Take only the first filled breakout trade each day.
 - CSV swing strategy:
   - Load `symbol,trigger_price` rows from one fixed watchlist file.
   - Generate BUY when LTP moves above the configured trigger price.
@@ -119,6 +123,7 @@ Implemented core behavior:
 - max_trades_per_day activates the kill switch.
 - Stop-loss, target, and ATR trailing-stop price helpers.
 - Filled entries create tracked positions with fixed stop-loss and target levels.
+- Fixed stop-loss, target, exit side, and P&L work symmetrically for long and short positions.
 - The configured activation gain starts ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
 - A zero target_pct leaves profit open; if ATR is temporarily unavailable, the fixed stop remains active and ATR setup retries.
 - ATR uses completed candles only. The activation ATR is retained while the tick-based highest price moves the stop upward.

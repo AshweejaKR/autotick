@@ -5,15 +5,15 @@ This is a temporary manual smoke flow for validating the implemented AutoTick ru
 ## Safety Scope
 
 - Uses real Live mode and places real broker orders.
-- Default verification contract: `SILVER10030SEP26FUT` on `MCX`.
-- Silver100 is the 100 gram MCX silver futures contract.
+- Default verification contract: `GOLDPETAL30SEP26FUT` on `MCX`.
 - Quantity: `1` lot.
 - Maximum filled entries per day: `1`.
 - Position type: `POSITIONAL`.
 - Stop-loss: `0.10%`.
 - Target: `0.15%`.
 - Trailing stop: disabled.
-- Entry trigger: LTP above previous close by `0.05%`.
+- Long trigger: LTP above previous-day high plus `0.15%`.
+- Short trigger: LTP below previous-day low minus `0.15%`.
 - Verification market window: `09:00` to `23:30` Asia/Kolkata.
 - Uses separate SQLite state: `state/live_verification.db`.
 - Uses separate log: `logs/live_verification.log`.
@@ -43,8 +43,8 @@ These values are only for plumbing verification and are not a trading recommenda
 
 1. Configuration and AngelOne login succeed.
 2. Log shows `Reports enabled`.
-3. Log shows `LIVE_VERIFY ready` with previous close and entry trigger.
-4. When LTP crosses the trigger, log shows `LIVE_VERIFY ENTRY TRIGGER`.
+3. Log shows `LIVE_VERIFY ready` with previous high, low, and both triggers.
+4. When LTP crosses first, log shows `LIVE_VERIFY BUY TRIGGER` or `LIVE_VERIFY SELL TRIGGER`.
 5. Before the real broker call, log shows `AngelOne PLACE ORDER`.
 6. Successful broker acceptance logs `AngelOne order accepted` with broker order ID.
 7. AutoTick reconciliation detects the broker fill and opens the managed position.
@@ -73,7 +73,8 @@ One completed ENTRY + EXIT pair must append exactly one completed-trade row. Res
 Search `logs/live_verification.log` for:
 
 - `LIVE_VERIFY ready`
-- `LIVE_VERIFY ENTRY TRIGGER`
+- `LIVE_VERIFY BUY TRIGGER`
+- `LIVE_VERIFY SELL TRIGGER`
 - `AngelOne PLACE ORDER`
 - `AngelOne order accepted`
 - `AngelOne order rejected`

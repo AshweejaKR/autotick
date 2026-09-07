@@ -9,48 +9,93 @@ from __future__ import annotations
 
 from autotick.models.market import MarketTick
 from autotick.models.signal import Signal, SignalType
-from autotick.strategy.simple_strategy import SimpleStrategy
+from autotick.strategy.base import Strategy
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class LiveVerificationStrategy(SimpleStrategy):
-    """One-entry strategy for end-to-end Live verification."""
+class LiveVerificationStrategy(Strategy):
+    """Trade the first buffered previous-day range breakout."""
 
-    ENTRY_THRESHOLD_PCT = 0.05
+    BREAKOUT_BUFFER_PCT = 0.15
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.long_trigger: float | None = None
+        self.short_trigger: float | None = None
 
     def on_initial_setup(self) -> None:
         logger.debug("LIVE_VERIFY on_initial_setup entry")
-        super().on_initial_setup()
+        if self.context is None:
+            raise RuntimeError("Strategy is not initialized")
+        tick = self.context.tick or self.context.market_data.get_tick(
+            self.context.symbol
+        )
+        if tick is None or tick.timestamp is None:
+            raise RuntimeError(
+                f"Current market timestamp is unavailable for {self.context.symbol}"
+            )
+        completed = [
+            bar
+            for bar in self.context.market_data.get_bars(
+                self.context.symbol,
+                "1d",
+            )
+            if bar.timestamp.date() < tick.timestamp.date()
+        ]
+        if not completed:
+            raise RuntimeError(
+                f"No completed historical daily bars available for {self.context.symbol}"
+            )
+        previous = max(completed, key=lambda bar: bar.timestamp)
+        buffer = self.BREAKOUT_BUFFER_PCT / 100
+        self.long_trigger = previous.high * (1 + buffer)
+        self.short_trigger = previous.low * (1 - buffer)
         logger.info(
-            "LIVE_VERIFY ready symbol=%s previous_close=%.2f entry_trigger=%.2f",
+            "LIVE_VERIFY ready symbol=%s previous_high=%.2f previous_low=%.2f "
+            "long_trigger=%.2f short_trigger=%.2f",
             self.context.symbol,
-            self.previous_close,
-            self.previous_close * (1 + self.ENTRY_THRESHOLD_PCT / 100),
+            previous.high,
+            previous.low,
+            self.long_trigger,
+            self.short_trigger,
         )
         logger.debug("LIVE_VERIFY on_initial_setup exit")
 
     def on_tick(self, tick: MarketTick) -> Signal | None:
-        trigger = (
-            self.previous_close * (1 + self.ENTRY_THRESHOLD_PCT / 100)
-            if self.previous_close is not None
-            else None
-        )
         logger.debug(
-            "LIVE_VERIFY on_tick entry symbol=%s ltp=%s previous_close=%s trigger=%s",
+            "LIVE_VERIFY on_tick entry symbol=%s ltp=%s long_trigger=%s "
+            "short_trigger=%s",
             tick.symbol,
             tick.ltp,
-            self.previous_close,
-            trigger,
+            self.long_trigger,
+            self.short_trigger,
         )
-        signal = super().on_tick(tick)
+        signal_type = None
+        if tick.ltp is not None and self.long_trigger is not None:
+            if tick.ltp > self.long_trigger:
+                signal_type = SignalType.BUY
+            elif self.short_trigger is not None and tick.ltp < self.short_trigger:
+                signal_type = SignalType.SELL
+        signal = (
+            Signal(
+                symbol=tick.symbol,
+                exchange=tick.exchange,
+                signal_type=signal_type,
+                price=tick.ltp,
+                timestamp=tick.timestamp,
+            )
+            if signal_type is not None
+            else None
+        )
         if signal is not None:
             logger.warning(
-                "LIVE_VERIFY ENTRY TRIGGER symbol=%s ltp=%.2f threshold_pct=%.3f",
+                "LIVE_VERIFY %s TRIGGER symbol=%s ltp=%.2f buffer_pct=%.2f",
+                signal.signal_type.value,
                 tick.symbol,
                 tick.ltp,
-                self.ENTRY_THRESHOLD_PCT,
+                self.BREAKOUT_BUFFER_PCT,
             )
         logger.debug(
             "LIVE_VERIFY on_tick exit symbol=%s signal=%s",

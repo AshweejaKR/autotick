@@ -317,36 +317,62 @@ class TradeManager:
         ):
             return None
 
+        is_long = position.quantity > 0
+        entry_side = OrderSide.BUY if is_long else OrderSide.SELL
         reason = None
-        if price <= levels.stop_loss:
+        if (is_long and price <= levels.stop_loss) or (
+            not is_long and price >= levels.stop_loss
+        ):
             reason = "STOP_LOSS"
         elif levels.trailing_stop is not None:
-            if price > levels.highest_price:
+            improved = (
+                price > levels.highest_price
+                if is_long
+                else price < levels.highest_price
+            )
+            if improved:
                 levels.highest_price = price
                 if levels.trailing_atr is not None:
-                    updated_stop = max(
-                        levels.trailing_stop,
-                        self.risk_manager.trailing_stop(price, levels.trailing_atr),
+                    candidate = self.risk_manager.trailing_stop(
+                        price,
+                        levels.trailing_atr,
+                        entry_side,
                     )
-                    if updated_stop > levels.trailing_stop:
+                    updated_stop = (
+                        max(levels.trailing_stop, candidate)
+                        if is_long
+                        else min(levels.trailing_stop, candidate)
+                    )
+                    if updated_stop != levels.trailing_stop:
                         logger.debug(
                             "Updated TSL %.2f to %.2f",
                             levels.trailing_stop,
                             updated_stop,
                         )
                         levels.trailing_stop = updated_stop
-            if price <= levels.trailing_stop:
+            if (is_long and price <= levels.trailing_stop) or (
+                not is_long and price >= levels.trailing_stop
+            ):
                 reason = "TRAILING_STOP"
-        elif price >= levels.target:
+        elif (is_long and price >= levels.target) or (
+            not is_long and price <= levels.target
+        ):
             if self.risk_manager.trailing_enabled and trailing_atr is not None:
-                levels.highest_price = max(levels.highest_price, price)
+                levels.highest_price = (
+                    max(levels.highest_price, price)
+                    if is_long
+                    else min(levels.highest_price, price)
+                )
                 levels.trailing_atr = trailing_atr
-                levels.trailing_stop = max(
-                    levels.stop_loss,
-                    self.risk_manager.trailing_stop(
-                        levels.highest_price,
-                        trailing_atr,
-                    ),
+                candidate = self.risk_manager.trailing_stop(
+                    levels.highest_price,
+                    trailing_atr,
+                    entry_side,
+                )
+                levels.trailing_stop = (
+                    max(levels.stop_loss, candidate)
+                    if is_long
+                    else min(levels.stop_loss, candidate)
                 )
                 return None
             if self.risk_manager.trailing_enabled and self.risk_manager.target_pct == 0:
@@ -365,15 +391,19 @@ class TradeManager:
             Position(
                 symbol=order.symbol,
                 exchange=order.exchange,
-                quantity=order.quantity,
+                quantity=(
+                    order.quantity
+                    if order.side == OrderSide.BUY
+                    else -order.quantity
+                ),
                 average_price=price,
                 position_type=order.position_type,
             )
         )
         if self.risk_manager is not None:
             levels = _ExitLevels(
-                stop_loss=self.risk_manager.stop_loss(price),
-                target=self.risk_manager.target(price),
+                stop_loss=self.risk_manager.stop_loss(price, order.side),
+                target=self.risk_manager.target(price, order.side),
                 highest_price=price,
             )
             self._exit_levels[self._position_key(position)] = levels

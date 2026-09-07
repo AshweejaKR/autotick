@@ -273,6 +273,7 @@ RISK AND TRADE MANAGEMENT
 
 RiskManager:
 - caps configured quantity using capital, risk percentage, price, and stop loss.
+- calculates symmetric long/short stop-loss, target, and ATR trailing levels.
 - filled ENTRY increments daily trade count.
 - max-trade limit activates the kill switch.
 - exposes stop-loss, target, ATR trailing-stop, and daily-limit helpers.
@@ -294,6 +295,7 @@ TradeManager:
 - tracks normalized orders, positions, trades, and exit levels.
 - reconciles known broker records.
 - monitors stop-loss, target, and trailing-stop exits.
+- records signed short positions and submits BUY exits for them.
 - closes positions only after filled exits.
 - calculates realized P&L for completed exits.
 - triggers Phase 28 reporting only for completed ENTRY + EXIT pairs.

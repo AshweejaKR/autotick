@@ -137,7 +137,11 @@ def _place_order(
         order_id=str(uuid4()),
         symbol=signal.symbol,
         exchange=signal.exchange,
-        side=OrderSide.BUY,
+        side=(
+            OrderSide.BUY
+            if signal.signal_type == SignalType.BUY
+            else OrderSide.SELL
+        ),
         quantity=risk.position_size(float(signal.price or 0)),
         price=signal.price,
         position_type=position_type,
@@ -264,12 +268,23 @@ def _process_symbols(
             tick.ltp,
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
+        active_position = trades.get_position(symbol, tick.exchange)
         trailing_atr = None
         if (
             exit_prices is not None
+            and active_position is not None
             and risk.trailing_enabled
             and exit_prices[2] is None
-            and tick.ltp >= exit_prices[1]
+            and (
+                (
+                    active_position.quantity > 0
+                    and tick.ltp >= exit_prices[1]
+                )
+                or (
+                    active_position.quantity < 0
+                    and tick.ltp <= exit_prices[1]
+                )
+            )
         ):
             trailing_atr = _trailing_atr(
                 providers,
@@ -301,10 +316,11 @@ def _process_symbols(
             if order.status == OrderStatus.FILLED:
                 position = trades.get_position(symbol, tick.exchange)
                 logger.done(
-                    "%s %s SELL filled %s: %s qty=%s buy_price=%.2f "
-                    "sell_price=%.2f proceeds=%.2f pnl=%.2f funds=%.2f",
+                    "%s %s %s filled %s: %s qty=%s entry_price=%.2f "
+                    "exit_price=%.2f value=%.2f pnl=%.2f funds=%.2f",
                     mode.upper(),
                     reason,
+                    order.side.value,
                     order.order_id,
                     symbol,
                     order.quantity,
@@ -329,9 +345,10 @@ def _process_symbols(
                     else logger.info
                 )
                 log_order(
-                    "%s %s SELL order %s: %s qty=%s sell_price=%.2f status=%s",
+                    "%s %s %s order %s: %s qty=%s exit_price=%.2f status=%s",
                     mode.upper(),
                     reason,
+                    order.side.value,
                     order.order_id,
                     symbol,
                     order.quantity,
@@ -374,8 +391,11 @@ def _process_symbols(
             type(strategy).__name__,
             signal.signal_type.value if signal is not None else None,
         )
-        if signal is None or signal.signal_type != SignalType.BUY:
-            logger.debug("_process_symbols symbol exit symbol=%s reason=no_buy_signal", symbol)
+        if signal is None or signal.signal_type not in {
+            SignalType.BUY,
+            SignalType.SELL,
+        }:
+            logger.debug("_process_symbols symbol exit symbol=%s reason=no_entry_signal", symbol)
             continue
 
         SignalValidator.validate(signal)
@@ -393,9 +413,10 @@ def _process_symbols(
         if order.status == OrderStatus.FILLED:
             stop_loss, target, _ = trades.get_exit_prices(symbol, tick.exchange)
             logger.done(
-                "%s BUY filled %s: %s qty=%s buy_price=%.2f cost=%.2f "
+                "%s %s filled %s: %s qty=%s entry_price=%.2f value=%.2f "
                 "stop_loss=%.2f target=%.2f funds=%.2f",
                 mode.upper(),
+                order.side.value,
                 order.order_id,
                 symbol,
                 order.quantity,
@@ -410,8 +431,9 @@ def _process_symbols(
                 logger.error if order.status == OrderStatus.REJECTED else logger.info
             )
             log_order(
-                "%s BUY order %s: %s qty=%s buy_price=%.2f status=%s funds=%.2f",
+                "%s %s order %s: %s qty=%s entry_price=%.2f status=%s funds=%.2f",
                 mode.upper(),
+                order.side.value,
                 order.order_id,
                 symbol,
                 order.quantity,

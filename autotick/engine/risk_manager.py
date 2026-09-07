@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from autotick.models.order import Order
+from autotick.models.order import Order, OrderSide
 
 
 class RiskManager:
@@ -74,23 +74,39 @@ class RiskManager:
         if self.trade_count >= self.max_trades:
             self.activate_kill_switch()
 
-    def stop_loss(self, entry_price: float) -> float:
-        return entry_price * (1 - self.stoploss_pct / 100)
+    def stop_loss(
+        self,
+        entry_price: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
+        direction = -1 if side == OrderSide.BUY else 1
+        return entry_price * (1 + direction * self.stoploss_pct / 100)
 
-    def target(self, entry_price: float) -> float:
+    def target(
+        self,
+        entry_price: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
         activation_pct = (
             self.trailing_activation_pct if self.trailing_enabled else self.target_pct
         )
-        return entry_price * (1 + activation_pct / 100)
+        direction = 1 if side == OrderSide.BUY else -1
+        return entry_price * (1 + direction * activation_pct / 100)
 
     @property
     def trailing_enabled(self) -> bool:
         return self.trailing_atr_multiplier > 0
 
-    def trailing_stop(self, highest_price: float, atr: float) -> float:
+    def trailing_stop(
+        self,
+        best_price: float,
+        atr: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
         if atr <= 0:
             raise ValueError("ATR must be greater than zero")
-        return highest_price - atr * self.trailing_atr_multiplier
+        direction = -1 if side == OrderSide.BUY else 1
+        return best_price + direction * atr * self.trailing_atr_multiplier
 
     def check_daily_limits(self, pnl: float) -> bool:
         if pnl <= self.max_loss or self.trade_count >= self.max_trades:
