@@ -194,7 +194,7 @@ Console colors:
 - DONE: green
 
 Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
-DEBUG logs show entry stop-loss/target levels and every upward TSL change.
+DEBUG logs show entry stop-loss/target levels, every upward TSL change, and Live verification price ranges on every loop.
 
 ## Configuration
 

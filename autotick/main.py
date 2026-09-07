@@ -68,6 +68,10 @@ def _is_swing(config: dict) -> bool:
     return str(config["strategy"]).strip().lower() == "swing"
 
 
+def _is_live_verification(config: dict) -> bool:
+    return str(config["strategy"]).strip().lower() == "live_verification"
+
+
 def _configured_symbols(config: dict) -> list[str]:
     """Return static symbols or the latest validated swing CSV symbols."""
     if not _is_swing(config):
@@ -269,6 +273,28 @@ def _process_symbols(
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
         active_position = trades.get_position(symbol, tick.exchange)
+        if (
+            _is_live_verification(config)
+            and exit_prices is not None
+            and active_position is not None
+            and active_position.quantity != 0
+        ):
+            is_long = active_position.quantity > 0
+            left_label = "stop_loss" if is_long else "target"
+            right_label = "target" if is_long else "stop_loss"
+            left_price = exit_prices[0] if is_long else exit_prices[1]
+            right_price = exit_prices[1] if is_long else exit_prices[0]
+            logger.debug(
+                "LIVE_VERIFY POSITION RANGE symbol=%s side=%s %s=%.2f <-- "
+                "current=%.2f --> %s=%.2f",
+                symbol,
+                "LONG" if is_long else "SHORT",
+                left_label,
+                left_price,
+                tick.ltp,
+                right_label,
+                right_price,
+            )
         trailing_atr = None
         if (
             exit_prices is not None

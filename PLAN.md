@@ -76,6 +76,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
 - Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
 - Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
+- Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
 
 ## Current Runtime Wiring
 

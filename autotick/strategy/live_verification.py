@@ -64,20 +64,25 @@ class LiveVerificationStrategy(Strategy):
         logger.debug("LIVE_VERIFY on_initial_setup exit")
 
     def on_tick(self, tick: MarketTick) -> Signal | None:
+        if (
+            tick.ltp is None
+            or self.long_trigger is None
+            or self.short_trigger is None
+        ):
+            return None
         logger.debug(
-            "LIVE_VERIFY on_tick entry symbol=%s ltp=%s long_trigger=%s "
-            "short_trigger=%s",
+            "LIVE_VERIFY ENTRY RANGE symbol=%s low_trigger=%.2f <-- "
+            "current=%.2f --> high_trigger=%.2f",
             tick.symbol,
+            self.short_trigger,
             tick.ltp,
             self.long_trigger,
-            self.short_trigger,
         )
         signal_type = None
-        if tick.ltp is not None and self.long_trigger is not None:
-            if tick.ltp > self.long_trigger:
-                signal_type = SignalType.BUY
-            elif self.short_trigger is not None and tick.ltp < self.short_trigger:
-                signal_type = SignalType.SELL
+        if tick.ltp > self.long_trigger:
+            signal_type = SignalType.BUY
+        elif tick.ltp < self.short_trigger:
+            signal_type = SignalType.SELL
         signal = (
             Signal(
                 symbol=tick.symbol,

@@ -9,8 +9,8 @@ This is a temporary manual smoke flow for validating the implemented AutoTick ru
 - Quantity: `1` lot.
 - Maximum filled entries per day: `1`.
 - Position type: `POSITIONAL`.
-- Stop-loss: `0.10%`.
-- Target: `0.15%`.
+- Stop-loss: `2%`.
+- Target: `5%`.
 - Trailing stop: disabled.
 - Long trigger: LTP above previous-day high plus `0.15%`.
 - Short trigger: LTP below previous-day low minus `0.15%`.
@@ -73,6 +73,8 @@ One completed ENTRY + EXIT pair must append exactly one completed-trade row. Res
 Search `logs/live_verification.log` for:
 
 - `LIVE_VERIFY ready`
+- `LIVE_VERIFY ENTRY RANGE`
+- `LIVE_VERIFY POSITION RANGE`
 - `LIVE_VERIFY BUY TRIGGER`
 - `LIVE_VERIFY SELL TRIGGER`
 - `AngelOne PLACE ORDER`

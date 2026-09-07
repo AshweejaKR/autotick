@@ -285,6 +285,7 @@ ATR trailing stop:
 - ATR(14) uses completed candles only and is retained for the open trade.
 - highest price is tick-based and the trailing stop never moves downward.
 - DEBUG logs record entry stop-loss/target levels and every upward TSL change.
+- Live verification logs trigger/current and stop/current/target ranges every loop.
 - MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
 - positional swing default: daily at 2.5x.
 - zero multiplier disables trailing and keeps direct target exit behavior.
