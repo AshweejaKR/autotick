@@ -43,10 +43,15 @@ class RiskManager:
     def position_size(self, price: float) -> int:
         if price <= 0 or self.stoploss_pct <= 0:
             return 0
-        risk_amount = self.capital * self.risk_pct / 100
+        trade_capital = (
+            min(self.capital, self.max_position_value)
+            if self.max_position_value is not None
+            else self.capital
+        )
+        risk_amount = trade_capital * self.risk_pct / 100
         risk_per_unit = price * self.stoploss_pct / 100
         quantity_limit = (
-            int(self.max_position_value / price)
+            int(trade_capital / price)
             if self.max_position_value is not None
             else int(self.quantity or 0)
         )
