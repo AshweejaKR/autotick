@@ -11,7 +11,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Provider cleanup: completed
 - Current milestone: Milestone 9 - Testing
 - Next phase: Phase 29 - unit and provider-contract tests
-- Last updated: 2026-09-03
+- Last updated: 2026-09-09
 
 PROJECT SUMMARY
 ================================================================================
@@ -156,7 +156,10 @@ file directory before validation.
 
 swing strategy:
 - strategy_config.csv_file points to one fixed symbol,trigger_price watchlist.
-- max_position_value 5000 sizes whole shares without exceeding the configured amount.
+- max_position_value 5000 is the maximum capital allocated to one trade.
+- RiskManager uses min(available capital, max_position_value) as trade capital,
+  applies risk_per_trade_pct to that amount, and caps whole-share quantity by
+  both trade capital and stop-loss risk.
 - the watchlist reloads once at each trading-day open without restart.
 - CSV removal blocks new entries but never stops management of an open position.
 - a filled position close removes the symbol from runtime subscriptions immediately.
@@ -272,7 +275,12 @@ RISK AND TRADE MANAGEMENT
 ================================================================================
 
 RiskManager:
-- caps configured quantity using capital, risk percentage, price, and stop loss.
+- when max_position_value is configured, uses min(available capital,
+  max_position_value) as per-trade capital.
+- applies risk_per_trade_pct to per-trade capital, calculates stop-loss risk per
+  unit, and uses the smaller of quantity-by-capital and quantity-by-risk.
+- when max_position_value is absent, retains account-capital risk sizing with
+  configured quantity as the cap.
 - calculates symmetric long/short stop-loss, target, and ATR trailing levels.
 - filled ENTRY increments daily trade count.
 - max-trade limit activates the kill switch.
@@ -357,4 +365,4 @@ Provider cleanup: completed
 Current milestone: Milestone 9 - Testing
 Next phase: Phase 29 - unit and provider-contract tests
 Phase 28 status: completed
-Last updated: 2026-09-06
+Last updated: 2026-09-09
