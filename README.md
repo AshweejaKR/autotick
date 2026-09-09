@@ -118,7 +118,9 @@ Running Paper with only_market_hours false can use stale after-market broker LTP
 Implemented core behavior:
 
 - Order states: NEW, VALIDATED, SUBMITTED, OPEN, PARTIAL, FILLED, REJECTED, CANCELLED, EXPIRED.
-- Risk-based quantity cap using capital, risk percentage, price, and stop-loss distance.
+- Risk-based quantity cap using available capital, risk percentage, price, and stop-loss distance.
+- When `trade.max_position_value` is configured, per-trade capital is `min(available capital, max_position_value)`; risk percentage is applied to that per-trade capital and whole-share quantity is capped by both capital and stop-loss risk.
+- When `trade.max_position_value` is not configured, fixed-quantity configurations retain account-capital risk sizing and configured quantity remains the quantity cap.
 - Filled ENTRY orders increment the daily trade count.
 - max_trades_per_day activates the kill switch.
 - Stop-loss, target, and ATR trailing-stop price helpers.
@@ -211,7 +213,7 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
-- trade.max_position_value: optional maximum amount per trade; whole-share quantity rounds down
+- trade.max_position_value: optional maximum amount allocated to one trade; when set, RiskManager bases per-trade risk on the lesser of available capital and this value and whole-share quantity rounds down
 - risk.trailing_atr_period: ATR lookback; default 14
 - risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
 - risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing
