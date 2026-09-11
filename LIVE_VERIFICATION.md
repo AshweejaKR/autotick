@@ -31,7 +31,7 @@ These values are only for plumbing verification and are not a trading recommenda
 
 1. Use branch `feature/autotick-rebuild-phase_25_28`.
 2. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
-3. Confirm `SILVER10030SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
+3. Confirm `GOLDPETAL30SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
 4. Confirm sufficient commodity margin is available for one lot plus charges.
 5. Delete `state/live_verification.db` only when intentionally starting a completely fresh verification profile.
 
@@ -50,8 +50,8 @@ These values are only for plumbing verification and are not a trading recommenda
 7. AutoTick reconciliation detects the broker fill and opens the managed position.
 8. Stop AutoTick manually while the position is still open.
 9. Restart with the exact same command and config.
-10. Recovery should log the recovered order/position/trade counts and must not place a second BUY.
-11. When the configured stop-loss or target is reached, AutoTick places the real SELL order.
+10. Recovery should log the recovered order/position/trade counts and must not place a second entry order.
+11. When the configured stop-loss or target is reached, AutoTick places the opposite protective EXIT order: SELL for a long position or BUY for a short position.
 12. After the completed EXIT fill, reports are updated.
 
 ## Report Files
@@ -93,4 +93,4 @@ Search `logs/live_verification.log` for:
 
 ## Pass Criteria
 
-The manual Live verification passes when one real BUY is accepted and filled, AutoTick is stopped and restarted while the position is open, recovery prevents a duplicate entry, one real protective SELL is accepted and filled, the broker position closes, and both strategy-specific and combined report files contain exactly one new completed trade with the correct P&L.
+The manual Live verification passes when one real entry order (BUY or SELL) is accepted and filled, AutoTick is stopped and restarted while the position is open, recovery prevents a duplicate entry, one opposite protective exit order is accepted and filled, the broker position closes, and both strategy-specific and combined report files contain exactly one new completed trade with the correct P&L.
