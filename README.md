@@ -38,12 +38,22 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 
 ### Strategy
 
-- SMA indicator with default period 20.
+- SMA indicator with default period 20 and Wilder ATR with default period 14.
 - Strategy base and StrategyContext.
 - Simple long strategy:
   - Load the latest completed daily close during initial setup.
   - Generate BUY when LTP is greater than previous close by 0.5%.
   - Generate no signal otherwise.
+- Live verification strategy:
+  - Load the latest completed daily high and low.
+  - Buy above previous high plus 0.15%, or sell below previous low minus 0.15%.
+  - Take only the first filled breakout trade each day.
+- CSV swing strategy:
+  - Load `symbol,trigger_price` rows from one fixed watchlist file.
+  - Generate BUY when LTP moves above the configured trigger price.
+  - Reload the same CSV at each trading-day open without restarting.
+  - Keep removed symbols subscribed while their managed positions remain open.
+  - Remove a symbol from runtime subscriptions immediately after its position closes.
 - SignalValidator performs structural validation only.
 - RiskManager and TradeManager own quantity and order workflow.
 
@@ -94,7 +104,7 @@ One AutoTick run supports one market and one exchange. Configure one calendar pr
 
 - timezone is required and uses an IANA name such as Asia/Kolkata, America/New_York, or UTC.
 - closed_dates optionally closes specific dates for DAILY and WEEKLY schedules.
-- only_market_hours true: Live and Paper check the calendar before provider login, subscription, or strategy setup. A closed market logs a warning with the next opening and stops the runner.
+- only_market_hours true: normal Live and Paper runs stop when closed. The swing runner stays idle and reloads its CSV at the next trading-day open.
 - only_market_hours false: the schedule gate is ignored and processing continues every engine.loop_sleep_s.
 - Realtime strategy tick processing is independent of account balance. A zero balance keeps on_tick() active while RiskManager blocks order submission.
 - Live and Paper use wall-clock time. Backtest and Replay use historical timestamps.
@@ -108,12 +118,18 @@ Running Paper with only_market_hours false can use stale after-market broker LTP
 Implemented core behavior:
 
 - Order states: NEW, VALIDATED, SUBMITTED, OPEN, PARTIAL, FILLED, REJECTED, CANCELLED, EXPIRED.
-- Risk-based quantity cap using capital, risk percentage, price, and stop-loss distance.
+- Risk-based quantity cap using available capital, risk percentage, price, and stop-loss distance.
+- When `trade.max_position_value` is configured, per-trade capital is `min(available capital, max_position_value)`; risk percentage is applied to that per-trade capital and whole-share quantity is capped by both capital and stop-loss risk.
+- When `trade.max_position_value` is not configured, fixed-quantity configurations retain account-capital risk sizing and configured quantity remains the quantity cap.
 - Filled ENTRY orders increment the daily trade count.
 - max_trades_per_day activates the kill switch.
-- Stop-loss, target, and trailing-stop price helpers.
+- Stop-loss, target, and ATR trailing-stop price helpers.
 - Filled entries create tracked positions with fixed stop-loss and target levels.
-- Target activates trailing protection when trailing_sl_pct is greater than zero; zero exits directly at target.
+- Fixed stop-loss, target, exit side, and P&L work symmetrically for long and short positions.
+- The configured activation gain starts ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
+- A zero target_pct leaves profit open; if ATR is temporarily unavailable, the fixed stop remains active and ATR setup retries.
+- ATR uses completed candles only. The activation ATR is retained while the tick-based highest price moves the stop upward.
+- Recommended defaults: MCX intraday uses 15m ATR(14) at 2.0x; positional swing uses daily ATR(14) at 2.5x. Noisy MCX contracts may use 2.5x.
 - Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
 - Intraday-only square-off method.
 
@@ -130,6 +146,7 @@ Current CLI runner wiring:
 
 - Python's built-in SQLite stores state in `state/autotick.db`; no extra database package is required.
 - One database file keeps separate profile rows by mode, broker, exchange, strategy, and symbols.
+- The swing strategy uses one stable recovery profile so daily CSV edits do not lose open-position state.
 - Live and Paper restore managed orders, positions, trades, exit levels, trailing state, and daily risk state.
 - Paper also restores simulated funds, positions, orders, trades, and realized P&L.
 - Live reconciliation trusts broker status and quantity only for known AutoTick records.
@@ -179,6 +196,7 @@ Console colors:
 - DONE: green
 
 Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
+DEBUG logs show entry stop-loss/target levels, every upward TSL change, and Live verification price ranges on every loop.
 
 ## Configuration
 
@@ -195,6 +213,12 @@ Important flags:
 - session.timezone: calendar timezone in IANA format
 - session.only_market_hours: enforce or ignore the realtime schedule gate
 - trade.position_type: INTRADAY or POSITIONAL
+- trade.max_position_value: optional maximum amount allocated to one trade; when set, RiskManager bases per-trade risk on the lesser of available capital and this value and whole-share quantity rounds down
+- risk.trailing_atr_period: ATR lookback; default 14
+- risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
+- risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing
+- risk.trailing_activation_pct: gain that activates ATR trailing; the swing observation config uses 5
+- strategy_config.csv_file: fixed `symbol,trigger_price` swing watchlist path
 - persistence.enabled: enable SQLite persistence and startup recovery
 - persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
 - reconnect.enabled: enable recovery for Live and broker-backed Paper
@@ -223,6 +247,10 @@ Run with the default configuration:
 Run with another configuration:
 
     python -m autotick.main --config path/to/config.yaml
+
+Run the Live swing observation after updating its fixed CSV:
+
+    python -m autotick.swing_verification_main
 
 The installed command is also available:
 

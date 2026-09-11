@@ -11,7 +11,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Provider cleanup: completed
 - Current milestone: Milestone 9 - Testing
 - Next phase: Phase 29 - unit and provider-contract tests
-- Last updated: 2026-08-30
+- Last updated: 2026-09-09
 
 PROJECT SUMMARY
 ================================================================================
@@ -91,8 +91,11 @@ CURRENT CODE STRUCTURE
 
 autotick/
   main.py
+  swing_verification_main.py
   config/
     default.yaml
+    swing_verification.yaml
+    swing_watchlist.csv
     loader.py
     secrets.py
     validator.py
@@ -100,6 +103,7 @@ autotick/
   interfaces/
   indicators/
   strategy/
+    swing_strategy.py
   engine/
     dispatcher.py
     market_session.py
@@ -149,6 +153,17 @@ config/default.yaml is the only default YAML.
 
 Relative credential, CSV, persistence, and report paths resolve from the YAML
 file directory before validation.
+
+swing strategy:
+- strategy_config.csv_file points to one fixed symbol,trigger_price watchlist.
+- max_position_value 5000 is the maximum capital allocated to one trade.
+- RiskManager uses min(available capital, max_position_value) as trade capital,
+  applies risk_per_trade_pct to that amount, and caps whole-share quantity by
+  both trade capital and stop-loss risk.
+- the watchlist reloads once at each trading-day open without restart.
+- CSV removal blocks new entries but never stops management of an open position.
+- a filled position close removes the symbol from runtime subscriptions immediately.
+- its recovery profile uses a stable CSV_WATCHLIST identity across daily edits.
 
 production secrets:
 - AngelOne secrets remain in angelone_keys.env.
@@ -239,7 +254,8 @@ PERSISTENCE AND RECOVERY
 ================================================================================
 
 - SQLite state is stored in one configured .db file.
-- profiles are isolated by mode, broker, exchange, strategy, and symbols.
+- profiles are isolated by mode, broker, exchange, strategy, and symbols; the
+  swing CSV strategy uses one stable watchlist identity.
 - Live and Paper recover managed state before strategy setup.
 - Paper restores simulated account/trade state.
 - unknown broker orders/holdings stay unmanaged and block duplicate entries.
@@ -259,17 +275,36 @@ RISK AND TRADE MANAGEMENT
 ================================================================================
 
 RiskManager:
-- caps configured quantity using capital, risk percentage, price, and stop loss.
+- when max_position_value is configured, uses min(available capital,
+  max_position_value) as per-trade capital.
+- applies risk_per_trade_pct to per-trade capital, calculates stop-loss risk per
+  unit, and uses the smaller of quantity-by-capital and quantity-by-risk.
+- when max_position_value is absent, retains account-capital risk sizing with
+  configured quantity as the cap.
+- calculates symmetric long/short stop-loss, target, and ATR trailing levels.
 - filled ENTRY increments daily trade count.
 - max-trade limit activates the kill switch.
-- exposes stop-loss, target, trailing-stop, and daily-limit helpers.
+- exposes stop-loss, target, ATR trailing-stop, and daily-limit helpers.
 - keeps the validated runtime config used by report setup.
+
+ATR trailing stop:
+- trailing_activation_pct, or target_pct when omitted, activates protection when
+  trailing_atr_multiplier is greater than zero.
+- ATR(14) uses completed candles only and is retained for the open trade.
+- highest price is tick-based and the trailing stop never moves downward.
+- DEBUG logs record entry stop-loss/target levels and every upward TSL change.
+- Live verification logs trigger/current and stop/current/target ranges every loop.
+- MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
+- positional swing default: daily at 2.5x.
+- zero multiplier disables trailing and keeps direct target exit behavior.
+- zero target_pct keeps profit open when ATR is unavailable; fixed stop protection remains.
 
 TradeManager:
 - owns order-state transitions.
 - tracks normalized orders, positions, trades, and exit levels.
 - reconciles known broker records.
 - monitors stop-loss, target, and trailing-stop exits.
+- records signed short positions and submits BUY exits for them.
 - closes positions only after filled exits.
 - calculates realized P&L for completed exits.
 - triggers Phase 28 reporting only for completed ENTRY + EXIT pairs.
@@ -330,4 +365,4 @@ Provider cleanup: completed
 Current milestone: Milestone 9 - Testing
 Next phase: Phase 29 - unit and provider-contract tests
 Phase 28 status: completed
-Last updated: 2026-08-30
+Last updated: 2026-09-09

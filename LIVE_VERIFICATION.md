@@ -5,25 +5,34 @@ This is a temporary manual smoke flow for validating the implemented AutoTick ru
 ## Safety Scope
 
 - Uses real Live mode and places real broker orders.
-- Default verification symbol: `NIFTYBEES-EQ`.
-- Quantity: `1`.
+- Default verification contract: `GOLDPETAL30SEP26FUT` on `MCX`.
+- Quantity: `1` lot.
 - Maximum filled entries per day: `1`.
 - Position type: `POSITIONAL`.
-- Stop-loss: `0.10%`.
-- Target: `0.15%`.
+- Stop-loss: `2%`.
+- Target: `5%`.
 - Trailing stop: disabled.
-- Entry trigger: LTP above previous close by `0.05%`.
+- Long trigger: LTP above previous-day high plus `0.15%`.
+- Short trigger: LTP below previous-day low minus `0.15%`.
+- Verification market window: `09:00` to `23:30` Asia/Kolkata.
 - Uses separate SQLite state: `state/live_verification.db`.
 - Uses separate log: `logs/live_verification.log`.
 
 These values are only for plumbing verification and are not a trading recommendation.
 
+## Swing Live Observation
+
+- Edit the same `autotick/config/swing_watchlist.csv` each day using the header `symbol,trigger_price`.
+- Run `python -m autotick.swing_verification_main`; this places real NSE orders up to ₹5,000 each and maximum 5 filled entries per day.
+- Entry requires LTP above the CSV trigger. Fixed stop-loss is 2%; daily ATR(14) at 2.5x starts after a 5% gain, with no fixed profit target.
+- Keep the process running for automatic next-day reload. Open positions stay managed; after close, their symbols leave runtime subscriptions immediately.
+
 ## Before Market
 
 1. Use branch `feature/autotick-rebuild-phase_25_28`.
 2. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
-3. Confirm the configured symbol is valid and tradable in the AngelOne account.
-4. Confirm there is enough cash for one unit plus charges.
+3. Confirm `GOLDPETAL30SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
+4. Confirm sufficient commodity margin is available for one lot plus charges.
 5. Delete `state/live_verification.db` only when intentionally starting a completely fresh verification profile.
 
 ## Run
@@ -34,15 +43,15 @@ These values are only for plumbing verification and are not a trading recommenda
 
 1. Configuration and AngelOne login succeed.
 2. Log shows `Reports enabled`.
-3. Log shows `LIVE_VERIFY ready` with previous close and entry trigger.
-4. When LTP crosses the trigger, log shows `LIVE_VERIFY ENTRY TRIGGER`.
+3. Log shows `LIVE_VERIFY ready` with previous high, low, and both triggers.
+4. When LTP crosses first, log shows `LIVE_VERIFY BUY TRIGGER` or `LIVE_VERIFY SELL TRIGGER`.
 5. Before the real broker call, log shows `AngelOne PLACE ORDER`.
 6. Successful broker acceptance logs `AngelOne order accepted` with broker order ID.
 7. AutoTick reconciliation detects the broker fill and opens the managed position.
 8. Stop AutoTick manually while the position is still open.
 9. Restart with the exact same command and config.
-10. Recovery should log the recovered order/position/trade counts and must not place a second BUY.
-11. When the configured stop-loss or target is reached, AutoTick places the real SELL order.
+10. Recovery should log the recovered order/position/trade counts and must not place a second entry order.
+11. When the configured stop-loss or target is reached, AutoTick places the opposite protective EXIT order: SELL for a long position or BUY for a short position.
 12. After the completed EXIT fill, reports are updated.
 
 ## Report Files
@@ -64,7 +73,10 @@ One completed ENTRY + EXIT pair must append exactly one completed-trade row. Res
 Search `logs/live_verification.log` for:
 
 - `LIVE_VERIFY ready`
-- `LIVE_VERIFY ENTRY TRIGGER`
+- `LIVE_VERIFY ENTRY RANGE`
+- `LIVE_VERIFY POSITION RANGE`
+- `LIVE_VERIFY BUY TRIGGER`
+- `LIVE_VERIFY SELL TRIGGER`
 - `AngelOne PLACE ORDER`
 - `AngelOne order accepted`
 - `AngelOne order rejected`
@@ -81,4 +93,4 @@ Search `logs/live_verification.log` for:
 
 ## Pass Criteria
 
-The manual Live verification passes when one real BUY is accepted and filled, AutoTick is stopped and restarted while the position is open, recovery prevents a duplicate entry, one real protective SELL is accepted and filled, the broker position closes, and both strategy-specific and combined report files contain exactly one new completed trade with the correct P&L.
+The manual Live verification passes when one real entry order (BUY or SELL) is accepted and filled, AutoTick is stopped and restarted while the position is open, recovery prevents a duplicate entry, one opposite protective exit order is accepted and filled, the broker position closes, and both strategy-specific and combined report files contain exactly one new completed trade with the correct P&L.

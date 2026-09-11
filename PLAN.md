@@ -73,6 +73,11 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
 - Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
 - Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
+- Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
+- Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
+- Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
+- Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
+- Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
 
 ## Current Runtime Wiring
 
@@ -81,9 +86,11 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Backtest and Replay: HistoricalProvider plus simulated account and execution.
 - Live: broker market data, account, and execution.
 - Simple strategy buys when LTP exceeds previous close by 0.5%.
-- RiskManager caps configured quantity.
+- Swing strategy buys when LTP moves above its daily CSV trigger and leaves profit open under target-activated ATR trailing protection.
+- RiskManager uses per-trade allocated capital when `max_position_value` is configured; fixed-quantity configurations retain account-capital risk sizing.
 - One filled ENTRY increments the daily trade count.
-- Filled positions use fixed stop-loss and target levels; target activates trailing protection when configured.
+- Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.
+- MCX intraday uses 15m ATR at 2.0x; positional swing uses daily ATR at 2.5x. The activation ATR and tick-based trailing state survive restart.
 - Completed ENTRY + EXIT pairs append once to strategy-specific and combined CSV reports.
 - Summary files recalculate from accumulated trade CSV history.
 - POSITIONAL is the default position type.

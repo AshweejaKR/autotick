@@ -73,8 +73,8 @@ class ReportManager:
         if not self.enabled:
             return
         row = {
-            "exit_trade_id": exit_trade.trade_id,
-            "entry_trade_id": entry.trade_id,
+            "exit_trade_id": exit_trade.order_id,
+            "entry_trade_id": entry.order_id,
             "strategy": self.strategy,
             "broker": self.broker,
             "user_id": self.user_id,
@@ -109,13 +109,13 @@ class ReportManager:
                         "Report updated trades=%s summary=%s exit_trade_id=%s pnl=%.2f",
                         trades_path,
                         summary_path,
-                        exit_trade.trade_id,
+                        exit_trade.order_id,
                         pnl,
                     )
                 else:
                     logger.debug(
                         "Report skipped duplicate exit_trade_id=%s file=%s",
-                        exit_trade.trade_id,
+                        exit_trade.order_id,
                         trades_path,
                     )
             except Exception:

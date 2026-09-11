@@ -229,9 +229,12 @@ class RecoveryManager:
 
     @staticmethod
     def _build_profile(config: dict) -> dict[str, Any]:
+        strategy = str(config["strategy"]).lower()
         symbols = config["market"]["symbols"]
         if isinstance(symbols, str):
             symbols = [symbols]
+        if strategy == "swing":
+            symbols = ["CSV_WATCHLIST"]
         broker = str(config["broker"]).lower()
         account_id = ""
         if broker == "angelone":
@@ -243,7 +246,7 @@ class RecoveryManager:
             "broker": broker,
             "account_id": account_id,
             "exchange": str(config["market"]["exchange"]).upper(),
-            "strategy": str(config["strategy"]).lower(),
+            "strategy": strategy,
             "symbols": sorted(str(symbol).upper() for symbol in symbols),
         }
 

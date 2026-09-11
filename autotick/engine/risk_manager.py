@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from autotick.models.order import Order
+from autotick.models.order import Order, OrderSide
 
 
 class RiskManager:
@@ -18,23 +18,44 @@ class RiskManager:
     def __init__(self, config: dict) -> None:
         self.config = config
         risk = config["risk"]
+        trade = config["trade"]
         self.capital = float(config["capital"])
-        self.quantity = int(config["trade"]["quantity"])
+        self.quantity = int(trade["quantity"]) if "quantity" in trade else None
+        self.max_position_value = (
+            float(trade["max_position_value"])
+            if "max_position_value" in trade
+            else None
+        )
         self.max_loss = float(risk["max_loss"])
         self.max_trades = int(risk["max_trades_per_day"])
         self.risk_pct = float(risk["risk_per_trade_pct"])
         self.stoploss_pct = float(risk["stoploss_pct"])
         self.target_pct = float(risk["target_pct"])
-        self.trailing_pct = float(risk["trailing_sl_pct"])
+        self.trailing_activation_pct = float(
+            risk.get("trailing_activation_pct", self.target_pct)
+        )
+        self.trailing_atr_period = int(risk["trailing_atr_period"])
+        self.trailing_atr_interval = str(risk["trailing_atr_interval"]).lower()
+        self.trailing_atr_multiplier = float(risk["trailing_atr_multiplier"])
         self.trade_count = 0
         self.kill_switch = False
 
     def position_size(self, price: float) -> int:
         if price <= 0 or self.stoploss_pct <= 0:
             return 0
-        risk_amount = self.capital * self.risk_pct / 100
+        trade_capital = (
+            min(self.capital, self.max_position_value)
+            if self.max_position_value is not None
+            else self.capital
+        )
+        risk_amount = trade_capital * self.risk_pct / 100
         risk_per_unit = price * self.stoploss_pct / 100
-        return min(self.quantity, int(risk_amount / risk_per_unit))
+        quantity_limit = (
+            int(trade_capital / price)
+            if self.max_position_value is not None
+            else int(self.quantity or 0)
+        )
+        return min(quantity_limit, int(risk_amount / risk_per_unit))
 
     def validate_order(self, order: Order, price: float | None = None) -> Order:
         current_price = price if price is not None else order.price
@@ -58,14 +79,39 @@ class RiskManager:
         if self.trade_count >= self.max_trades:
             self.activate_kill_switch()
 
-    def stop_loss(self, entry_price: float) -> float:
-        return entry_price * (1 - self.stoploss_pct / 100)
+    def stop_loss(
+        self,
+        entry_price: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
+        direction = -1 if side == OrderSide.BUY else 1
+        return entry_price * (1 + direction * self.stoploss_pct / 100)
 
-    def target(self, entry_price: float) -> float:
-        return entry_price * (1 + self.target_pct / 100)
+    def target(
+        self,
+        entry_price: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
+        activation_pct = (
+            self.trailing_activation_pct if self.trailing_enabled else self.target_pct
+        )
+        direction = 1 if side == OrderSide.BUY else -1
+        return entry_price * (1 + direction * activation_pct / 100)
 
-    def trailing_stop(self, highest_price: float) -> float:
-        return highest_price * (1 - self.trailing_pct / 100)
+    @property
+    def trailing_enabled(self) -> bool:
+        return self.trailing_atr_multiplier > 0
+
+    def trailing_stop(
+        self,
+        best_price: float,
+        atr: float,
+        side: OrderSide = OrderSide.BUY,
+    ) -> float:
+        if atr <= 0:
+            raise ValueError("ATR must be greater than zero")
+        direction = -1 if side == OrderSide.BUY else 1
+        return best_price + direction * atr * self.trailing_atr_multiplier
 
     def check_daily_limits(self, pnl: float) -> bool:
         if pnl <= self.max_loss or self.trade_count >= self.max_trades:
