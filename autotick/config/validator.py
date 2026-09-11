@@ -216,6 +216,10 @@ def validate_config(config: dict[str, Any]) -> None:
     _number(atr_multiplier, "risk.trailing_atr_multiplier")
     if atr_multiplier < 0:
         raise ConfigValidationError("risk.trailing_atr_multiplier must not be negative")
+    if risk["target_pct"] == 0 and atr_multiplier == 0:
+        raise ConfigValidationError(
+            "risk.target_pct and risk.trailing_atr_multiplier cannot both be 0"
+        )
 
     if strategy_name == "swing":
         strategy_config = _mapping(config, "strategy_config")
