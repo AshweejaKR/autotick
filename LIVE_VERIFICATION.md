@@ -29,7 +29,7 @@ These values are only for plumbing verification and are not a trading recommenda
 
 ## Before Market
 
-1. Use branch `feature/autotick-rebuild-phase_25_28`.
+1. Use branch `feature/autotick-rebuild-phase_29_33`.
 2. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
 3. Confirm `GOLDPETAL30SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
 4. Confirm sufficient commodity margin is available for one lot plus charges.

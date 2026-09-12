@@ -47,6 +47,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
 - [x] Phase 27 - Production configuration and secrets validation.
 - [x] Phase 28 - Performance metrics, strategy/combined reports, and completed-trade CSV export.
+- [x] Phase 29 - Minimal unit and provider-contract tests.
 
 ## Post-Phase Cleanup Completed
 
@@ -78,6 +79,8 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
 - Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
 - Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
+- Added offline unit tests for signal validation, risk rules, and the entry-to-exit trade lifecycle.
+- Added provider-contract tests for mode mapping, HistoricalProvider, simulated providers, and mocked AngelOne adapters.
 
 ## Current Runtime Wiring
 
@@ -101,16 +104,14 @@ Not yet wired in the CLI runner:
 
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
-- Automated tests.
 
 ## Current Work
 
 - Completed milestone: Milestone 8 - Reports
-- Completed phases: 1 through 28
+- Completed phases: 1 through 29
 - Current milestone: Milestone 9 - Testing
-- Next phase: Phase 29 - unit and provider-contract tests
-- Phase 28 status: completed
-- Test implementation starts at Phase 29
+- Next phase: Phase 30 - integration and cross-mode parity tests
+- Phase 29 status: completed
 
 ## Development Rules
 

@@ -14,11 +14,11 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 
 - Version: 0.1.0
 - Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports
-- Completed phases: 1 through 28
+- Completed phases: 1 through 29
 - Provider cleanup: completed
 - Current milestone: Testing
-- Next phase: Phase 29 - unit and provider-contract tests
-- Automated tests: intentionally deferred until Phase 29
+- Next phase: Phase 30 - integration and cross-mode parity tests
+- Automated tests: minimal offline unit and provider-contract suite added in Phase 29
 
 ## Implemented Architecture
 
@@ -255,6 +255,13 @@ Run the Live swing observation after updating its fixed CSV:
 The installed command is also available:
 
     autotick
+
+Run the Phase 29 tests:
+
+    python -m pip install -e ".[test]"
+    python -m pytest -q
+
+The tests use simulated data and mocked AngelOne responses. They do not use broker credentials, network calls, or real orders.
 
 ## Manual Tools
 
