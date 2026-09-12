@@ -7,10 +7,10 @@ This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
 - Completed milestones: 1 through 8
-- Completed phases: 1 through 29
+- Completed phases: 1 through 30
 - Provider cleanup: completed
 - Current milestone: Milestone 9 - Testing
-- Next phase: Phase 30 - integration and cross-mode parity tests
+- Next phase: Phase 31 - end-to-end, recovery, and reconciliation tests
 - Last updated: 2026-09-12
 
 PROJECT SUMMARY
@@ -79,7 +79,7 @@ Milestone 8: Reports - completed
 
 Milestone 9: Testing - active
 - Phase 29: Unit and provider-contract tests - completed.
-- Phase 30: Integration and cross-mode parity tests.
+- Phase 30: Integration and cross-mode parity tests - completed.
 - Phase 31: End-to-end, recovery, and reconciliation tests.
 
 Milestone 10: Production
@@ -135,6 +135,7 @@ provider_test.py
 simulated_control_panel.py
 tests/
   test_core.py
+  test_integration.py
   test_provider_contracts.py
 pyproject.toml
 README.md
@@ -343,12 +344,15 @@ TESTING POLICY
 Automated tests return in Milestone 9:
 
 - Phase 29: minimal offline unit and provider-contract tests - completed.
-- Phase 30: integration and cross-mode parity tests.
+- Phase 30: minimal integration and cross-mode parity tests - completed.
 - Phase 31: end-to-end, recovery, and reconciliation tests.
 
 Phase 29 covers signal validation, core risk/trade behavior, mode mapping,
 HistoricalProvider, simulated providers, and mocked AngelOne adapters. It does
 not use broker credentials, network calls, or real orders.
+
+Phase 30 covers one full simulated entry-to-exit flow with Paper, Backtest, and
+Replay result parity, plus offline Live provider wiring.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -369,9 +373,9 @@ CURRENT STATUS
 
 Version: 0.1.0
 Completed milestones: 1 through 8
-Completed phases: 1 through 29
+Completed phases: 1 through 30
 Provider cleanup: completed
 Current milestone: Milestone 9 - Testing
-Next phase: Phase 30 - integration and cross-mode parity tests
-Phase 29 status: completed
+Next phase: Phase 31 - end-to-end, recovery, and reconciliation tests
+Phase 30 status: completed
 Last updated: 2026-09-12
