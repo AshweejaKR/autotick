@@ -19,6 +19,7 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 - Current milestone: Production
 - Next phase: Phase 33 - Paper soak test and controlled Live rollout
 - Automated tests: minimal offline unit, provider-contract, integration, parity, recovery, reconciliation, and audit suite
+- Phase 33: five-market-day Paper soak runbook ready; Live rollout pending operator approval
 
 ## Implemented Architecture
 
@@ -284,4 +285,4 @@ The control panel is normally started automatically by main.py when simulated.ui
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for milestone tracking and [ARCHITECTURE_IMPLEMENTATION_GUIDE.txt](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) for detailed architecture and current implementation rules.
+See [PAPER_SOAK_RUNBOOK.md](PAPER_SOAK_RUNBOOK.md) before a production Paper soak or controlled Live verification. See [PLAN.md](PLAN.md) for milestone tracking and [ARCHITECTURE_IMPLEMENTATION_GUIDE.txt](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) for detailed architecture and current implementation rules.

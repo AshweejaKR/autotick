@@ -84,7 +84,7 @@ Milestone 9: Testing - completed
 
 Milestone 10: Production
 - Phase 32: Documentation, metrics, and audit trail - completed.
-- Phase 33: Paper soak test and controlled Live rollout.
+- Phase 33: Paper soak test and controlled Live rollout - runbook ready; soak pending.
 
 CURRENT CODE STRUCTURE
 ================================================================================
@@ -145,6 +145,7 @@ pyproject.toml
 README.md
 PLAN.md
 ARCHITECTURE_IMPLEMENTATION_GUIDE.txt
+PAPER_SOAK_RUNBOOK.md
 
 MODE MAPPING
 ================================================================================
@@ -370,6 +371,9 @@ plus fake Live reconciliation of known AutoTick and unknown manual state.
 
 Phase 32 covers append-only audit CSV output for order state and recovery events.
 
+Phase 33 provides a five-market-day Paper soak and controlled Live rollout runbook.
+It remains pending until the Paper soak evidence passes.
+
 DESIGN PRINCIPLES
 ================================================================================
 
@@ -394,4 +398,5 @@ Provider cleanup: completed
 Current milestone: Milestone 10 - Production
 Next phase: Phase 33 - Paper soak test and controlled Live rollout
 Phase 32 status: completed
+Phase 33 status: runbook ready; five Paper market days pending
 Last updated: 2026-09-13

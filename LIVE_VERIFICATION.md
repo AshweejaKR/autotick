@@ -30,10 +30,11 @@ These values are only for plumbing verification and are not a trading recommenda
 ## Before Market
 
 1. Use branch `feature/autotick-rebuild-phase_29_33`.
-2. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
-3. Confirm `GOLDPETAL30SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
-4. Confirm sufficient commodity margin is available for one lot plus charges.
-5. Delete `state/live_verification.db` only when intentionally starting a completely fresh verification profile.
+2. Complete the five-market-day [Paper soak runbook](PAPER_SOAK_RUNBOOK.md).
+3. Keep valid AngelOne credentials in `autotick/config/angelone_keys.env`.
+4. Confirm `GOLDPETAL30SEP26FUT` is returned by AngelOne and is tradable in the account before allowing an order.
+5. Confirm sufficient commodity margin is available for one lot plus charges.
+6. Delete `state/live_verification.db` only when intentionally starting a completely fresh verification profile.
 
 ## Run
 

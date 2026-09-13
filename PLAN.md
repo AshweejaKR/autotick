@@ -87,6 +87,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added one offline trade-flow integration test for Paper, Backtest, and Replay parity plus mocked Live provider wiring.
 - Added offline Paper restart recovery and fake Live reconciliation tests with temporary SQLite and report files.
 - Added append-only normalized order-state and recovery audit CSV files beside reports.
+- Added a five-market-day Paper soak and controlled Live rollout runbook.
 
 ## Current Runtime Wiring
 
@@ -118,6 +119,7 @@ Not yet wired in the CLI runner:
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - Paper soak test and controlled Live rollout
 - Phase 32 status: completed
+- Phase 33 status: runbook ready; five Paper market days pending
 
 ## Development Rules
 
