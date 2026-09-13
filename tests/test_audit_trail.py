@@ -23,31 +23,8 @@ from autotick.providers.brokers.simulated import (
 )
 
 
-def test_audit_records_order_states_and_recovery(tmp_path) -> None:
-    config = {
-        "mode": "paper",
-        "broker": "simulated",
-        "strategy": "test",
-        "capital": 1_000,
-        "market": {"exchange": "NSE", "symbols": ["INFY-EQ"]},
-        "trade": {"quantity": 5, "position_type": "POSITIONAL"},
-        "risk": {
-            "max_loss": -100,
-            "max_trades_per_day": 2,
-            "risk_per_trade_pct": 10,
-            "stoploss_pct": 2,
-            "target_pct": 5,
-            "trailing_atr_period": 14,
-            "trailing_atr_interval": "1d",
-            "trailing_atr_multiplier": 0,
-        },
-        "persistence": {"state_path": str(tmp_path / "state.db")},
-        "reports": {
-            "enabled": True,
-            "output_dir": str(tmp_path / "reports"),
-            "user_id": "tester",
-        },
-    }
+def test_audit_records_order_states_and_recovery(tmp_path, make_config) -> None:
+    config = make_config(reports=True)
     now = datetime(2026, 9, 13, 9, 15, tzinfo=timezone.utc)
     session = SimulatedSession()
     market = SimulatedMarketDataProvider(session)

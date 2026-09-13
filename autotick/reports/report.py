@@ -43,22 +43,9 @@ class ReportManager:
     def __init__(self, config: dict[str, Any], execution: Any) -> None:
         reports = config.get("reports", {})
         self.enabled = bool(reports.get("enabled", False))
-        self.output_dir = Path(reports.get("output_dir", "reports"))
-        self.broker = self._safe(str(config.get("broker", "broker")))
-        self.strategy = self._safe(str(config.get("strategy", "strategy")))
-        self.mode = self._safe(str(config.get("mode", "mode")))
-        configured_user = str(reports.get("user_id", "")).strip()
-        broker_user = getattr(getattr(execution, "session", None), "client_id", None)
-        if not configured_user and not broker_user and self.broker.lower() == "angelone":
-            credentials_file = (
-                config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
-            )
-            if credentials_file:
-                try:
-                    broker_user = load_secrets(credentials_file)["CLIENT_ID"]
-                except ValueError:
-                    broker_user = None
-        self.user_id = self._safe(configured_user or str(broker_user or "user"))
+        self.output_dir, self.broker, self.user_id, self.strategy, self.mode = (
+            self.context(config, execution)
+        )
         if self.enabled:
             logger.info(
                 "Reports enabled broker=%s user=%s strategy=%s mode=%s output=%s",
@@ -68,6 +55,34 @@ class ReportManager:
                 self.mode,
                 self.output_dir,
             )
+
+    @classmethod
+    def context(
+        cls, config: dict[str, Any], execution: Any
+    ) -> tuple[Path, str, str, str, str]:
+        """Return the shared report/audit output identity."""
+        reports = config.get("reports", {})
+        broker = cls._safe(str(config.get("broker", "broker")))
+        strategy = cls._safe(str(config.get("strategy", "strategy")))
+        mode = cls._safe(str(config.get("mode", "mode")))
+        configured_user = str(reports.get("user_id", "")).strip()
+        broker_user = getattr(getattr(execution, "session", None), "client_id", None)
+        if not configured_user and not broker_user and broker.lower() == "angelone":
+            credentials_file = (
+                config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
+            )
+            if credentials_file:
+                try:
+                    broker_user = load_secrets(credentials_file)["CLIENT_ID"]
+                except ValueError:
+                    broker_user = None
+        return (
+            Path(reports.get("output_dir", "reports")),
+            broker,
+            cls._safe(configured_user or str(broker_user or "user")),
+            strategy,
+            mode,
+        )
 
     def record(self, entry: Trade, exit_trade: Trade, pnl: float) -> None:
         if not self.enabled:
@@ -101,7 +116,7 @@ class ReportManager:
                 trades_path = self.output_dir / f"{base}_trades.csv"
                 summary_path = self.output_dir / f"{base}_summary.csv"
                 lock_path = self.output_dir / f".{base}.lock"
-                with self._file_lock(lock_path):
+                with self.file_lock(lock_path):
                     appended = self._append_new(trades_path, row)
                     self._write_summary(trades_path, summary_path)
                 if appended:
@@ -180,7 +195,7 @@ class ReportManager:
 
     @staticmethod
     @contextmanager
-    def _file_lock(path: Path) -> Iterator[None]:
+    def file_lock(path: Path) -> Iterator[None]:
         """Lock one report across processes on Windows and Linux."""
         with path.open("a+b") as stream:
             stream.seek(0, os.SEEK_END)

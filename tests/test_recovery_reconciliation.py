@@ -37,30 +37,7 @@ class _FakeLiveExecution:
         return self.trades
 
 
-def _config(tmp_path) -> dict:
-    return {
-        "mode": "live",
-        "broker": "simulated",
-        "strategy": "test",
-        "capital": 1_000,
-        "market": {"exchange": "NSE", "symbols": ["INFY-EQ"]},
-        "trade": {"quantity": 5, "position_type": "POSITIONAL"},
-        "risk": {
-            "max_loss": -100,
-            "max_trades_per_day": 2,
-            "risk_per_trade_pct": 10,
-            "stoploss_pct": 2,
-            "target_pct": 5,
-            "trailing_atr_period": 14,
-            "trailing_atr_interval": "1d",
-            "trailing_atr_multiplier": 0,
-        },
-        "persistence": {"state_path": str(tmp_path / "state.db")},
-        "reports": {"enabled": False},
-    }
-
-
-def test_fake_live_reconciliation_updates_known_and_blocks_manual_state(tmp_path) -> None:
+def test_fake_live_reconciliation_updates_known_and_blocks_manual_state(tmp_path, make_config) -> None:
     now = datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc)
     known = Order(
         "KNOWN-1", "INFY-EQ", "NSE", OrderSide.BUY, 5,
@@ -84,7 +61,7 @@ def test_fake_live_reconciliation_updates_known_and_blocks_manual_state(tmp_path
         [known_position, manual_position],
         [provider_trade],
     )
-    config = _config(tmp_path)
+    config = make_config(mode="live")
     risk = RiskManager(config)
     trades = TradeManager(execution, risk)
     trades.track_order(known)

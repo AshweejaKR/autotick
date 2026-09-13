@@ -1,288 +1,62 @@
 # AutoTick
 
-AutoTick is a modular, broker-independent algorithmic trading framework for Live, Paper, Backtest, and Replay modes.
+Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 
-## Goals
-
-- Use the same strategy contract in every mode.
-- Keep broker SDK code inside broker adapters.
-- Select providers through ProviderFactory.
-- Keep order, risk, and session behavior outside strategies.
-- Add production features only in their planned phase.
-
-## Current Status
+## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports, Testing
-- Completed phases: 1 through 32
-- Provider cleanup: completed
-- Current milestone: Production
-- Next phase: Phase 33 - Paper soak test and controlled Live rollout
-- Automated tests: minimal offline unit, provider-contract, integration, parity, recovery, reconciliation, and audit suite
-- Phase 33: five-market-day Paper soak runbook ready; Live rollout pending operator approval
+- Completed: Milestones 1–9, Phases 1–32
+- Current: Milestone 10 — Production
+- Next: Phase 33 — five-market-day Paper soak, then controlled Live rollout
 
-## Implemented Architecture
+## Modes
 
-### Foundation and Core
+| Mode | Market data | Account and execution |
+| --- | --- | --- |
+| Live | Selected broker | Selected broker |
+| Paper | Selected broker or UI simulation | Simulated |
+| Backtest | Historical | Simulated |
+| Replay | Historical | Simulated |
 
-- YAML loading, path resolution, and validation.
-- Normalized market, signal, order, position, trade, account, and event models.
-- MarketData, Account, and Execution provider contracts.
-- ProviderFactory and ProviderBundle mode mapping.
-- Shared broker sessions through SessionPool.
-- CalendarSessionManager for DAILY, WEEKLY, and ALWAYS_OPEN schedules across realtime, fast, and replay clocks.
-- EventDispatcher and TradingEngine core components.
-- Broker-neutral ReconnectManager with hybrid retry policy.
-- Centralized colored console logging and plain rotating file logging.
-- Shared production secret-file validation for AngelOne broker access.
-- Append-only completed-trade CSV reporting with strategy and combined summaries.
+Paper orders never reach the broker. Live and Paper recover SQLite state before
+strategy setup; Backtest and Replay start fresh.
 
-### Strategy
+## Run
 
-- SMA indicator with default period 20 and Wilder ATR with default period 14.
-- Strategy base and StrategyContext.
-- Simple long strategy:
-  - Load the latest completed daily close during initial setup.
-  - Generate BUY when LTP is greater than previous close by 0.5%.
-  - Generate no signal otherwise.
-- Live verification strategy:
-  - Load the latest completed daily high and low.
-  - Buy above previous high plus 0.15%, or sell below previous low minus 0.15%.
-  - Take only the first filled breakout trade each day.
-- CSV swing strategy:
-  - Load `symbol,trigger_price` rows from one fixed watchlist file.
-  - Generate BUY when LTP moves above the configured trigger price.
-  - Reload the same CSV at each trading-day open without restarting.
-  - Keep removed symbols subscribed while their managed positions remain open.
-  - Remove a symbol from runtime subscriptions immediately after its position closes.
-- SignalValidator performs structural validation only.
-- RiskManager and TradeManager own quantity and order workflow.
+Install:
 
-### Providers
+    python -m pip install -e ".[test]"
 
-- HistoricalProvider returns normalized list[MarketBar] data.
-- get_bars() accepts optional start and end dates.
-- Default end: current provider time.
-- Default start: 5 days earlier, or 30 days for daily bars.
-- AngelOne session, account, market-data, and execution adapters.
-- Simulated session, shared state, account, market-data, and execution adapters.
-- AngelOne and simulated adapters use aligned constructors, exchanges, arguments, and normalized return models.
-- Simulated setters are input helpers, not shared interface methods.
-
-## Mode Mapping
-
-| Mode | Market data | Account | Execution | Clock |
-|---|---|---|---|---|
-| Live | Selected broker | Selected broker | Selected broker | Realtime |
-| Paper, UI disabled | Selected broker | Simulated | Simulated | Realtime |
-| Paper, UI enabled | Shared UI simulated data | Simulated | Simulated | Realtime |
-| Backtest | HistoricalProvider | Simulated | Simulated | Fast |
-| Replay | HistoricalProvider | Simulated | Simulated | Replay speed |
-
-Paper orders never reach the broker. MARKET orders use the active market-data provider's current LTP and fill in simulated execution. Filled buys subtract their cost from simulated funds; filled sells add proceeds and realized P&L. Buys with insufficient funds are rejected.
-
-## Paper UI Behavior
-
-Set simulated.ui_data_enabled to true to start the Windows control panel and Paper runner in one process.
-
-- The UI controls balance, funds, ticks, LTP, volume, price changes, CSV data, and bars.
-- The displayed balance, margin, and buying power refresh every 500 ms after simulated fills.
-- The UI and strategy share one SimulatedSession and SimulatedState.
-- broker_auto_fetch false keeps UI data fully manual.
-- broker_auto_fetch true copies initial data from the selected real broker.
-- broker_auto_fetch is used only when UI data is enabled.
-- When UI is disabled, normal Paper mode uses the selected broker for market data.
-
-## Market Schedule Behavior
-
-One AutoTick run supports one market and one exchange. Configure one calendar profile for all symbols in that run.
-
-| schedule_type | Use case | Required schedule fields |
-|---|---|---|
-| DAILY | Equity and other daily sessions | trading_days, market_start, market_end, square_off_time |
-| WEEKLY | Forex and other weekly sessions | week_start_day/time, week_end_day/time; optional daily_break_start/end |
-| ALWAYS_OPEN | Spot crypto and other continuous markets | no opening or closing times |
-
-- timezone is required and uses an IANA name such as Asia/Kolkata, America/New_York, or UTC.
-- closed_dates optionally closes specific dates for DAILY and WEEKLY schedules.
-- only_market_hours true: normal Live and Paper runs stop when closed. The swing runner stays idle and reloads its CSV at the next trading-day open.
-- only_market_hours false: the schedule gate is ignored and processing continues every engine.loop_sleep_s.
-- Realtime strategy tick processing is independent of account balance. A zero balance keeps on_tick() active while RiskManager blocks order submission.
-- Live and Paper use wall-clock time. Backtest and Replay use historical timestamps.
-- DAILY supports configured square-off timing. WEEKLY and ALWAYS_OPEN do not create an automatic daily square-off signal.
-- POSITIONAL orders are not automatically squared off. TradeManager exposes intraday square-off, but the current CLI runner does not call it yet.
-
-Running Paper with only_market_hours false can use stale after-market broker LTP. Keep the gate enabled for normal exchange-hours Paper runs.
-
-## Execution and Risk
-
-Implemented core behavior:
-
-- Order states: NEW, VALIDATED, SUBMITTED, OPEN, PARTIAL, FILLED, REJECTED, CANCELLED, EXPIRED.
-- Risk-based quantity cap using available capital, risk percentage, price, and stop-loss distance.
-- When `trade.max_position_value` is configured, per-trade capital is `min(available capital, max_position_value)`; risk percentage is applied to that per-trade capital and whole-share quantity is capped by both capital and stop-loss risk.
-- When `trade.max_position_value` is not configured, fixed-quantity configurations retain account-capital risk sizing and configured quantity remains the quantity cap.
-- Filled ENTRY orders increment the daily trade count.
-- max_trades_per_day activates the kill switch.
-- Stop-loss, target, and ATR trailing-stop price helpers.
-- Filled entries create tracked positions with fixed stop-loss and target levels.
-- Fixed stop-loss, target, exit side, and P&L work symmetrically for long and short positions.
-- The configured activation gain starts ATR trailing protection when trailing_atr_multiplier is greater than zero; zero exits directly at target.
-- A zero target_pct leaves profit open; if ATR is temporarily unavailable, the fixed stop remains active and ATR setup retries.
-- ATR uses completed candles only. The activation ATR is retained while the tick-based highest price moves the stop upward.
-- Recommended defaults: MCX intraday uses 15m ATR(14) at 2.0x; positional swing uses daily ATR(14) at 2.5x. Noisy MCX contracts may use 2.5x.
-- Position lifecycle, exposure, realized P&L, and unrealized P&L methods.
-- Intraday-only square-off method.
-
-Current CLI runner wiring:
-
-- Uses signal validation, risk sizing, order creation, and filled-entry counting.
-- Monitors fixed stop-loss and target-activated trailing-stop exits on every tick.
-- Reconciles pending broker orders before monitoring filled positions.
-- Logs rounded buy/sell prices, cost/proceeds, stop-loss, target, P&L, and remaining simulated funds.
-- Does not yet call automatic square-off.
-- Saves changed runtime state and reconciles it before strategy startup.
-
-## Persistence and Recovery
-
-- Python's built-in SQLite stores state in `state/autotick.db`; no extra database package is required.
-- One database file keeps separate profile rows by mode, broker, exchange, strategy, and symbols.
-- The swing strategy uses one stable recovery profile so daily CSV edits do not lose open-position state.
-- Live and Paper restore managed orders, positions, trades, exit levels, trailing state, and daily risk state.
-- Paper also restores simulated funds, positions, orders, trades, and realized P&L.
-- Live reconciliation trusts broker status and quantity only for known AutoTick records.
-- Unknown manual broker orders and holdings are logged, left unmanaged, and blocked from duplicate AutoTick entries.
-- Same-day unresolved orders and runtime save failures activate the kill switch for new entries while protective exits remain available.
-- Backtest and Replay start fresh and save final state for reporting; historical cursor resume is not part of Phase 25.
-- Live and broker-backed Paper pause processing during broker recovery.
-- Temporary network and service outages retry indefinitely with exponential backoff capped at 60 seconds.
-- Authentication recovery tries token refresh before full TOTP login and stops safely after three failed attempts.
-- Configured market-data subscriptions restore before Phase 25 reconciliation and strategy processing resume.
-- Broker writes are never retried automatically. An uncertain write reconciles state, activates the kill switch, and stops safely.
-- Fully simulated Paper, Backtest, and Replay do not use broker reconnect behavior.
-
-## Production Configuration and Secrets
-
-- AngelOne secrets stay in the configured `angelone_keys.env` file beside `autotick/config/default.yaml` when using the default relative path.
-- Required keys are `API_KEY`, `CLIENT_ID`, `PASSWORD`, and `TOTP_SECRET`.
-- Missing files, directories, unreadable files, duplicate keys, missing keys, and blank required values fail before broker login.
-- Secret errors name keys only; secret values and file contents are not logged.
-- Paper validates AngelOne secrets only when it uses AngelOne market data or broker auto-fetch.
-- Fully simulated Paper, Backtest, and Replay do not require AngelOne secrets.
-- Live mode requires `persistence.enabled`, `reconnect.enabled`, `session.only_market_hours`, and `logging.enabled` to all be true.
-- `angelone_keys.env` is explicitly ignored by Git and must never be committed.
-
-## Reports
-
-A completed report trade is one filled ENTRY + one filled EXIT pair.
-
-- Trade CSV files append only new completed trades; duplicate exit trade IDs are skipped.
-- Summary CSV files are recalculated from the full accumulated trade CSV whenever a new trade is appended.
-- Per-report OS file locks protect concurrent strategy processes on Windows and Linux.
-- Summary replacement is atomic; corrupt report files are logged without stopping trading or blocking the other report scope.
-- Strategy files use `broker_userid_strategy_mode_trades.csv` and `broker_userid_strategy_mode_summary.csv`.
-- Combined files use `broker_userid_mode_trades.csv` and `broker_userid_mode_summary.csv` and contain all strategies sharing that broker, user ID, and mode.
-- `reports.user_id` may contain any user label. When blank, AngelOne uses its broker client ID when available; otherwise `user` is used.
-- Metrics: completed trades, wins, losses, win rate, gross profit, gross loss, net P&L, average P&L, best trade, and worst trade.
-- Trade rows include strategy, broker, user ID, mode, symbol, exchange, quantity, entry/exit price, P&L, and entry/exit time.
-- No timestamp is added to report filenames.
-- The audit CSV records normalized order-state and recovery events only; it never records credentials or secret values.
-
-## Logging
-
-Console colors:
-
-- ERROR: red
-- WARNING: yellow
-- INFO: white
-- DONE: green
-
-Use logger.done() for successful completions such as login, logout, token refresh, configuration load, order placement, and shutdown. Rotating file logs remain plain text without color codes.
-DEBUG logs show entry stop-loss/target levels, every upward TSL change, and Live verification price ranges on every loop.
-
-## Configuration
-
-The only default YAML is config/default.yaml. Relative credential, CSV, persistence, and report paths resolve from the YAML file's directory.
-
-Important flags:
-
-- mode: live, paper, backtest, or replay
-- broker: selected broker adapter
-- market.exchange: the single exchange used by this run
-- simulated.ui_data_enabled: enable Paper control panel
-- simulated.broker_auto_fetch: load UI starting data from a real broker
-- session.schedule_type: DAILY, WEEKLY, or ALWAYS_OPEN
-- session.timezone: calendar timezone in IANA format
-- session.only_market_hours: enforce or ignore the realtime schedule gate
-- trade.position_type: INTRADAY or POSITIONAL
-- trade.max_position_value: optional maximum amount allocated to one trade; when set, RiskManager bases per-trade risk on the lesser of available capital and this value and whole-share quantity rounds down
-- risk.trailing_atr_period: ATR lookback; default 14
-- risk.trailing_atr_interval: 15m for MCX intraday or 1d for positional swing
-- risk.trailing_atr_multiplier: 2.0 for MCX intraday or 2.5 for swing; zero disables trailing
-- risk.trailing_activation_pct: gain that activates ATR trailing; the swing observation config uses 5
-- strategy_config.csv_file: fixed `symbol,trigger_price` swing watchlist path
-- persistence.enabled: enable SQLite persistence and startup recovery
-- persistence.state_path: SQLite `.db` file shared by isolated runtime profiles
-- reconnect.enabled: enable recovery for Live and broker-backed Paper
-- reconnect.initial_delay_s and reconnect.max_delay_s: exponential backoff range
-- reconnect.auth_max_attempts: bounded authentication recovery attempts
-- reports.enabled: enable completed-trade CSV export and summaries
-- reports.user_id: optional filename identity; blank uses broker client ID when available
-- reports.output_dir: directory for strategy and combined CSV files
-
-Schedule-specific fields:
-
-- DAILY: trading_days, closed_dates, market_start, market_end, square_off_time
-- WEEKLY: closed_dates, week_start_day, week_start_time, week_end_day, week_end_time, and optional paired daily_break_start/daily_break_end
-- ALWAYS_OPEN: no day or time fields; weekends remain open
-
-## Running
-
-Install the package in editable mode:
-
-    python -m pip install -e .
-
-Run with the default configuration:
+Default configuration:
 
     python -m autotick.main
 
-Run with another configuration:
+Another configuration:
 
     python -m autotick.main --config path/to/config.yaml
 
-Run the Live swing observation after updating its fixed CSV:
+Tests:
 
-    python -m autotick.swing_verification_main
-
-The installed command is also available:
-
-    autotick
-
-Run the automated tests:
-
-    python -m pip install -e ".[test]"
     python -m pytest -q
 
-The tests cover simulated mode parity, a Paper restart-to-report flow, fake Live reconciliation, and audit output. They do not use broker credentials, network calls, or real orders.
-
-## Manual Tools
-
-Provider check:
+Manual provider check:
 
     python provider_test.py
 
-- Put angelone_keys.env beside config/default.yaml when that relative path is configured.
-- GET_MARKET_DATA stays false until manual market-data calls are intended.
-- PLACE_LIVE_ORDERS stays false until live BUY/SELL testing is explicitly intended.
-- AngelOne order APIs require the API application's registered static public IP.
-- Rejected orders have no broker order ID, so status lookup is skipped.
-
-Windows simulated control panel:
+Paper control panel:
 
     python simulated_control_panel.py
 
-The control panel is normally started automatically by main.py when simulated.ui_data_enabled is true.
+## Important Rules
 
-## Roadmap
+- `config/default.yaml` is the only default YAML; relative paths resolve from its directory.
+- Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
+- Live requires persistence, reconnect, market-hours gating, and logging.
+- Use one configured calendar profile for all symbols in a run.
 
-See [PAPER_SOAK_RUNBOOK.md](PAPER_SOAK_RUNBOOK.md) before a production Paper soak or controlled Live verification. See [PLAN.md](PLAN.md) for milestone tracking and [ARCHITECTURE_IMPLEMENTATION_GUIDE.txt](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) for detailed architecture and current implementation rules.
+## Documentation
+
+- [Plan](PLAN.md) — milestone status.
+- [Architecture guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) — detailed behavior, configuration, recovery, reports, and design rules.
+- [Paper soak runbook](PAPER_SOAK_RUNBOOK.md) — required gate before Live rollout.
+- [Live verification guide](LIVE_VERIFICATION.md) — one controlled real-order verification flow.

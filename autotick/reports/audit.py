@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import csv
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from autotick.models.order import Order
@@ -39,12 +38,8 @@ class AuditTrail:
     def __init__(self, config: dict[str, Any], execution: Any) -> None:
         reports = config.get("reports", {})
         self.enabled = bool(reports.get("enabled", False))
-        self.output_dir = Path(reports.get("output_dir", "reports"))
-        broker = ReportManager._safe(str(config.get("broker", "broker")))
-        strategy = ReportManager._safe(str(config.get("strategy", "strategy")))
-        mode = ReportManager._safe(str(config.get("mode", "mode")))
-        user_id = ReportManager._safe(
-            str(reports.get("user_id") or getattr(getattr(execution, "session", None), "client_id", None) or "user")
+        self.output_dir, broker, user_id, strategy, mode = ReportManager.context(
+            config, execution
         )
         self.path = self.output_dir / f"{broker}_{user_id}_{strategy}_{mode}_audit.csv"
 
@@ -91,7 +86,7 @@ class AuditTrail:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             row = {"timestamp": datetime.now(timezone.utc).isoformat(), **row}
             lock_path = self.path.with_name(f".{self.path.stem}.lock")
-            with ReportManager._file_lock(lock_path):
+            with ReportManager.file_lock(lock_path):
                 write_header = not self.path.exists() or self.path.stat().st_size == 0
                 with self.path.open("a", encoding="utf-8", newline="") as stream:
                     writer = csv.DictWriter(stream, fieldnames=self._FIELDS)

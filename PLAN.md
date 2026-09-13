@@ -1,132 +1,36 @@
-# AutoTick - Plan
+# AutoTick Plan
 
-## Project Goal
+## Status
 
-Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
+- Version: 0.1.0
+- Completed: Milestones 1–9, Phases 1–32
+- Current: Milestone 10 — Production
+- Next: Phase 33 — five-market-day Paper soak, then controlled Live rollout
 
 ## Milestones
 
-- [x] Milestone 1 - Foundation: structure, configuration, models, interfaces, and logging.
-- [x] Milestone 2 - Mode-Neutral Core: providers, sessions, events, and TradingEngine.
-- [x] Milestone 3 - Strategy Framework: indicators, strategy contract, context, simple strategy, and signal validation.
-- [x] Milestone 4 - Provider Layer: historical, simulated, and AngelOne adapters.
-- [x] Milestone 5 - Execution and Risk: order states, positions, P&L, sizing, limits, and square-off methods.
-- [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
-- [x] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
-- [x] Milestone 8 - Reports: performance metrics and trade export.
-- [x] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
-- [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
+| Milestone | Scope | Status |
+| --- | --- | --- |
+| 1 | Foundation | Complete |
+| 2 | Mode-neutral core | Complete |
+| 3 | Strategy framework | Complete |
+| 4 | Provider layer | Complete |
+| 5 | Execution and risk | Complete |
+| 6 | Trading modes | Complete |
+| 7 | Recovery and persistence | Complete |
+| 8 | Reports | Complete |
+| 9 | Testing | Complete |
+| 10 | Production: documentation, audit, soak, Live rollout | Phase 33 pending |
 
-## Completed Phases
+## Current Rules
 
-- [x] Phase 1 - Project skeleton, packaging, entry point, and logging.
-- [x] Phase 2 - YAML configuration loading and validation.
-- [x] Phase 3 - Common models.
-- [x] Phase 4 - Provider interfaces.
-- [x] Phase 5 - ProviderFactory and mode mapping.
-- [x] Phase 6 - SessionPool and broker-session lifecycle.
-- [x] Phase 7 - CalendarSessionManager.
-- [x] Phase 8 - EventDispatcher.
-- [x] Phase 9 - TradingEngine lifecycle and event loop.
-- [x] Phase 10 - Indicator base and SMA.
-- [x] Phase 11 - Strategy base, context, callbacks, and simple long strategy.
-- [x] Phase 12 - Engine-owned SignalValidator.
-- [x] Phase 13 - Shared HistoricalProvider.
-- [x] Phase 14 - Simulated providers and shared in-memory state.
-- [x] Phase 15 - AngelOne session and account adapters.
-- [x] Phase 16 - AngelOne market-data and execution adapters.
-- [x] Phase 17 - TradeManager and order state machine.
-- [x] Phase 18 - Position lifecycle, exposure, trades, and P&L.
-- [x] Phase 19 - Risk validation, quantity sizing, stop-loss, and target helpers.
-- [x] Phase 20 - Daily trade limit, kill switch, and intraday square-off method.
-- [x] Phase 21 - Paper mode.
-- [x] Phase 22 - Backtest mode.
-- [x] Phase 23 - Replay mode.
-- [x] Phase 24 - Live mode.
-- [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
-- [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
-- [x] Phase 27 - Production configuration and secrets validation.
-- [x] Phase 28 - Performance metrics, strategy/combined reports, and completed-trade CSV export.
-- [x] Phase 29 - Minimal unit and provider-contract tests.
-- [x] Phase 30 - Minimal integration and cross-mode parity tests.
-- [x] Phase 31 - Minimal end-to-end, recovery, and reconciliation tests.
-- [x] Phase 32 - Documentation, metrics, and audit trail.
+- One run uses one market and one exchange.
+- Paper and Live recover state before strategy setup; Paper never sends broker orders.
+- Strategies create signals only. RiskManager and TradeManager own sizing and execution.
+- README, this plan, and the architecture guide must show the same status.
 
-## Post-Phase Cleanup Completed
+## References
 
-- Aligned AngelOne and simulated interfaces, constructors, arguments, exchanges, and normalized return models.
-- Added shared SimulatedSession and SimulatedState.
-- Added optional get_bars() dates with 5-day intraday and 30-day daily defaults.
-- Removed duplicate YAML.
-- Added root provider_test.py.
-- Added Windows simulated_control_panel.py.
-- Connected UI balance, funds, ticks, LTP, volume, price changes, CSV, and bars to the running Paper strategy.
-- Added UI-only and broker-auto-fetch behavior.
-- Added colored console logging and logger.done().
-- Added market-closed warning and realtime-loop exit when only_market_hours is true.
-- Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
-- Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
-- Completed Phase 19-20 runtime wiring for stop-loss, target, trailing-stop, and exit orders.
-- Added simulated fill accounting for funds, positions, trades, realized P&L, and clear execution logs.
-- Added automatic 500 ms Paper UI account refresh from shared simulated state.
-- Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
-- Removed tests until the planned Testing milestone.
-- Added SQLite snapshots with isolated mode/broker/exchange/strategy/symbol profiles.
-- Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
-- Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
-- Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
-- Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
-- Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
-- Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
-- Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
-- Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
-- Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
-- Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
-- Added offline unit tests for signal validation, risk rules, and the entry-to-exit trade lifecycle.
-- Added provider-contract tests for mode mapping, HistoricalProvider, simulated providers, and mocked AngelOne adapters.
-- Added one offline trade-flow integration test for Paper, Backtest, and Replay parity plus mocked Live provider wiring.
-- Added offline Paper restart recovery and fake Live reconciliation tests with temporary SQLite and report files.
-- Added append-only normalized order-state and recovery audit CSV files beside reports.
-- Added a five-market-day Paper soak and controlled Live rollout runbook.
-
-## Current Runtime Wiring
-
-- Paper with UI disabled: broker market data plus simulated account and execution.
-- Paper with UI enabled: shared UI simulated data plus simulated account and execution.
-- Backtest and Replay: HistoricalProvider plus simulated account and execution.
-- Live: broker market data, account, and execution.
-- Simple strategy buys when LTP exceeds previous close by 0.5%.
-- Swing strategy buys when LTP moves above its daily CSV trigger and leaves profit open under target-activated ATR trailing protection.
-- RiskManager uses per-trade allocated capital when `max_position_value` is configured; fixed-quantity configurations retain account-capital risk sizing.
-- One filled ENTRY increments the daily trade count.
-- Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.
-- MCX intraday uses 15m ATR at 2.0x; positional swing uses daily ATR at 2.5x. The activation ATR and tick-based trailing state survive restart.
-- Completed ENTRY + EXIT pairs append once to strategy-specific and combined CSV reports.
-- Summary files recalculate from accumulated trade CSV history.
-- POSITIONAL is the default position type.
-- One configured CalendarSessionManager schedule applies to the run's single exchange.
-- Live and Paper recover SQLite state before strategy setup; Backtest and Replay start fresh and save final state.
-
-Not yet wired in the CLI runner:
-
-- Daily P&L feed into max-loss enforcement.
-- Automatic square-off call.
-
-## Current Work
-
-- Completed milestone: Milestone 9 - Testing
-- Completed phases: 1 through 32
-- Current milestone: Milestone 10 - Production
-- Next phase: Phase 33 - Paper soak test and controlled Live rollout
-- Phase 32 status: completed
-- Phase 33 status: runbook ready; five Paper market days pending
-
-## Development Rules
-
-- Implement and commit one approved phase at a time.
-- Keep the code short and simple.
-- Update README.md, PLAN.md, and ARCHITECTURE_IMPLEMENTATION_GUIDE.txt together.
-- Keep strategies focused on market conditions and signal generation.
-- Keep broker SDK calls inside broker adapters.
-- Keep normalized models and interfaces broker-independent.
-- Do not add optional components before their planned phase.
+- [Architecture and implementation guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt)
+- [Paper soak and controlled Live rollout](PAPER_SOAK_RUNBOOK.md)
+- [Live verification guide](LIVE_VERIFICATION.md)

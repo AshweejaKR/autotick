@@ -24,33 +24,6 @@ from autotick.providers.brokers.simulated import (
 )
 
 
-def _config(tmp_path) -> dict:
-    return {
-        "mode": "paper",
-        "broker": "simulated",
-        "strategy": "test",
-        "capital": 1_000,
-        "market": {"exchange": "NSE", "symbols": ["INFY-EQ"]},
-        "trade": {"quantity": 5, "position_type": "POSITIONAL"},
-        "risk": {
-            "max_loss": -100,
-            "max_trades_per_day": 2,
-            "risk_per_trade_pct": 10,
-            "stoploss_pct": 2,
-            "target_pct": 5,
-            "trailing_atr_period": 14,
-            "trailing_atr_interval": "1d",
-            "trailing_atr_multiplier": 0,
-        },
-        "persistence": {"state_path": str(tmp_path / "state.db")},
-        "reports": {
-            "enabled": True,
-            "output_dir": str(tmp_path / "reports"),
-            "user_id": "tester",
-        },
-    }
-
-
 def _runtime(config: dict, timestamp: datetime):
     session = SimulatedSession()
     market = SimulatedMarketDataProvider(session)
@@ -63,8 +36,8 @@ def _runtime(config: dict, timestamp: datetime):
     return market, account, trades, risk, recovery
 
 
-def test_paper_restart_recovers_trade_then_writes_report(tmp_path) -> None:
-    config = _config(tmp_path)
+def test_paper_restart_recovers_trade_then_writes_report(tmp_path, make_config) -> None:
+    config = make_config(reports=True)
     now = datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc)
     trading_date = date(2026, 9, 12)
 
