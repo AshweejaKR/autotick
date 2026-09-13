@@ -13,12 +13,12 @@ AutoTick is a modular, broker-independent algorithmic trading framework for Live
 ## Current Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports
-- Completed phases: 1 through 30
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer, Execution and Risk, Trading Modes, Recovery and Persistence, Reports, Testing
+- Completed phases: 1 through 31
 - Provider cleanup: completed
-- Current milestone: Testing
-- Next phase: Phase 31 - end-to-end, recovery, and reconciliation tests
-- Automated tests: minimal offline unit, provider-contract, integration, and cross-mode parity suite
+- Current milestone: Production
+- Next phase: Phase 32 - documentation, metrics, and audit trail
+- Automated tests: minimal offline unit, provider-contract, integration, parity, recovery, and reconciliation suite
 
 ## Implemented Architecture
 
@@ -261,7 +261,7 @@ Run the automated tests:
     python -m pip install -e ".[test]"
     python -m pytest -q
 
-The tests cover a shared Paper, Backtest, and Replay trade flow plus mocked Live provider wiring. They do not use broker credentials, network calls, or real orders.
+The tests cover simulated mode parity, a Paper restart-to-report flow, and fake Live reconciliation. They do not use broker credentials, network calls, or real orders.
 
 ## Manual Tools
 

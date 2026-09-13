@@ -6,12 +6,12 @@ SOURCE OF TRUTH
 This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
-- Completed milestones: 1 through 8
-- Completed phases: 1 through 30
+- Completed milestones: 1 through 9
+- Completed phases: 1 through 31
 - Provider cleanup: completed
-- Current milestone: Milestone 9 - Testing
-- Next phase: Phase 31 - end-to-end, recovery, and reconciliation tests
-- Last updated: 2026-09-12
+- Current milestone: Milestone 10 - Production
+- Next phase: Phase 32 - documentation, metrics, and audit trail
+- Last updated: 2026-09-13
 
 PROJECT SUMMARY
 ================================================================================
@@ -77,10 +77,10 @@ Milestone 7: Recovery and Persistence - completed
 Milestone 8: Reports - completed
 - Phase 28: Performance metrics, strategy/combined reports, and trade export.
 
-Milestone 9: Testing - active
+Milestone 9: Testing - completed
 - Phase 29: Unit and provider-contract tests - completed.
 - Phase 30: Integration and cross-mode parity tests - completed.
-- Phase 31: End-to-end, recovery, and reconciliation tests.
+- Phase 31: End-to-end, recovery, and reconciliation tests - completed.
 
 Milestone 10: Production
 - Phase 32: Documentation, metrics, and audit trail.
@@ -135,8 +135,10 @@ provider_test.py
 simulated_control_panel.py
 tests/
   test_core.py
+  test_end_to_end.py
   test_integration.py
   test_provider_contracts.py
+  test_recovery_reconciliation.py
 pyproject.toml
 README.md
 PLAN.md
@@ -345,7 +347,7 @@ Automated tests return in Milestone 9:
 
 - Phase 29: minimal offline unit and provider-contract tests - completed.
 - Phase 30: minimal integration and cross-mode parity tests - completed.
-- Phase 31: end-to-end, recovery, and reconciliation tests.
+- Phase 31: minimal end-to-end, recovery, and reconciliation tests - completed.
 
 Phase 29 covers signal validation, core risk/trade behavior, mode mapping,
 HistoricalProvider, simulated providers, and mocked AngelOne adapters. It does
@@ -353,6 +355,9 @@ not use broker credentials, network calls, or real orders.
 
 Phase 30 covers one full simulated entry-to-exit flow with Paper, Backtest, and
 Replay result parity, plus offline Live provider wiring.
+
+Phase 31 covers a Paper entry, restart recovery, target exit, and report flow,
+plus fake Live reconciliation of known AutoTick and unknown manual state.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -372,10 +377,10 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Completed milestones: 1 through 8
-Completed phases: 1 through 30
+Completed milestones: 1 through 9
+Completed phases: 1 through 31
 Provider cleanup: completed
-Current milestone: Milestone 9 - Testing
-Next phase: Phase 31 - end-to-end, recovery, and reconciliation tests
-Phase 30 status: completed
-Last updated: 2026-09-12
+Current milestone: Milestone 10 - Production
+Next phase: Phase 32 - documentation, metrics, and audit trail
+Phase 31 status: completed
+Last updated: 2026-09-13
