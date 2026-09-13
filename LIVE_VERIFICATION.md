@@ -66,6 +66,13 @@ Combined:
 - `reports/angelone_live_verify_live_trades.csv`
 - `reports/angelone_live_verify_live_summary.csv`
 
+Audit:
+
+- `reports/angelone_live_verify_live_verification_live_audit.csv`
+
+The audit file appends normalized order-state and recovery events. It does not
+contain credentials, tokens, or secret values.
+
 One completed ENTRY + EXIT pair must append exactly one completed-trade row. Restarting must not duplicate that row.
 
 ## Useful Log Markers

@@ -50,6 +50,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 29 - Minimal unit and provider-contract tests.
 - [x] Phase 30 - Minimal integration and cross-mode parity tests.
 - [x] Phase 31 - Minimal end-to-end, recovery, and reconciliation tests.
+- [x] Phase 32 - Documentation, metrics, and audit trail.
 
 ## Post-Phase Cleanup Completed
 
@@ -85,6 +86,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added provider-contract tests for mode mapping, HistoricalProvider, simulated providers, and mocked AngelOne adapters.
 - Added one offline trade-flow integration test for Paper, Backtest, and Replay parity plus mocked Live provider wiring.
 - Added offline Paper restart recovery and fake Live reconciliation tests with temporary SQLite and report files.
+- Added append-only normalized order-state and recovery audit CSV files beside reports.
 
 ## Current Runtime Wiring
 
@@ -112,10 +114,10 @@ Not yet wired in the CLI runner:
 ## Current Work
 
 - Completed milestone: Milestone 9 - Testing
-- Completed phases: 1 through 31
+- Completed phases: 1 through 32
 - Current milestone: Milestone 10 - Production
-- Next phase: Phase 32 - documentation, metrics, and audit trail
-- Phase 31 status: completed
+- Next phase: Phase 33 - Paper soak test and controlled Live rollout
+- Phase 32 status: completed
 
 ## Development Rules
 

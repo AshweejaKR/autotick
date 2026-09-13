@@ -16,7 +16,7 @@ from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
-from autotick.reports import ReportManager
+from autotick.reports import AuditTrail, ReportManager
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -82,6 +82,11 @@ class TradeManager:
             if risk_manager is not None
             else None
         )
+        self._audit = (
+            AuditTrail(risk_manager.config, execution)
+            if risk_manager is not None
+            else None
+        )
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, Trade] = {}
@@ -128,6 +133,8 @@ class TradeManager:
             raise ValueError(f"Invalid order transition: {order.status} -> {status}")
         updated = replace(order, status=status, status_updated_at=datetime.now())
         self.track_order(updated)
+        if self._audit is not None:
+            self._audit.record_order(updated)
         if status == OrderStatus.FILLED:
             self._record_trade(updated)
             if updated.intent == OrderIntent.ENTRY:

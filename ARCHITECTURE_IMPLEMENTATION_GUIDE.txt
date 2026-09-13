@@ -7,10 +7,10 @@ This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
 - Completed milestones: 1 through 9
-- Completed phases: 1 through 31
+- Completed phases: 1 through 32
 - Provider cleanup: completed
 - Current milestone: Milestone 10 - Production
-- Next phase: Phase 32 - documentation, metrics, and audit trail
+- Next phase: Phase 33 - Paper soak test and controlled Live rollout
 - Last updated: 2026-09-13
 
 PROJECT SUMMARY
@@ -83,7 +83,7 @@ Milestone 9: Testing - completed
 - Phase 31: End-to-end, recovery, and reconciliation tests - completed.
 
 Milestone 10: Production
-- Phase 32: Documentation, metrics, and audit trail.
+- Phase 32: Documentation, metrics, and audit trail - completed.
 - Phase 33: Paper soak test and controlled Live rollout.
 
 CURRENT CODE STRUCTURE
@@ -127,6 +127,7 @@ autotick/
     recovery.py
   reports/
     __init__.py
+    audit.py
     report.py
   utils/
     logger.py
@@ -135,6 +136,7 @@ provider_test.py
 simulated_control_panel.py
 tests/
   test_core.py
+  test_audit_trail.py
   test_end_to_end.py
   test_integration.py
   test_provider_contracts.py
@@ -259,6 +261,12 @@ Report behavior:
 - reporting uses Python standard-library csv only; no pandas or chart package.
 - reporting errors are logged and do not undo an already completed trade.
 
+Audit behavior:
+- reports.enabled also writes one append-only strategy audit CSV.
+- each order state transition writes timestamp, normalized order data, and status.
+- each recovery/reconciliation writes its recovered, changed-order, and unresolved-order result.
+- audit rows contain no credentials, tokens, or secret-file values.
+
 PERSISTENCE AND RECOVERY
 ================================================================================
 
@@ -348,6 +356,7 @@ Automated tests return in Milestone 9:
 - Phase 29: minimal offline unit and provider-contract tests - completed.
 - Phase 30: minimal integration and cross-mode parity tests - completed.
 - Phase 31: minimal end-to-end, recovery, and reconciliation tests - completed.
+- Phase 32: minimal audit-trail test - completed.
 
 Phase 29 covers signal validation, core risk/trade behavior, mode mapping,
 HistoricalProvider, simulated providers, and mocked AngelOne adapters. It does
@@ -358,6 +367,8 @@ Replay result parity, plus offline Live provider wiring.
 
 Phase 31 covers a Paper entry, restart recovery, target exit, and report flow,
 plus fake Live reconciliation of known AutoTick and unknown manual state.
+
+Phase 32 covers append-only audit CSV output for order state and recovery events.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -378,9 +389,9 @@ CURRENT STATUS
 
 Version: 0.1.0
 Completed milestones: 1 through 9
-Completed phases: 1 through 31
+Completed phases: 1 through 32
 Provider cleanup: completed
 Current milestone: Milestone 10 - Production
-Next phase: Phase 32 - documentation, metrics, and audit trail
-Phase 31 status: completed
+Next phase: Phase 33 - Paper soak test and controlled Live rollout
+Phase 32 status: completed
 Last updated: 2026-09-13
