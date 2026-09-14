@@ -39,7 +39,6 @@ class RiskManager:
         self.trailing_atr_multiplier = float(risk["trailing_atr_multiplier"])
         self.trade_count = 0
         self.kill_switch = False
-        self.pnl_baseline: float | None = None
 
     def position_size(self, price: float) -> int:
         if price <= 0 or self.stoploss_pct <= 0:
@@ -115,51 +114,36 @@ class RiskManager:
         return best_price + direction * atr * self.trailing_atr_multiplier
 
     def check_daily_limits(self, pnl: float) -> bool:
-        """Apply max-loss and trade-count limits to current provider P&L."""
-        if self.pnl_baseline is None:
-            self.pnl_baseline = float(pnl)
-        daily_pnl = float(pnl) - self.pnl_baseline
-        if daily_pnl <= self.max_loss or self.trade_count >= self.max_trades:
+        if pnl <= self.max_loss or self.trade_count >= self.max_trades:
             self.activate_kill_switch()
         return not self.kill_switch
 
     def activate_kill_switch(self) -> None:
         self.kill_switch = True
 
-    def reset_daily_state(self, pnl: float | None = None) -> None:
+    def reset_daily_state(self) -> None:
         self.trade_count = 0
         self.kill_switch = False
-        self.pnl_baseline = float(pnl) if pnl is not None else None
 
-    def export_state(self) -> dict[str, int | bool | float | None]:
+    def export_state(self) -> dict[str, int | bool]:
         """Return daily risk state for persistence."""
         return {
             "trade_count": self.trade_count,
             "kill_switch": self.kill_switch,
-            "pnl_baseline": self.pnl_baseline,
         }
 
     def restore_state(self, state: dict) -> None:
         """Restore validated daily risk state."""
         trade_count = state.get("trade_count", 0)
         kill_switch = state.get("kill_switch", False)
-        pnl_baseline = state.get("pnl_baseline")
         if isinstance(trade_count, bool) or not isinstance(trade_count, int):
             raise ValueError("risk trade_count must be an integer")
         if trade_count < 0:
             raise ValueError("risk trade_count must not be negative")
         if not isinstance(kill_switch, bool):
             raise ValueError("risk kill_switch must be boolean")
-        if pnl_baseline is not None and (
-            isinstance(pnl_baseline, bool)
-            or not isinstance(pnl_baseline, (int, float))
-        ):
-            raise ValueError("risk pnl_baseline must be a number or null")
         self.trade_count = trade_count
         self.kill_switch = kill_switch or trade_count >= self.max_trades
-        self.pnl_baseline = (
-            float(pnl_baseline) if pnl_baseline is not None else None
-        )
 
     def update(self, capital: float) -> None:
         if capital < 0:
