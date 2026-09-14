@@ -7,7 +7,7 @@ Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
 - Current: Milestone 10 — Production
-- Next: Phase 33 — five-market-day Paper soak, then controlled Live rollout
+- Next: Phase 33 — five-market-day Paper soak
 
 ## Modes
 
@@ -58,5 +58,4 @@ Paper control panel:
 
 - [Plan](PLAN.md) — milestone status.
 - [Architecture guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) — detailed behavior, configuration, recovery, reports, and design rules.
-- [Paper soak runbook](PAPER_SOAK_RUNBOOK.md) — required gate before Live rollout.
-- [Live verification guide](LIVE_VERIFICATION.md) — one controlled real-order verification flow.
+- [Paper soak runbook](PAPER_SOAK_RUNBOOK.md) — five-day Paper safety check.

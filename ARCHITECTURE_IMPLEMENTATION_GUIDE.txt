@@ -10,7 +10,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Completed phases: 1 through 32
 - Provider cleanup: completed
 - Current milestone: Milestone 10 - Production
-- Next phase: Phase 33 - Paper soak test and controlled Live rollout
+- Next phase: Phase 33 - five-market-day Paper soak
 - Last updated: 2026-09-13
 
 PROJECT SUMMARY
@@ -84,18 +84,16 @@ Milestone 9: Testing - completed
 
 Milestone 10: Production
 - Phase 32: Documentation, metrics, and audit trail - completed.
-- Phase 33: Paper soak test and controlled Live rollout - runbook ready; soak pending.
+- Phase 33: five-market-day Paper soak - runbook ready; soak pending.
 
 CURRENT CODE STRUCTURE
 ================================================================================
 
 autotick/
   main.py
-  live_verification_main.py
   swing_verification_main.py
   config/
     default.yaml
-    live_verification.yaml
     swing_verification.yaml
     swing_watchlist.csv
     loader.py
@@ -105,7 +103,6 @@ autotick/
   interfaces/
   indicators/
   strategy/
-    live_verification.py
     swing_strategy.py
   engine/
     dispatcher.py
@@ -311,7 +308,6 @@ ATR trailing stop:
 - ATR(14) uses completed candles only and is retained for the open trade.
 - highest price is tick-based and the trailing stop never moves downward.
 - DEBUG logs record entry stop-loss/target levels and every upward TSL change.
-- Live verification logs trigger/current and stop/current/target ranges every loop.
 - MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
 - positional swing default: daily at 2.5x.
 - zero multiplier disables trailing and keeps direct target exit behavior.
@@ -371,8 +367,7 @@ plus fake Live reconciliation of known AutoTick and unknown manual state.
 
 Phase 32 covers append-only audit CSV output for order state and recovery events.
 
-Phase 33 provides a five-market-day Paper soak and controlled Live rollout runbook.
-It remains pending until the Paper soak evidence passes.
+Phase 33 provides a five-market-day Paper soak runbook. It remains pending until the Paper soak evidence passes.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -396,7 +391,7 @@ Completed milestones: 1 through 9
 Completed phases: 1 through 32
 Provider cleanup: completed
 Current milestone: Milestone 10 - Production
-Next phase: Phase 33 - Paper soak test and controlled Live rollout
+Next phase: Phase 33 - five-market-day Paper soak
 Phase 32 status: completed
 Phase 33 status: runbook ready; five Paper market days pending
 Last updated: 2026-09-13

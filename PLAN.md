@@ -5,7 +5,7 @@
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
 - Current: Milestone 10 — Production
-- Next: Phase 33 — five-market-day Paper soak, then controlled Live rollout
+- Next: Phase 33 — five-market-day Paper soak
 
 ## Milestones
 
@@ -20,7 +20,7 @@
 | 7 | Recovery and persistence | Complete |
 | 8 | Reports | Complete |
 | 9 | Testing | Complete |
-| 10 | Production: documentation, audit, soak, Live rollout | Phase 33 pending |
+| 10 | Production: documentation, audit, and soak | Phase 33 pending |
 
 ## Current Rules
 
@@ -32,5 +32,4 @@
 ## References
 
 - [Architecture and implementation guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt)
-- [Paper soak and controlled Live rollout](PAPER_SOAK_RUNBOOK.md)
-- [Live verification guide](LIVE_VERIFICATION.md)
+- [Paper soak runbook](PAPER_SOAK_RUNBOOK.md)
