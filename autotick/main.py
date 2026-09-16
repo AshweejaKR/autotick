@@ -817,39 +817,6 @@ def _run_providers(
         logger.debug("_run_providers exit")
 
 
-def _run_ui_data(config: dict) -> None:
-    """Run Paper mode with UI-backed simulated providers in one process."""
-    from simulated_control_panel import run_control_panel
-
-    symbols = _configured_symbols(config)
-    if not symbols:
-        raise ValueError("Simulated UI requires at least one configured symbol")
-    broker = str(config["broker"]).strip().lower()
-    simulated_config = config.get("simulated", {})
-    broker_auto_fetch = simulated_config.get("broker_auto_fetch", False)
-    credentials_file = (
-        config.get("broker_config", {}).get(broker, {}).get("credentials_file")
-    )
-
-    def runner(providers, stop_event: Event) -> None:
-        calendar = CalendarSessionManager(config["session"])
-        calendar.configure_mode("paper")
-        providers.calendar_session = calendar
-        _run_providers(providers, config, stop_event)
-
-    run_control_panel(
-        strategy_runner=runner,
-        configured_capital=float(config["capital"]),
-        exchange=config["market"]["exchange"],
-        initial_symbol=symbols[0],
-        initial_interval="1d",
-        credentials_file=credentials_file,
-        source_broker=broker if broker != "simulated" else None,
-        source_config=config,
-        broker_auto_fetch=broker_auto_fetch,
-    )
-
-
 def main(config_path: str | Path | None = None) -> None:
     print("..... main start .....")
     try:
@@ -875,19 +842,15 @@ def main(config_path: str | Path | None = None) -> None:
         logger.done("Configuration loaded from %s", config_path)
         logger.info("Starting mode=%s", mode.upper())
 
-        if config.get("simulated", {}).get("ui_data_enabled", False):
-            logger.info("Starting Paper mode with simulated UI data")
-            _run_ui_data(config)
-        else:
-            logger.debug("main creating providers mode=%s", mode)
-            providers = ProviderFactory.create_bundle(mode, config)
-            logger.debug(
-                "main providers created market_data=%s account=%s execution=%s",
-                type(providers.market_data).__name__,
-                type(providers.account).__name__,
-                type(providers.execution).__name__,
-            )
-            _run_providers(providers, config)
+        logger.debug("main creating providers mode=%s", mode)
+        providers = ProviderFactory.create_bundle(mode, config)
+        logger.debug(
+            "main providers created market_data=%s account=%s execution=%s",
+            type(providers.market_data).__name__,
+            type(providers.account).__name__,
+            type(providers.execution).__name__,
+        )
+        _run_providers(providers, config)
     except KeyboardInterrupt:
         logger.done("AutoTick stopped by user")
     except Exception:
