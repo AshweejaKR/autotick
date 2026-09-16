@@ -20,14 +20,17 @@ from uuid import uuid4
 from autotick.config.loader import load_config
 from autotick.engine import (
     CalendarSessionManager,
+    EventDispatcher,
     ReconnectManager,
     ReconnectStopped,
     RiskManager,
     SignalValidator,
     TradeManager,
+    TradingEngine,
 )
 from autotick.indicators import AverageTrueRange
 from autotick.models import (
+    EventType,
     Order,
     OrderIntent,
     OrderSide,
@@ -245,6 +248,7 @@ def _process_symbols(
     entered: set[str],
     position_type: PositionType,
     config: dict,
+    engine: TradingEngine | None = None,
 ) -> None:
     mode = config["mode"]
     logger.debug(
@@ -398,7 +402,10 @@ def _process_symbols(
             logger.debug("_process_symbols symbol exit symbol=%s reason=no_entry_signal", symbol)
             continue
 
-        SignalValidator.validate(signal)
+        if engine is None:
+            SignalValidator.validate(signal)
+        else:
+            engine.emit(EventType.SIGNAL, signal)
         if signal.price is None or not risk.can_trade(signal.price):
             logger.debug(
                 "Order blocked by risk limits: %s price=%s",
@@ -457,6 +464,7 @@ def _run_realtime(
     state_manager: RecoveryManager | None = None,
     reconnect: ReconnectManager | None = None,
     stop_event: Event | None = None,
+    engine: TradingEngine | None = None,
 ) -> date:
     strategies: dict[str, Strategy] | None = None
     blocked = set(recovery.blocked_symbols) if recovery else set()
@@ -560,6 +568,7 @@ def _run_realtime(
                     entered,
                     position_type,
                     config,
+                    engine,
                 )
                 _save_state(persistence, risk, trading_date)
         except BrokerError as exc:
@@ -618,6 +627,7 @@ def _run_historical(
     risk: RiskManager,
     position_type: PositionType,
     persistence: RecoveryManager | None = None,
+    engine: TradingEngine | None = None,
 ) -> date | None:
     logger.debug("_run_historical entry symbols=%s", symbols)
     timestamps = providers.market_data.timestamps()
@@ -655,6 +665,7 @@ def _run_historical(
             entered,
             position_type,
             config,
+            engine,
         )
     if trading_date is not None:
         _save_state(persistence, risk, trading_date, last_processed_at)
@@ -672,6 +683,14 @@ def _run_providers(
     logger.debug("_run_providers entry mode=%s symbols=%s", mode, symbols)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
+    dispatcher = EventDispatcher()
+    dispatcher.register(EventType.SIGNAL, lambda event: SignalValidator.validate(event.data))
+    engine = TradingEngine(
+        providers,
+        dispatcher,
+        loop_sleep_s=float(config["engine"]["loop_sleep_s"]),
+        risk_manager=risk,
+    )
     state_manager = RecoveryManager(
         config,
         trades,
@@ -780,6 +799,7 @@ def _run_providers(
                 risk,
                 position_type,
                 persistence,
+                engine,
             )
         else:
             logger.debug("_run_providers entering realtime runner")
@@ -795,6 +815,7 @@ def _run_providers(
                 state_manager,
                 reconnect,
                 stop_event,
+                engine,
             )
     finally:
         logger.debug("_run_providers shutdown entry runtime_date=%s", runtime_date)
