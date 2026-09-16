@@ -11,7 +11,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Provider cleanup: completed
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - five-market-day Paper soak
-- Last updated: 2026-09-13
+- Last updated: 2026-09-16
 
 PROJECT SUMMARY
 ================================================================================
@@ -130,7 +130,6 @@ autotick/
     logger.py
 
 provider_test.py
-simulated_control_panel.py
 tests/
   test_core.py
   test_audit_trail.py
@@ -150,15 +149,14 @@ MODE MAPPING
 Mode                 Market Data          Account       Execution     Timing
 -------------------  -------------------  ------------  ------------  ------------
 Live                 Selected broker      Broker        Broker        Realtime
-Paper, UI disabled   Selected broker      Simulated     Simulated     Realtime
-Paper, UI enabled    UI shared simulation Simulated     Simulated     Realtime
+Paper                Selected broker      Simulated     Simulated     Realtime
 Backtest             HistoricalProvider   Simulated     Simulated     Fast
 Replay               HistoricalProvider   Simulated     Simulated     Replay speed
 
 CONFIGURATION BEHAVIOR
 ================================================================================
 
-config/default.yaml is the only default YAML.
+autotick/config/default.yaml is the packaged default YAML.
 
 Relative credential, CSV, persistence, and report paths resolve from the YAML
 file directory before validation.
@@ -179,7 +177,7 @@ production secrets:
 - required values: API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET.
 - missing/unreadable files, duplicate keys, missing keys, and blank values fail.
 - secret values and file contents are never logged.
-- Paper validates AngelOne secrets only when broker access is needed.
+- Paper uses selected-broker market data and validates broker credentials.
 - Live requires persistence, reconnect, market-hours gate, and logging enabled.
 
 reports:
@@ -394,4 +392,4 @@ Current milestone: Milestone 10 - Production
 Next phase: Phase 33 - five-market-day Paper soak
 Phase 32 status: completed
 Phase 33 status: runbook ready; five Paper market days pending
-Last updated: 2026-09-13
+Last updated: 2026-09-16
