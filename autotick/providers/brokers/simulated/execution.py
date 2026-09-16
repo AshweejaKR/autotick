@@ -134,63 +134,47 @@ class SimulatedExecutionProvider(ExecutionProvider):
         key = (order.symbol, order.exchange)
         position = self._positions.get(key)
 
-        if order.side == OrderSide.BUY:
-            if position is not None and position.quantity < 0:
-                if abs(position.quantity) < order.quantity:
-                    return False
-                if self.session.state.update_funds(-value) is None:
-                    return False
-                pnl = (position.average_price - price) * order.quantity
-                self._pnl += pnl
-                remaining = position.quantity + order.quantity
-                self._positions[key] = replace(
-                    position,
-                    quantity=remaining,
-                    realized_pnl=position.realized_pnl + pnl,
-                    unrealized_pnl=0.0,
-                    status=PositionStatus.OPEN if remaining else PositionStatus.CLOSED,
-                )
-            else:
-                if self.session.state.update_funds(-value) is None:
-                    return False
-                quantity = order.quantity + (position.quantity if position else 0)
-                total = value + (
-                    position.average_price * position.quantity if position else 0.0
-                )
-                self._positions[key] = Position(
-                    symbol=order.symbol,
-                    exchange=order.exchange,
-                    quantity=quantity,
-                    average_price=total / quantity,
-                    realized_pnl=position.realized_pnl if position else 0.0,
-                    position_type=order.position_type,
-                )
+        if order.intent == OrderIntent.ENTRY:
+            if position is not None and position.quantity != 0:
+                return False
+            if self.session.state.update_funds(-value) is None:
+                return False
+            self._positions[key] = Position(
+                symbol=order.symbol,
+                exchange=order.exchange,
+                quantity=(order.quantity if order.side == OrderSide.BUY else -order.quantity),
+                average_price=price,
+                realized_pnl=position.realized_pnl if position else 0.0,
+                position_type=order.position_type,
+            )
         else:
             if position is None or position.quantity == 0:
-                if order.intent != OrderIntent.ENTRY:
-                    return False
-                self.session.state.update_funds(value)
-                self._positions[key] = Position(
-                    symbol=order.symbol,
-                    exchange=order.exchange,
-                    quantity=-order.quantity,
-                    average_price=price,
-                    position_type=order.position_type,
-                )
-            else:
-                if position.quantity < 0 or position.quantity < order.quantity:
-                    return False
-                self.session.state.update_funds(value)
-                pnl = (price - position.average_price) * order.quantity
-                self._pnl += pnl
-                remaining = position.quantity - order.quantity
-                self._positions[key] = replace(
-                    position,
-                    quantity=remaining,
-                    realized_pnl=position.realized_pnl + pnl,
-                    unrealized_pnl=0.0,
-                    status=PositionStatus.OPEN if remaining else PositionStatus.CLOSED,
-                )
+                return False
+            is_long_exit = position.quantity > 0 and order.side == OrderSide.SELL
+            is_short_exit = position.quantity < 0 and order.side == OrderSide.BUY
+            if not (is_long_exit or is_short_exit) or abs(position.quantity) < order.quantity:
+                return False
+
+            pnl = (
+                (price - position.average_price) * order.quantity
+                if is_long_exit
+                else (position.average_price - price) * order.quantity
+            )
+            release = position.average_price * order.quantity + pnl
+            self.session.state.update_funds(release)
+            self._pnl += pnl
+            remaining = (
+                position.quantity - order.quantity
+                if is_long_exit
+                else position.quantity + order.quantity
+            )
+            self._positions[key] = replace(
+                position,
+                quantity=remaining,
+                realized_pnl=position.realized_pnl + pnl,
+                unrealized_pnl=0.0,
+                status=PositionStatus.OPEN if remaining else PositionStatus.CLOSED,
+            )
 
         self._trades.append(
             Trade(
