@@ -14,7 +14,7 @@ Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 | Mode | Market data | Account and execution |
 | --- | --- | --- |
 | Live | Selected broker | Selected broker |
-| Paper | Selected broker or UI simulation | Simulated |
+| Paper | Selected broker | Simulated |
 | Backtest | Historical | Simulated |
 | Replay | Historical | Simulated |
 
@@ -43,13 +43,9 @@ Manual provider check:
 
     python provider_test.py
 
-Paper control panel:
-
-    python simulated_control_panel.py
-
 ## Important Rules
 
-- `config/default.yaml` is the only default YAML; relative paths resolve from its directory.
+- `autotick/config/default.yaml` is the packaged default YAML; relative paths resolve from its directory.
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
 - Use one configured calendar profile for all symbols in a run.
