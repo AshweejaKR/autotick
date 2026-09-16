@@ -11,9 +11,12 @@ from datetime import datetime, timezone
 
 import pytest
 
+from autotick.engine.dispatcher import EventDispatcher
 from autotick.engine.risk_manager import RiskManager
 from autotick.engine.signal_validator import SignalValidationError, SignalValidator
 from autotick.engine.trade_manager import TradeManager
+from autotick.engine.trading_engine import TradingEngine
+from autotick.models.event import EventType
 from autotick.models.market import MarketTick
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import PositionStatus
@@ -24,6 +27,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedMarketDataProvider,
     SimulatedSession,
 )
+from autotick.providers.factory import ProviderBundle
 
 
 def test_signal_and_risk_rules(make_config) -> None:
@@ -43,6 +47,23 @@ def test_signal_and_risk_rules(make_config) -> None:
     risk.record_entry()
     risk.record_entry()
     assert risk.kill_switch is True
+
+
+def test_trading_engine_dispatches_signal() -> None:
+    session = SimulatedSession()
+    market = SimulatedMarketDataProvider(session)
+    account = SimulatedAccountProvider(session, 1_000)
+    execution = SimulatedExecutionProvider(session)
+    dispatcher = EventDispatcher()
+    received = []
+    dispatcher.register(EventType.SIGNAL, lambda event: received.append(event.data))
+    engine = TradingEngine(ProviderBundle(market, account, execution), dispatcher)
+    signal = Signal("INFY-EQ", "NSE", SignalType.BUY, price=100)
+
+    event = engine.emit(EventType.SIGNAL, signal)
+
+    assert event.data is signal
+    assert received == [signal]
 
 
 def test_trade_entry_target_exit_and_invalid_transition(make_config) -> None:
