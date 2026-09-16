@@ -6,6 +6,7 @@ Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
+- Latest cleanup: removed obsolete `simulated_control_panel.py` and UI simulation flags
 - Current: Milestone 10 — Production
 - Next: Phase 33 — five-market-day Paper soak
 
@@ -18,8 +19,7 @@ Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 | Backtest | Historical | Simulated |
 | Replay | Historical | Simulated |
 
-Paper orders never reach the broker. Live and Paper recover SQLite state before
-strategy setup; Backtest and Replay start fresh.
+Paper uses broker market data with simulated account/execution, so Paper orders never reach the broker. Live and Paper recover SQLite state before strategy setup; Backtest and Replay start fresh.
 
 ## Run
 
@@ -49,9 +49,10 @@ Manual provider check:
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
 - Use one configured calendar profile for all symbols in a run.
+- The old simulated desktop control panel and its config flags are removed.
 
 ## Documentation
 
 - [Plan](PLAN.md) — milestone status.
-- [Architecture guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) — detailed behavior, configuration, recovery, reports, and design rules.
+- [Architecture guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt) — behavior, configuration, recovery, reports, and design rules.
 - [Paper soak runbook](PAPER_SOAK_RUNBOOK.md) — five-day Paper safety check.
