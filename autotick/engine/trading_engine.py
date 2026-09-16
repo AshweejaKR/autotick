@@ -15,7 +15,7 @@ from queue import Empty, Queue
 from typing import TYPE_CHECKING
 
 from autotick.engine.dispatcher import EventDispatcher
-from autotick.models.event import Event
+from autotick.models.event import Event, EventType
 from autotick.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -95,6 +95,10 @@ class TradingEngine:
             if self.strategy is not None:
                 self.strategy.on_market_open()
                 self.strategy.on_initial_setup()
+
+    def emit(self, event_type: EventType, data: object) -> Event:
+        """Dispatch one normalized runtime event immediately."""
+        return self.dispatcher.emit(event_type, data)
 
     def submit(self, event: Event) -> None:
         """Queue one normalized event for processing."""
