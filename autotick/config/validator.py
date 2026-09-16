@@ -256,30 +256,17 @@ def validate_config(config: dict[str, Any]) -> None:
     if isinstance(auth_attempts, bool) or not isinstance(auth_attempts, int) or auth_attempts <= 0:
         raise ConfigValidationError("reconnect.auth_max_attempts must be a positive integer")
 
-    simulated = config.get("simulated", {})
-    if not isinstance(simulated, dict):
-        raise ConfigValidationError("simulated must be a mapping")
-    ui_data_enabled = simulated.get("ui_data_enabled", False)
-    if not isinstance(ui_data_enabled, bool):
-        raise ConfigValidationError("simulated.ui_data_enabled must be boolean")
-    broker_auto_fetch = simulated.get("broker_auto_fetch", False)
-    if not isinstance(broker_auto_fetch, bool):
-        raise ConfigValidationError("simulated.broker_auto_fetch must be boolean")
-    if ui_data_enabled and mode != "paper":
-        raise ConfigValidationError("simulated.ui_data_enabled is supported only in paper mode")
-    if broker_auto_fetch and not ui_data_enabled:
-        raise ConfigValidationError("simulated.broker_auto_fetch requires simulated.ui_data_enabled")
-    if broker_auto_fetch and broker.strip().lower() == "simulated":
-        raise ConfigValidationError(
-            "broker must select a real broker when simulated.broker_auto_fetch is enabled"
-        )
+    simulated = config.get("simulated")
+    if simulated is not None:
+        if not isinstance(simulated, dict):
+            raise ConfigValidationError("simulated must be a mapping")
+        if simulated.get("ui_data_enabled") or simulated.get("broker_auto_fetch"):
+            raise ConfigValidationError("simulated control-panel options are no longer supported")
 
     session = _mapping(config, "session")
     _validate_session(session)
 
-    broker_access = mode == "live" or (
-        mode == "paper" and (not ui_data_enabled or broker_auto_fetch)
-    )
+    broker_access = mode in {"live", "paper"}
     if broker_access:
         broker_config = _mapping(config, "broker_config")
         if broker not in broker_config or not isinstance(broker_config[broker], dict):
