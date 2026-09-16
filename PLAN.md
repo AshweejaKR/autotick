@@ -5,6 +5,7 @@
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
 - Latest cleanup: removed obsolete simulated desktop control panel and UI-only config flags
+- Latest improvements: engine SIGNAL event routing, simulated SHORT support, GitHub pytest CI
 - Current: Milestone 10 — Production
 - Next: Phase 33 — five-market-day Paper soak
 
@@ -27,11 +28,14 @@
 
 - One run uses one market and one exchange.
 - Paper uses selected-broker market data with simulated account/execution; Paper never sends broker orders.
+- Simulated execution supports LONG and SHORT positions and square-off in both directions.
 - Live and Paper recover state before strategy setup.
+- Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.
 - Strategies create signals only. RiskManager and TradeManager own sizing and execution.
+- GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged default configuration.
 - Simulated desktop UI/control-panel support is removed.
-- README, this plan, and the architecture guide must show the same status.
+- README, this plan, architecture guide, and soak runbook must show the same status.
 
 ## References
 
