@@ -9,6 +9,7 @@ This guide, README.md, and PLAN.md describe the same branch status:
 - Completed milestones: 1 through 9
 - Completed phases: 1 through 32
 - Provider cleanup: completed
+- Latest cleanup: simulated desktop control panel and UI-only config flags removed
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - five-market-day Paper soak
 - Last updated: 2026-09-16
@@ -20,15 +21,13 @@ AutoTick is a modular, broker-independent framework supporting Live, Paper,
 Backtest, and Replay modes through one codebase.
 
 Core rules:
-
 - Strategies generate signals and do not select modes or brokers.
 - ProviderFactory selects market data, account, execution, and session timing.
 - Broker SDK code stays inside broker adapters.
 - Models and provider contracts stay normalized.
 - CalendarSessionManager owns the run's single-exchange calendar.
 - RiskManager owns sizing and risk limits.
-- TradeManager owns order, position, completed-trade, and report triggering flow.
-- Optional components are added only in their planned phase.
+- TradeManager owns order, position, completed-trade, and report flow.
 
 CURRENT MILESTONES
 ================================================================================
@@ -48,14 +47,14 @@ Milestone 2: Mode-Neutral Core - completed
 
 Milestone 3: Strategy Framework - completed
 - Phase 10: Indicator base and SMA.
-- Phase 11: Strategy base, context, callbacks, and simple long strategy.
+- Phase 11: Strategy base, context, callbacks, and simple strategy.
 - Phase 12: Engine-owned SignalValidator.
 
 Milestone 4: Provider Layer - completed
-- Phase 13: Shared HistoricalProvider.
+- Phase 13: HistoricalProvider.
 - Phase 14: Simulated providers and shared state.
-- Phase 15: AngelOne session and account adapters.
-- Phase 16: AngelOne market-data and execution adapters.
+- Phase 15: AngelOne session/account adapters.
+- Phase 16: AngelOne market-data/execution adapters.
 
 Milestone 5: Execution and Risk - completed
 - Phase 17: TradeManager and order state machine.
@@ -78,13 +77,25 @@ Milestone 8: Reports - completed
 - Phase 28: Performance metrics, strategy/combined reports, and trade export.
 
 Milestone 9: Testing - completed
-- Phase 29: Unit and provider-contract tests - completed.
-- Phase 30: Integration and cross-mode parity tests - completed.
-- Phase 31: End-to-end, recovery, and reconciliation tests - completed.
+- Phase 29: Unit and provider-contract tests.
+- Phase 30: Integration and cross-mode parity tests.
+- Phase 31: End-to-end, recovery, and reconciliation tests.
 
 Milestone 10: Production
 - Phase 32: Documentation, metrics, and audit trail - completed.
 - Phase 33: five-market-day Paper soak - runbook ready; soak pending.
+
+LATEST CLEANUP
+================================================================================
+
+Removed obsolete simulated desktop UI support:
+- deleted simulated_control_panel.py.
+- removed _run_ui_data() and UI branching from autotick/main.py.
+- removed simulated.ui_data_enabled and simulated.broker_auto_fetch from packaged configs.
+- validator rejects old enabled UI-control-panel options with a clear error.
+- Paper mode now has one normal path: selected-broker market data with simulated
+  account and execution.
+- packaged default remains autotick/config/default.yaml.
 
 CURRENT CODE STRUCTURE
 ================================================================================
@@ -123,7 +134,6 @@ autotick/
     sqlite_store.py
     recovery.py
   reports/
-    __init__.py
     audit.py
     report.py
   utils/
@@ -131,12 +141,6 @@ autotick/
 
 provider_test.py
 tests/
-  test_core.py
-  test_audit_trail.py
-  test_end_to_end.py
-  test_integration.py
-  test_provider_contracts.py
-  test_recovery_reconciliation.py
 pyproject.toml
 README.md
 PLAN.md
@@ -146,180 +150,56 @@ PAPER_SOAK_RUNBOOK.md
 MODE MAPPING
 ================================================================================
 
-Mode                 Market Data          Account       Execution     Timing
--------------------  -------------------  ------------  ------------  ------------
-Live                 Selected broker      Broker        Broker        Realtime
-Paper                Selected broker      Simulated     Simulated     Realtime
-Backtest             HistoricalProvider   Simulated     Simulated     Fast
-Replay               HistoricalProvider   Simulated     Simulated     Replay speed
+Mode       Market Data          Account       Execution     Timing
+---------  -------------------  ------------  ------------  ------------
+Live       Selected broker      Broker        Broker        Realtime
+Paper      Selected broker      Simulated     Simulated     Realtime
+Backtest   HistoricalProvider   Simulated     Simulated     Fast
+Replay     HistoricalProvider   Simulated     Simulated     Replay speed
 
-CONFIGURATION BEHAVIOR
+Paper orders never reach broker execution.
+
+CONFIGURATION
 ================================================================================
 
-autotick/config/default.yaml is the packaged default YAML.
+- autotick/config/default.yaml is the packaged default YAML.
+- relative credential, CSV, persistence, report, and log paths resolve from the
+  YAML file directory.
+- AngelOne secrets stay in ignored angelone_keys.env.
+- required AngelOne values: API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET.
+- Live requires persistence, reconnect, only_market_hours, and logging enabled.
+- one run uses one market/exchange calendar.
+- old simulated control-panel flags are not part of current configuration.
 
-Relative credential, CSV, persistence, and report paths resolve from the YAML
-file directory before validation.
-
-swing strategy:
-- strategy_config.csv_file points to one fixed symbol,trigger_price watchlist.
-- max_position_value 5000 is the maximum capital allocated to one trade.
-- RiskManager uses min(available capital, max_position_value) as trade capital,
-  applies risk_per_trade_pct to that amount, and caps whole-share quantity by
-  both trade capital and stop-loss risk.
-- the watchlist reloads once at each trading-day open without restart.
-- CSV removal blocks new entries but never stops management of an open position.
-- a filled position close removes the symbol from runtime subscriptions immediately.
-- its recovery profile uses a stable CSV_WATCHLIST identity across daily edits.
-
-production secrets:
-- AngelOne secrets remain in angelone_keys.env.
-- required values: API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET.
-- missing/unreadable files, duplicate keys, missing keys, and blank values fail.
-- secret values and file contents are never logged.
-- Paper uses selected-broker market data and validates broker credentials.
-- Live requires persistence, reconnect, market-hours gate, and logging enabled.
-
-reports:
-- reports.enabled enables completed-trade CSV export and summaries.
-- reports.user_id is optional and may be any user-selected label.
-- when reports.user_id is blank, AngelOne CLIENT_ID is used when available.
-- reports.output_dir selects the report directory.
-- no timestamp is added to report filenames.
-
-REPORTING FLOW
+SWING STRATEGY
 ================================================================================
 
-One report trade means one completed ENTRY + EXIT pair.
-
-When a filled EXIT closes a managed position:
-
-TradeManager
-  -> locate the matching filled ENTRY trade
-  -> calculate completed-trade P&L
-  -> ReportManager.record()
-  -> append strategy trade CSV if exit_trade_id is new
-  -> recalculate strategy summary from accumulated CSV
-  -> append combined trade CSV if exit_trade_id is new
-  -> recalculate combined summary from accumulated CSV
-
-Strategy filenames:
-
-broker_userid_strategy_mode_trades.csv
-broker_userid_strategy_mode_summary.csv
-
-Combined filenames:
-
-broker_userid_mode_trades.csv
-broker_userid_mode_summary.csv
-
-Combined scope:
-- same broker
-- same user ID
-- same mode
-- all strategies using that identity
-
-Trade CSV fields:
-- exit_trade_id
-- entry_trade_id
-- strategy
-- broker
-- user_id
-- mode
-- symbol
-- exchange
-- quantity
-- entry_price
-- exit_price
-- pnl
-- entry_time
-- exit_time
-
-Summary metrics:
-- completed_trades
-- wins
-- losses
-- win_rate_pct
-- gross_profit
-- gross_loss
-- net_pnl
-- average_pnl
-- best_trade
-- worst_trade
-
-Report behavior:
-- trade CSV is append-only for unseen completed trades.
-- duplicate exit_trade_id values are skipped.
-- summary CSV is overwritten with recalculated accumulated metrics.
-- each report pair uses an OS file lock across Windows and Linux processes.
-- summary replacement is atomic and duplicate retries repair stale summaries.
-- corrupt report files log an error only for that report scope and never stop trading.
-- reporting uses Python standard-library csv only; no pandas or chart package.
-- reporting errors are logged and do not undo an already completed trade.
-
-Audit behavior:
-- reports.enabled also writes one append-only strategy audit CSV.
-- each order state transition writes timestamp, normalized order data, and status.
-- each recovery/reconciliation writes its recovered, changed-order, and unresolved-order result.
-- audit rows contain no credentials, tokens, or secret-file values.
-
-PERSISTENCE AND RECOVERY
-================================================================================
-
-- SQLite state is stored in one configured .db file.
-- profiles are isolated by mode, broker, exchange, strategy, and symbols; the
-  swing CSV strategy uses one stable watchlist identity.
-- Live and Paper recover managed state before strategy setup.
-- Paper restores simulated account/trade state.
-- unknown broker orders/holdings stay unmanaged and block duplicate entries.
-- unresolved broker writes trigger reconciliation and safe shutdown.
-- Backtest and Replay start fresh and save final state for later use.
-
-RECONNECT
-================================================================================
-
-- Live and broker-backed Paper use ReconnectManager when enabled.
-- temporary read/network failures retry with capped exponential backoff.
-- authentication recovery tries refresh before full login.
-- subscriptions restore before reconciliation and strategy resume.
-- broker writes are never automatically retried.
+- strategy_config.csv_file points to symbol,trigger_price watchlist data.
+- max_position_value limits capital allocated per trade.
+- RiskManager applies risk_per_trade_pct and stop-loss sizing.
+- watchlist reloads once at each trading-day open.
+- CSV removal blocks new entries but does not stop management of an open position.
+- closed swing positions are removed from runtime subscriptions.
+- recovery uses stable CSV_WATCHLIST profile identity.
 
 RISK AND TRADE MANAGEMENT
 ================================================================================
 
 RiskManager:
-- when max_position_value is configured, uses min(available capital,
-  max_position_value) as per-trade capital.
-- applies risk_per_trade_pct to per-trade capital, calculates stop-loss risk per
-  unit, and uses the smaller of quantity-by-capital and quantity-by-risk.
-- when max_position_value is absent, retains account-capital risk sizing with
-  configured quantity as the cap.
-- calculates symmetric long/short stop-loss, target, and ATR trailing levels.
+- owns position sizing and entry risk checks.
+- applies max_position_value when configured.
+- calculates long/short stop-loss, target, and ATR trailing levels.
 - filled ENTRY increments daily trade count.
-- max-trade limit activates the kill switch.
-- exposes stop-loss, target, ATR trailing-stop, and daily-limit helpers.
-- keeps the validated runtime config used by report setup.
-
-ATR trailing stop:
-- trailing_activation_pct, or target_pct when omitted, activates protection when
-  trailing_atr_multiplier is greater than zero.
-- ATR(14) uses completed candles only and is retained for the open trade.
-- highest price is tick-based and the trailing stop never moves downward.
-- DEBUG logs record entry stop-loss/target levels and every upward TSL change.
-- MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
-- positional swing default: daily at 2.5x.
-- zero multiplier disables trailing and keeps direct target exit behavior.
-- zero target_pct keeps profit open when ATR is unavailable; fixed stop protection remains.
+- max-trade limit activates kill switch.
 
 TradeManager:
-- owns order-state transitions.
-- tracks normalized orders, positions, trades, and exit levels.
+- owns normalized order-state transitions.
+- tracks orders, positions, trades, and exit levels.
 - reconciles known broker records.
 - monitors stop-loss, target, and trailing-stop exits.
-- records signed short positions and submits BUY exits for them.
+- supports signed short positions and BUY exits.
 - closes positions only after filled exits.
-- calculates realized P&L for completed exits.
-- triggers Phase 28 reporting only for completed ENTRY + EXIT pairs.
+- calculates realized P&L and triggers completed-trade reporting.
 
 ORDER STATE MACHINE
 ================================================================================
@@ -331,41 +211,65 @@ PARTIAL -> FILLED / CANCELLED / EXPIRED
 
 Only a FILLED ENTRY consumes the daily trade limit.
 
-POSITION STATE MACHINE
+PERSISTENCE AND RECOVERY
 ================================================================================
 
-NO_POSITION -> ENTRY_PENDING -> OPEN -> EXIT_PENDING -> CLOSED
+- SQLite stores normalized runtime state.
+- profiles are isolated by mode, broker, account identity, exchange, strategy,
+  and symbols; swing uses stable CSV_WATCHLIST identity.
+- Live and Paper recover state before strategy setup.
+- Paper restores simulated account/trade state.
+- unknown broker state remains unmanaged and duplicate entries are blocked.
+- unresolved broker writes trigger reconciliation and safe shutdown.
+
+RECONNECT
+================================================================================
+
+- Live and broker-backed Paper use ReconnectManager when enabled.
+- temporary read/network failures use capped exponential backoff.
+- authentication recovery attempts refresh before full login.
+- subscriptions restore before reconciliation and strategy resume.
+- broker writes are not automatically retried.
+
+REPORTING AND AUDIT
+================================================================================
+
+- reports.enabled writes completed-trade CSVs, summaries, and audit records.
+- reports.user_id is optional; broker client ID may be used when blank.
+- completed ENTRY + EXIT pairs produce report trades.
+- duplicate completed exits are skipped.
+- strategy and combined summaries are recalculated from accumulated reports.
+- reporting errors are logged and do not undo completed trades.
+- audit records order transitions and recovery/reconciliation events.
+- credentials and secret values are never written to audit output.
+
+TESTING STATUS
+================================================================================
+
+- Phase 29: unit/provider-contract tests completed.
+- Phase 30: integration/cross-mode parity tests completed.
+- Phase 31: end-to-end/recovery/reconciliation tests completed.
+- Phase 32: audit-trail test completed.
+- Phase 33: five-market-day Paper soak pending.
 
 CURRENT CLI GAPS
 ================================================================================
 
-Not yet wired:
+Still not wired into the normal CLI runtime:
 - daily P&L feed into max-loss enforcement.
 - automatic intraday square-off call.
 
-TESTING POLICY
+These are existing runtime gaps and are not changed by the simulated UI cleanup.
+
+PHASE 33 PAPER SOAK
 ================================================================================
 
-Automated tests return in Milestone 9:
-
-- Phase 29: minimal offline unit and provider-contract tests - completed.
-- Phase 30: minimal integration and cross-mode parity tests - completed.
-- Phase 31: minimal end-to-end, recovery, and reconciliation tests - completed.
-- Phase 32: minimal audit-trail test - completed.
-
-Phase 29 covers signal validation, core risk/trade behavior, mode mapping,
-HistoricalProvider, simulated providers, and mocked AngelOne adapters. It does
-not use broker credentials, network calls, or real orders.
-
-Phase 30 covers one full simulated entry-to-exit flow with Paper, Backtest, and
-Replay result parity, plus offline Live provider wiring.
-
-Phase 31 covers a Paper entry, restart recovery, target exit, and report flow,
-plus fake Live reconciliation of known AutoTick and unknown manual state.
-
-Phase 32 covers append-only audit CSV output for order state and recovery events.
-
-Phase 33 provides a five-market-day Paper soak runbook. It remains pending until the Paper soak evidence passes.
+- use normal Paper mode only.
+- market data comes from selected broker.
+- account and execution remain simulated.
+- no simulated desktop control panel is used.
+- keep persistence state between soak days.
+- verify restart recovery, reports/audit, and zero broker orders for five market days.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -375,11 +279,10 @@ DESIGN PRINCIPLES
 3. Maintainability before cleverness.
 4. One normalized contract per provider capability.
 5. Broker SDKs remain inside broker adapters.
-6. Strategies remain focused on market conditions and signals.
+6. Strategies focus on market conditions and signals.
 7. RiskManager and TradeManager own risk and trade workflow.
-8. One CalendarSessionManager owns the single-exchange schedule and time.
-9. Add optional components only in their planned phase.
-10. Keep README.md, PLAN.md, and this guide synchronized.
+8. One CalendarSessionManager owns the run's single-exchange schedule.
+9. Keep README.md, PLAN.md, this guide, and runbook synchronized.
 
 CURRENT STATUS
 ================================================================================
@@ -388,8 +291,8 @@ Version: 0.1.0
 Completed milestones: 1 through 9
 Completed phases: 1 through 32
 Provider cleanup: completed
+Simulated UI cleanup: completed
 Current milestone: Milestone 10 - Production
 Next phase: Phase 33 - five-market-day Paper soak
-Phase 32 status: completed
 Phase 33 status: runbook ready; five Paper market days pending
 Last updated: 2026-09-16
