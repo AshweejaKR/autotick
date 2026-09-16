@@ -166,10 +166,10 @@ class SimulatedExecutionProvider(ExecutionProvider):
                     position_type=order.position_type,
                 )
         else:
-            if position is not None and position.quantity < 0:
-                return False
-            self.session.state.update_funds(value)
             if position is None or position.quantity == 0:
+                if order.intent != OrderIntent.ENTRY:
+                    return False
+                self.session.state.update_funds(value)
                 self._positions[key] = Position(
                     symbol=order.symbol,
                     exchange=order.exchange,
@@ -178,8 +178,9 @@ class SimulatedExecutionProvider(ExecutionProvider):
                     position_type=order.position_type,
                 )
             else:
-                if position.quantity < order.quantity:
+                if position.quantity < 0 or position.quantity < order.quantity:
                     return False
+                self.session.state.update_funds(value)
                 pnl = (price - position.average_price) * order.quantity
                 self._pnl += pnl
                 remaining = position.quantity - order.quantity
