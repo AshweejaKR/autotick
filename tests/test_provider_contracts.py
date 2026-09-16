@@ -103,7 +103,21 @@ def test_simulated_provider_contracts() -> None:
     market.set_tick(MarketTick("INFY-EQ", "NSE", 110, 20, now))
     execution.square_off()
     assert execution.get_pnl() == 20
+    assert account.get_balance() == 1_020
+
+    market.set_tick(MarketTick("INFY-EQ", "NSE", 100, 20, now))
+    short = execution.place_order(Order("SELL-1", "INFY-EQ", "NSE", OrderSide.SELL, 1))
+    assert short.status == OrderStatus.FILLED
+    assert execution.get_positions()[0].quantity == -1
+    assert account.get_balance() == 920
+
+    market.set_tick(MarketTick("INFY-EQ", "NSE", 90, 20, now))
+    execution.square_off()
+    assert execution.get_positions()[0].quantity == 0
+    assert execution.get_pnl() == 30
+    assert account.get_balance() == 1_030
     assert execution.get_holdings() == []
+
     execution.cancel_all()
     market.unsubscribe(["INFY-EQ"])
     market.disconnect()
