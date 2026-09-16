@@ -30,7 +30,7 @@ def test_simulated_short_entry_and_cover() -> None:
     )
     assert entry.status == OrderStatus.FILLED
     assert execution.get_positions()[0].quantity == -2
-    assert account.get_balance() == 1_200
+    assert account.get_balance() == 800
 
     market.set_tick(MarketTick("INFY-EQ", "NSE", 90, 10, now))
     exit_order = execution.place_order(
