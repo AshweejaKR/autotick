@@ -6,12 +6,12 @@ SOURCE OF TRUTH
 This guide, README.md, and PLAN.md describe the same branch status:
 
 - Version: 0.1.0
-- Completed milestones: 1 through 8
-- Completed phases: 1 through 28
+- Completed milestones: 1 through 9
+- Completed phases: 1 through 32
 - Provider cleanup: completed
-- Current milestone: Milestone 9 - Testing
-- Next phase: Phase 29 - unit and provider-contract tests
-- Last updated: 2026-09-09
+- Current milestone: Milestone 10 - Production
+- Next phase: Phase 33 - five-market-day Paper soak
+- Last updated: 2026-09-13
 
 PROJECT SUMMARY
 ================================================================================
@@ -77,14 +77,14 @@ Milestone 7: Recovery and Persistence - completed
 Milestone 8: Reports - completed
 - Phase 28: Performance metrics, strategy/combined reports, and trade export.
 
-Milestone 9: Testing - active
-- Phase 29: Unit and provider-contract tests.
-- Phase 30: Integration and cross-mode parity tests.
-- Phase 31: End-to-end, recovery, and reconciliation tests.
+Milestone 9: Testing - completed
+- Phase 29: Unit and provider-contract tests - completed.
+- Phase 30: Integration and cross-mode parity tests - completed.
+- Phase 31: End-to-end, recovery, and reconciliation tests - completed.
 
 Milestone 10: Production
-- Phase 32: Documentation, metrics, and audit trail.
-- Phase 33: Paper soak test and controlled Live rollout.
+- Phase 32: Documentation, metrics, and audit trail - completed.
+- Phase 33: five-market-day Paper soak - runbook ready; soak pending.
 
 CURRENT CODE STRUCTURE
 ================================================================================
@@ -124,16 +124,25 @@ autotick/
     recovery.py
   reports/
     __init__.py
+    audit.py
     report.py
   utils/
     logger.py
 
 provider_test.py
 simulated_control_panel.py
+tests/
+  test_core.py
+  test_audit_trail.py
+  test_end_to_end.py
+  test_integration.py
+  test_provider_contracts.py
+  test_recovery_reconciliation.py
 pyproject.toml
 README.md
 PLAN.md
 ARCHITECTURE_IMPLEMENTATION_GUIDE.txt
+PAPER_SOAK_RUNBOOK.md
 
 MODE MAPPING
 ================================================================================
@@ -250,6 +259,12 @@ Report behavior:
 - reporting uses Python standard-library csv only; no pandas or chart package.
 - reporting errors are logged and do not undo an already completed trade.
 
+Audit behavior:
+- reports.enabled also writes one append-only strategy audit CSV.
+- each order state transition writes timestamp, normalized order data, and status.
+- each recovery/reconciliation writes its recovered, changed-order, and unresolved-order result.
+- audit rows contain no credentials, tokens, or secret-file values.
+
 PERSISTENCE AND RECOVERY
 ================================================================================
 
@@ -293,7 +308,6 @@ ATR trailing stop:
 - ATR(14) uses completed candles only and is retained for the open trade.
 - highest price is tick-based and the trailing stop never moves downward.
 - DEBUG logs record entry stop-loss/target levels and every upward TSL change.
-- Live verification logs trigger/current and stop/current/target ranges every loop.
 - MCX intraday default: 15m at 2.0x; noisy contracts may use 2.5x.
 - positional swing default: daily at 2.5x.
 - zero multiplier disables trailing and keeps direct target exit behavior.
@@ -330,16 +344,30 @@ CURRENT CLI GAPS
 Not yet wired:
 - daily P&L feed into max-loss enforcement.
 - automatic intraday square-off call.
-- automated tests, starting in Phase 29.
 
 TESTING POLICY
 ================================================================================
 
 Automated tests return in Milestone 9:
 
-- Phase 29: unit and provider-contract tests.
-- Phase 30: integration and cross-mode parity tests.
-- Phase 31: end-to-end, recovery, and reconciliation tests.
+- Phase 29: minimal offline unit and provider-contract tests - completed.
+- Phase 30: minimal integration and cross-mode parity tests - completed.
+- Phase 31: minimal end-to-end, recovery, and reconciliation tests - completed.
+- Phase 32: minimal audit-trail test - completed.
+
+Phase 29 covers signal validation, core risk/trade behavior, mode mapping,
+HistoricalProvider, simulated providers, and mocked AngelOne adapters. It does
+not use broker credentials, network calls, or real orders.
+
+Phase 30 covers one full simulated entry-to-exit flow with Paper, Backtest, and
+Replay result parity, plus offline Live provider wiring.
+
+Phase 31 covers a Paper entry, restart recovery, target exit, and report flow,
+plus fake Live reconciliation of known AutoTick and unknown manual state.
+
+Phase 32 covers append-only audit CSV output for order state and recovery events.
+
+Phase 33 provides a five-market-day Paper soak runbook. It remains pending until the Paper soak evidence passes.
 
 DESIGN PRINCIPLES
 ================================================================================
@@ -359,10 +387,11 @@ CURRENT STATUS
 ================================================================================
 
 Version: 0.1.0
-Completed milestones: 1 through 8
-Completed phases: 1 through 28
+Completed milestones: 1 through 9
+Completed phases: 1 through 32
 Provider cleanup: completed
-Current milestone: Milestone 9 - Testing
-Next phase: Phase 29 - unit and provider-contract tests
-Phase 28 status: completed
-Last updated: 2026-09-09
+Current milestone: Milestone 10 - Production
+Next phase: Phase 33 - five-market-day Paper soak
+Phase 32 status: completed
+Phase 33 status: runbook ready; five Paper market days pending
+Last updated: 2026-09-13
