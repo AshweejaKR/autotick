@@ -3,13 +3,14 @@ AUTOTICK - ARCHITECTURE & IMPLEMENTATION GUIDE
 SOURCE OF TRUTH
 ================================================================================
 
-This guide, README.md, and PLAN.md describe the same branch status:
+This guide, README.md, PLAN.md, and PAPER_SOAK_RUNBOOK.md describe the same branch status:
 
 - Version: 0.1.0
 - Completed milestones: 1 through 9
 - Completed phases: 1 through 32
 - Provider cleanup: completed
-- Latest cleanup: simulated desktop control panel and UI-only config flags removed
+- Simulated UI cleanup: completed
+- Latest improvements: engine SIGNAL event routing, simulated SHORT support, GitHub pytest CI
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - five-market-day Paper soak
 - Last updated: 2026-09-16
@@ -28,6 +29,8 @@ Core rules:
 - CalendarSessionManager owns the run's single-exchange calendar.
 - RiskManager owns sizing and risk limits.
 - TradeManager owns order, position, completed-trade, and report flow.
+- Normal CLI SIGNAL validation routes through TradingEngine + EventDispatcher.
+- Recovery/reconnect stays in the main runtime loop to preserve existing safe-recovery flow.
 
 CURRENT MILESTONES
 ================================================================================
@@ -85,7 +88,7 @@ Milestone 10: Production
 - Phase 32: Documentation, metrics, and audit trail - completed.
 - Phase 33: five-market-day Paper soak - runbook ready; soak pending.
 
-LATEST CLEANUP
+LATEST CLEANUP AND IMPROVEMENTS
 ================================================================================
 
 Removed obsolete simulated desktop UI support:
@@ -96,6 +99,15 @@ Removed obsolete simulated desktop UI support:
 - Paper mode now has one normal path: selected-broker market data with simulated
   account and execution.
 - packaged default remains autotick/config/default.yaml.
+
+Runtime improvements:
+- normal CLI SIGNAL validation now passes through TradingEngine/EventDispatcher.
+- existing reconnect/recovery loop remains unchanged in main.py.
+- simulated execution now supports signed SHORT entries and BUY-to-cover exits.
+- simulated square_off() closes both LONG and SHORT positions.
+- dedicated offline test covers simulated SHORT entry, cover, P&L, and funds.
+- GitHub Actions runs pytest on every push and pull request.
+- latest improvement commit passed GitHub pytest CI.
 
 CURRENT CODE STRUCTURE
 ================================================================================
@@ -139,8 +151,12 @@ autotick/
   utils/
     logger.py
 
+.github/
+  workflows/
+    tests.yml
 provider_test.py
 tests/
+  test_simulated_short.py
 pyproject.toml
 README.md
 PLAN.md
@@ -157,7 +173,7 @@ Paper      Selected broker      Simulated     Simulated     Realtime
 Backtest   HistoricalProvider   Simulated     Simulated     Fast
 Replay     HistoricalProvider   Simulated     Simulated     Replay speed
 
-Paper orders never reach broker execution.
+Paper orders never reach broker execution. Simulated execution supports LONG and SHORT positions.
 
 CONFIGURATION
 ================================================================================
@@ -201,6 +217,12 @@ TradeManager:
 - closes positions only after filled exits.
 - calculates realized P&L and triggers completed-trade reporting.
 
+SimulatedExecutionProvider:
+- BUY opens/adds LONG or covers an existing SHORT.
+- SELL closes LONG or opens SHORT for ENTRY intent.
+- realized P&L and simulated funds update on LONG and SHORT exits.
+- square_off() closes both position directions.
+
 ORDER STATE MACHINE
 ================================================================================
 
@@ -243,6 +265,16 @@ REPORTING AND AUDIT
 - audit records order transitions and recovery/reconciliation events.
 - credentials and secret values are never written to audit output.
 
+ENGINE AND EVENT FLOW
+================================================================================
+
+- EventDispatcher remains the normalized event router.
+- TradingEngine exposes immediate normalized event dispatch and its queue event loop.
+- normal CLI uses TradingEngine/EventDispatcher for SIGNAL validation.
+- SignalValidator remains the validation handler for SIGNAL events.
+- provider startup, persistence recovery, reconnect, and shutdown remain in the
+  current main runtime loop because they include production-specific recovery behavior.
+
 TESTING STATUS
 ================================================================================
 
@@ -250,6 +282,9 @@ TESTING STATUS
 - Phase 30: integration/cross-mode parity tests completed.
 - Phase 31: end-to-end/recovery/reconciliation tests completed.
 - Phase 32: audit-trail test completed.
+- simulated SHORT provider test added.
+- GitHub Actions pytest workflow runs on push and pull request.
+- latest improvement commit passed GitHub pytest CI.
 - Phase 33: five-market-day Paper soak pending.
 
 CURRENT CLI GAPS
@@ -259,7 +294,7 @@ Still not wired into the normal CLI runtime:
 - daily P&L feed into max-loss enforcement.
 - automatic intraday square-off call.
 
-These are existing runtime gaps and are not changed by the simulated UI cleanup.
+These are existing runtime gaps and are not changed by the current improvements.
 
 PHASE 33 PAPER SOAK
 ================================================================================
@@ -267,7 +302,9 @@ PHASE 33 PAPER SOAK
 - use normal Paper mode only.
 - market data comes from selected broker.
 - account and execution remain simulated.
+- LONG and SHORT simulated execution are supported.
 - no simulated desktop control panel is used.
+- latest GitHub pytest CI should pass before soak runs.
 - keep persistence state between soak days.
 - verify restart recovery, reports/audit, and zero broker orders for five market days.
 
@@ -292,6 +329,9 @@ Completed milestones: 1 through 9
 Completed phases: 1 through 32
 Provider cleanup: completed
 Simulated UI cleanup: completed
+Engine SIGNAL routing: completed
+Simulated SHORT support: completed
+GitHub pytest CI: enabled and passing
 Current milestone: Milestone 10 - Production
 Next phase: Phase 33 - five-market-day Paper soak
 Phase 33 status: runbook ready; five Paper market days pending
