@@ -10,10 +10,10 @@ This guide, README.md, PLAN.md, and PAPER_SOAK_RUNBOOK.md describe the same bran
 - Completed phases: 1 through 32
 - Provider cleanup: completed
 - Simulated UI cleanup: completed
-- Latest improvements: engine SIGNAL event routing, simulated SHORT support, GitHub pytest CI
+- Default strategy: Live MCX GoldPetal previous-day range breakout, one configured unit
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - five-market-day Paper soak
-- Last updated: 2026-09-16
+- Last updated: 2026-09-17
 
 PROJECT SUMMARY
 ================================================================================
@@ -126,6 +126,7 @@ autotick/
   interfaces/
   indicators/
   strategy/
+    mcx_goldpetal_orb.py
     swing_strategy.py
   engine/
     dispatcher.py
@@ -174,11 +175,14 @@ Backtest   HistoricalProvider   Simulated     Simulated     Fast
 Replay     HistoricalProvider   Simulated     Simulated     Replay speed
 
 Paper orders never reach broker execution. Simulated execution supports LONG and SHORT positions.
+Backtest and Replay use only historical and simulated providers, so broker credentials
+are not required.
 
 CONFIGURATION
 ================================================================================
 
 - autotick/config/default.yaml is the packaged default YAML.
+- default.yaml is Live MCX GoldPetal; update GOLDPETAL30SEP26FUT after expiry.
 - relative credential, CSV, persistence, report, and log paths resolve from the
   YAML file directory.
 - AngelOne secrets stay in ignored angelone_keys.env.
@@ -198,15 +202,23 @@ SWING STRATEGY
 - closed swing positions are removed from runtime subscriptions.
 - recovery uses stable CSV_WATCHLIST profile identity.
 
+MCX GOLDPETAL ORB STRATEGY
+================================================================================
+
+- LONG when LTP is above previous-day high + 0.15%.
+- SHORT when LTP is below previous-day low - 0.15%.
+- default.yaml uses one configured unit, 20% risk per trade, and 2% stop-loss.
+
 RISK AND TRADE MANAGEMENT
 ================================================================================
 
 RiskManager:
 - owns position sizing and entry risk checks.
 - applies max_position_value when configured.
+- Live AngelOne entries use broker-calculated margin and charges before placement.
 - calculates long/short stop-loss, target, and ATR trailing levels.
-- filled ENTRY increments daily trade count.
-- max-trade limit activates kill switch.
+- records realized daily P&L and activates the kill switch at max loss or max trades.
+- keeps the kill switch active after a runtime persistence failure.
 
 TradeManager:
 - owns normalized order-state transitions.
@@ -216,6 +228,7 @@ TradeManager:
 - supports signed short positions and BUY exits.
 - closes positions only after filled exits.
 - calculates realized P&L and triggers completed-trade reporting.
+- automatically submits intraday exits at the configured square-off time.
 
 SimulatedExecutionProvider:
 - BUY opens/adds LONG or covers an existing SHORT.
@@ -231,7 +244,7 @@ SUBMITTED -> OPEN / PARTIAL / FILLED / REJECTED / CANCELLED / EXPIRED
 OPEN -> PARTIAL / FILLED / CANCELLED / EXPIRED
 PARTIAL -> FILLED / CANCELLED / EXPIRED
 
-Only a FILLED ENTRY consumes the daily trade limit.
+The first execution of an ENTRY order, partial or full, consumes the daily trade limit.
 
 PERSISTENCE AND RECOVERY
 ================================================================================
@@ -287,14 +300,15 @@ TESTING STATUS
 - latest improvement commit passed GitHub pytest CI.
 - Phase 33: five-market-day Paper soak pending.
 
-CURRENT CLI GAPS
+RUNTIME SAFETY
 ================================================================================
 
-Still not wired into the normal CLI runtime:
-- daily P&L feed into max-loss enforcement.
-- automatic intraday square-off call.
-
-These are existing runtime gaps and are not changed by the current improvements.
+- Realized daily P&L feeds max-loss enforcement after each exit fill.
+- Intraday positions are squared off at session.square_off_time; new intraday entries are blocked after that time.
+- A runtime persistence-write failure blocks entries until restart, even across a daily reset.
+- Historical fills retain their market timestamp and refresh account balance before each sizing decision.
+- Closed Swing positions are unsubscribed and removed after order reconciliation.
+- Simulated exits settle full losses even when the simulated balance becomes negative; risk sizing clamps capital at zero.
 
 PHASE 33 PAPER SOAK
 ================================================================================

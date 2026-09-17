@@ -35,7 +35,12 @@ class SimulatedExecutionProvider(ExecutionProvider):
             tick = market_data.get_tick(order.symbol)
             if tick is None or tick.ltp is None or tick.ltp <= 0:
                 raise RuntimeError(f"No market price for {order.symbol}")
-            submitted = replace(order, price=float(tick.ltp), status=OrderStatus.FILLED)
+            submitted = replace(
+                order,
+                price=float(tick.ltp),
+                status=OrderStatus.FILLED,
+                status_updated_at=tick.timestamp,
+            )
             if not self._fill(submitted, tick.timestamp):
                 submitted = replace(submitted, status=OrderStatus.REJECTED)
         else:
@@ -161,7 +166,7 @@ class SimulatedExecutionProvider(ExecutionProvider):
                 else (position.average_price - price) * order.quantity
             )
             release = position.average_price * order.quantity + pnl
-            self.session.state.update_funds(release)
+            self.session.state.update_funds(release, allow_negative=True)
             self._pnl += pnl
             remaining = (
                 position.quantity - order.quantity

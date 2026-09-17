@@ -38,9 +38,11 @@ class RiskManager:
         self.trailing_atr_interval = str(risk["trailing_atr_interval"]).lower()
         self.trailing_atr_multiplier = float(risk["trailing_atr_multiplier"])
         self.trade_count = 0
+        self.daily_pnl = 0.0
         self.kill_switch = False
+        self.persistence_failed = False
 
-    def position_size(self, price: float) -> int:
+    def position_size(self, price: float, margin_aware: bool = False) -> int:
         if price <= 0 or self.stoploss_pct <= 0:
             return 0
         trade_capital = (
@@ -50,31 +52,41 @@ class RiskManager:
         )
         risk_amount = trade_capital * self.risk_pct / 100
         risk_per_unit = price * self.stoploss_pct / 100
-        quantity_limit = (
-            int(trade_capital / price)
-            if self.max_position_value is not None
-            else int(self.quantity or 0)
-        )
+        if margin_aware:
+            quantity_limit = (
+                int(self.quantity)
+                if self.quantity is not None
+                else int(risk_amount / risk_per_unit)
+            )
+        elif self.max_position_value is not None:
+            quantity_limit = int(trade_capital / price)
+        else:
+            quantity_limit = int(self.quantity or 0)
         return min(quantity_limit, int(risk_amount / risk_per_unit))
 
-    def validate_order(self, order: Order, price: float | None = None) -> Order:
+    def validate_order(
+        self,
+        order: Order,
+        price: float | None = None,
+        margin_aware: bool = False,
+    ) -> Order:
         current_price = price if price is not None else order.price
         if current_price is None or current_price <= 0:
             raise ValueError("Current price must be greater than zero")
-        if not self.can_trade(current_price):
+        if not self.can_trade(current_price, margin_aware):
             raise RuntimeError("Trading blocked by daily risk limits")
-        quantity = self.position_size(current_price)
+        quantity = self.position_size(current_price, margin_aware)
         return replace(order, quantity=min(order.quantity, quantity))
 
-    def can_trade(self, price: float) -> bool:
+    def can_trade(self, price: float, margin_aware: bool = False) -> bool:
         return (
             not self.kill_switch
             and self.trade_count < self.max_trades
-            and self.position_size(price) > 0
+            and self.position_size(price, margin_aware) > 0
         )
 
     def record_entry(self) -> None:
-        """Count one filled entry trade and activate the limit kill switch."""
+        """Count one entry execution and activate the limit kill switch."""
         self.trade_count += 1
         if self.trade_count >= self.max_trades:
             self.activate_kill_switch()
@@ -118,34 +130,58 @@ class RiskManager:
             self.activate_kill_switch()
         return not self.kill_switch
 
+    def record_realized_pnl(self, pnl: float) -> bool:
+        """Add realized P&L and enforce the configured daily max loss."""
+        self.daily_pnl += float(pnl)
+        return self.check_daily_limits(self.daily_pnl)
+
     def activate_kill_switch(self) -> None:
         self.kill_switch = True
 
+    def block_for_persistence_failure(self) -> None:
+        """Block entries until restart after runtime state can no longer be saved."""
+        self.persistence_failed = True
+        self.activate_kill_switch()
+
     def reset_daily_state(self) -> None:
         self.trade_count = 0
-        self.kill_switch = False
+        self.daily_pnl = 0.0
+        self.kill_switch = self.persistence_failed
 
-    def export_state(self) -> dict[str, int | bool]:
+    def export_state(self) -> dict[str, int | float | bool]:
         """Return daily risk state for persistence."""
         return {
             "trade_count": self.trade_count,
+            "daily_pnl": self.daily_pnl,
             "kill_switch": self.kill_switch,
+            "persistence_failed": self.persistence_failed,
         }
 
     def restore_state(self, state: dict) -> None:
         """Restore validated daily risk state."""
         trade_count = state.get("trade_count", 0)
+        daily_pnl = state.get("daily_pnl", 0.0)
         kill_switch = state.get("kill_switch", False)
+        persistence_failed = state.get("persistence_failed", False)
         if isinstance(trade_count, bool) or not isinstance(trade_count, int):
             raise ValueError("risk trade_count must be an integer")
         if trade_count < 0:
             raise ValueError("risk trade_count must not be negative")
+        if isinstance(daily_pnl, bool) or not isinstance(daily_pnl, (int, float)):
+            raise ValueError("risk daily_pnl must be a number")
         if not isinstance(kill_switch, bool):
             raise ValueError("risk kill_switch must be boolean")
+        if not isinstance(persistence_failed, bool):
+            raise ValueError("risk persistence_failed must be boolean")
         self.trade_count = trade_count
-        self.kill_switch = kill_switch or trade_count >= self.max_trades
+        self.daily_pnl = float(daily_pnl)
+        self.persistence_failed = persistence_failed
+        self.kill_switch = (
+            kill_switch
+            or persistence_failed
+            or trade_count >= self.max_trades
+            or self.daily_pnl <= self.max_loss
+        )
 
     def update(self, capital: float) -> None:
-        if capital < 0:
-            raise ValueError("capital must not be negative")
-        self.capital = float(capital)
+        self.capital = max(0.0, float(capital))

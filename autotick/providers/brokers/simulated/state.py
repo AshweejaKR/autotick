@@ -55,12 +55,12 @@ class SimulatedState:
         with self.lock:
             self.account = replace(account)
 
-    def update_funds(self, change: float) -> float | None:
-        """Atomically change available funds; return None when insufficient."""
+    def update_funds(self, change: float, allow_negative: bool = False) -> float | None:
+        """Atomically change funds; entries reject insufficient funds and exits settle losses."""
         with self.lock:
             account = self.account or self.initialize_account(0.0)
             funds = float(account.balance or 0.0) + float(change)
-            if funds < 0:
+            if funds < 0 and not allow_negative:
                 return None
             self.account = replace(
                 account,

@@ -15,7 +15,7 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 
 ## Before Each Day
 
-1. Confirm `mode: paper`; do not use a Live config.
+1. Confirm `mode: paper`; do not use packaged default.yaml, which is Live MCX GoldPetal.
 2. Confirm latest GitHub pytest CI is passing.
 3. Keep persistence, reconnect, reports, logging, and `only_market_hours` enabled.
 4. Keep `reports.enabled: true` so trade, summary, and audit CSVs are saved.

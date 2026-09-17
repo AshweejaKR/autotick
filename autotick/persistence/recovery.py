@@ -236,6 +236,7 @@ class RecoveryManager:
 
     @staticmethod
     def _build_profile(config: dict) -> dict[str, Any]:
+        mode = str(config["mode"]).lower()
         strategy = str(config["strategy"]).lower()
         symbols = config["market"]["symbols"]
         if isinstance(symbols, str):
@@ -244,12 +245,12 @@ class RecoveryManager:
             symbols = ["CSV_WATCHLIST"]
         broker = str(config["broker"]).lower()
         account_id = ""
-        if broker == "angelone":
+        if mode in {"live", "paper"} and broker == "angelone":
             path = config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
             if path:
                 account_id = load_secrets(path)["CLIENT_ID"]
         return {
-            "mode": str(config["mode"]).lower(),
+            "mode": mode,
             "broker": broker,
             "account_id": account_id,
             "exchange": str(config["market"]["exchange"]).upper(),
@@ -270,6 +271,7 @@ def _order_to_dict(order: Order) -> dict[str, Any]:
         "status": order.status.value,
         "intent": order.intent.value,
         "position_type": order.position_type.value,
+        "filled_quantity": order.filled_quantity,
         "status_updated_at": (
             order.status_updated_at.isoformat()
             if order.status_updated_at is not None
@@ -291,6 +293,11 @@ def _order_from_dict(item: dict) -> Order:
         intent=OrderIntent(item["intent"]),
         position_type=PositionType(item["position_type"]),
         status_updated_at=_datetime(item.get("status_updated_at")),
+        filled_quantity=(
+            int(item["filled_quantity"])
+            if item.get("filled_quantity") is not None
+            else None
+        ),
     )
 
 

@@ -67,7 +67,12 @@ class ReportManager:
         mode = cls._safe(str(config.get("mode", "mode")))
         configured_user = str(reports.get("user_id", "")).strip()
         broker_user = getattr(getattr(execution, "session", None), "client_id", None)
-        if not configured_user and not broker_user and broker.lower() == "angelone":
+        if (
+            not configured_user
+            and not broker_user
+            and mode.lower() in {"live", "paper"}
+            and broker.lower() == "angelone"
+        ):
             credentials_file = (
                 config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
             )

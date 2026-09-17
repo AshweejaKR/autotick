@@ -36,6 +36,7 @@ from autotick.models import (
     OrderSide,
     OrderStatus,
     PositionType,
+    PositionStatus,
     SignalType,
 )
 from autotick.persistence import PersistenceError, RecoveryManager, RecoveryResult
@@ -47,6 +48,7 @@ from autotick.providers.session_pool import (
 )
 from autotick.strategy.base import Strategy
 from autotick.strategy.context import StrategyContext
+from autotick.strategy.mcx_goldpetal_orb import MCXGoldPetalORBStrategy
 from autotick.strategy.simple_strategy import SimpleStrategy
 from autotick.strategy.swing_strategy import SwingStrategy, load_swing_watchlist
 from autotick.utils.logger import configure_logging, get_logger, log_call
@@ -86,6 +88,8 @@ def _configured_symbols(config: dict) -> list[str]:
 def _new_strategy(config: dict) -> Strategy:
     if _is_swing(config):
         return SwingStrategy(config["strategy_config"]["csv_file"])
+    if str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb":
+        return MCXGoldPetalORBStrategy()
     return SimpleStrategy()
 
 
@@ -135,6 +139,7 @@ def _place_order(
     risk: RiskManager,
     signal,
     position_type: PositionType,
+    margin_aware: bool = False,
 ) -> Order:
     order = Order(
         order_id=str(uuid4()),
@@ -145,11 +150,13 @@ def _place_order(
             if signal.signal_type == SignalType.BUY
             else OrderSide.SELL
         ),
-        quantity=risk.position_size(float(signal.price or 0)),
+        quantity=risk.position_size(float(signal.price or 0), margin_aware),
         price=signal.price,
         position_type=position_type,
     )
-    return trades.create_order(risk.validate_order(order, signal.price))
+    return trades.create_order(
+        risk.validate_order(order, signal.price, margin_aware)
+    )
 
 
 def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
@@ -158,6 +165,25 @@ def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
     for order in trades.reconcile_orders():
         if order.intent == OrderIntent.ENTRY and order.status in failed:
             entered.discard(order.symbol)
+
+
+def _remove_closed_swing_symbols(
+    providers,
+    symbols: list[str],
+    strategies: dict[str, Strategy] | None,
+    trades: TradeManager,
+    exchange: str,
+) -> None:
+    """Unsubscribe Swing symbols once a reconciled or immediate exit closes them."""
+    for symbol in list(symbols):
+        position = trades.get_position(symbol, exchange)
+        if position is None or position.status != PositionStatus.CLOSED:
+            continue
+        providers.market_data.unsubscribe([symbol])
+        symbols.remove(symbol)
+        if strategies is not None:
+            strategies.pop(symbol, None)
+        logger.info("Swing symbol removed after position close: %s", symbol)
 
 
 def _save_state(
@@ -172,8 +198,26 @@ def _save_state(
     try:
         persistence.save(trading_date, last_processed_at)
     except PersistenceError:
-        risk.activate_kill_switch()
+        risk.block_for_persistence_failure()
         logger.exception("State persistence failed; new entries blocked")
+
+
+def _square_off_if_due(
+    providers,
+    trades: TradeManager,
+    position_type: PositionType,
+    now: datetime,
+) -> bool:
+    """Square off intraday positions and block new intraday entries after cutoff."""
+    if (
+        position_type != PositionType.INTRADAY
+        or not providers.calendar_session.should_square_off(now)
+    ):
+        return False
+    orders = trades.square_off_intraday()
+    if orders:
+        logger.warning("Intraday square-off submitted orders=%s", len(orders))
+    return True
 
 
 def _trailing_atr(providers, risk: RiskManager, symbol: str, now: datetime | None) -> float | None:
@@ -249,6 +293,7 @@ def _process_symbols(
     position_type: PositionType,
     config: dict,
     engine: TradingEngine | None = None,
+    allow_entries: bool = True,
 ) -> None:
     mode = config["mode"]
     logger.debug(
@@ -338,10 +383,13 @@ def _process_symbols(
                     symbol,
                     tick.exchange,
                 ):
-                    providers.market_data.unsubscribe([symbol])
-                    symbols.remove(symbol)
-                    strategies.pop(symbol, None)
-                    logger.info("Swing symbol removed after position close: %s", symbol)
+                    _remove_closed_swing_symbols(
+                        providers,
+                        symbols,
+                        strategies,
+                        trades,
+                        tick.exchange,
+                    )
             else:
                 log_order = (
                     logger.error
@@ -360,6 +408,10 @@ def _process_symbols(
                     order.status.value,
                 )
             logger.debug("_process_symbols symbol exit symbol=%s reason=exit_order", symbol)
+            continue
+
+        if not allow_entries:
+            logger.debug("Strategy skipped symbol=%s reason=intraday_square_off", symbol)
             continue
 
         active_trade = trades.has_active_trade(symbol, tick.exchange)
@@ -406,7 +458,10 @@ def _process_symbols(
             SignalValidator.validate(signal)
         else:
             engine.emit(EventType.SIGNAL, signal)
-        if signal.price is None or not risk.can_trade(signal.price):
+        margin_aware = mode.lower() == "live" and bool(
+            getattr(providers.execution, "uses_broker_margin", False)
+        )
+        if signal.price is None or not risk.can_trade(signal.price, margin_aware):
             logger.debug(
                 "Order blocked by risk limits: %s price=%s",
                 symbol,
@@ -414,7 +469,13 @@ def _process_symbols(
             )
             continue
 
-        order = _place_order(trades, risk, signal, position_type)
+        order = _place_order(
+            trades,
+            risk,
+            signal,
+            position_type,
+            margin_aware,
+        )
         if order.status != OrderStatus.REJECTED:
             entered.add(symbol)
         if order.status == OrderStatus.FILLED:
@@ -559,6 +620,20 @@ def _run_realtime(
                 logger.debug("_run_realtime balance=%s", balance)
                 risk.update(balance)
                 _reconcile_orders(trades, entered)
+                if _is_swing(config):
+                    _remove_closed_swing_symbols(
+                        providers,
+                        symbols,
+                        strategies,
+                        trades,
+                        config["market"]["exchange"],
+                    )
+                allow_entries = not _square_off_if_due(
+                    providers,
+                    trades,
+                    position_type,
+                    now,
+                )
                 _process_symbols(
                     providers,
                     symbols,
@@ -569,6 +644,7 @@ def _run_realtime(
                     position_type,
                     config,
                     engine,
+                    allow_entries,
                 )
                 _save_state(persistence, risk, trading_date)
         except BrokerError as exc:
@@ -595,6 +671,14 @@ def _run_realtime(
             blocked.update(reconciled.blocked_symbols)
             entered = set(reconciled.entered_symbols) | blocked
             strategies = None
+            if _is_swing(config):
+                _remove_closed_swing_symbols(
+                    providers,
+                    symbols,
+                    strategies,
+                    trades,
+                    config["market"]["exchange"],
+                )
             _save_state(persistence, risk, trading_date)
             logger.debug(
                 "_run_realtime recovery completed blocked=%s entered=%s",
@@ -656,6 +740,21 @@ def _run_historical(
             if not providers.calendar_session.is_market_open(value):
                 continue
         _reconcile_orders(trades, entered)
+        if _is_swing(config):
+            _remove_closed_swing_symbols(
+                providers,
+                symbols,
+                strategies,
+                trades,
+                config["market"]["exchange"],
+            )
+        risk.update(providers.account.get_balance())
+        allow_entries = not _square_off_if_due(
+            providers,
+            trades,
+            position_type,
+            value,
+        )
         _process_symbols(
             providers,
             symbols,
@@ -666,6 +765,7 @@ def _run_historical(
             position_type,
             config,
             engine,
+            allow_entries,
         )
     if trading_date is not None:
         _save_state(persistence, risk, trading_date, last_processed_at)
@@ -775,9 +875,9 @@ def _run_providers(
                 return
             except BrokerAuthenticationError:
                 risk.activate_kill_switch()
-                _save_state(persistence, risk, runtime_date)
                 logger.error(
-                    "Broker authentication recovery exhausted; startup stopped safely"
+                    "Broker authentication recovery exhausted before state recovery; "
+                    "startup stopped without replacing saved state"
                 )
                 return
             startup_reconnected = True
