@@ -198,7 +198,7 @@ SWING STRATEGY
 ================================================================================
 
 - strategy_config.csv_file points to symbol,trigger_price watchlist data.
-- max_position_value limits capital allocated per trade, including margin-aware sizing.
+- max_position_value limits capital allocated per trade when quantity is not fixed.
 - RiskManager applies risk_per_trade_pct and stop-loss sizing.
 - watchlist reloads once at each trading-day open.
 - CSV removal blocks new entries but does not stop management of an open position.
@@ -217,7 +217,7 @@ RISK AND TRADE MANAGEMENT
 
 RiskManager:
 - owns position sizing and entry risk checks.
-- applies max_position_value when configured, including broker-margin sizing.
+- uses fixed quantity for broker-margin entries; otherwise applies max_position_value.
 - Live AngelOne entries use broker-calculated margin and charges before placement.
 - calculates long/short stop-loss, target, and ATR trailing levels.
 - records realized daily P&L and activates the kill switch at max loss or max trades.

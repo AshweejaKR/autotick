@@ -53,13 +53,11 @@ class RiskManager:
         risk_amount = trade_capital * self.risk_pct / 100
         risk_per_unit = price * self.stoploss_pct / 100
         if margin_aware:
-            quantity_limit = (
-                int(self.quantity)
-                if self.quantity is not None
-                else int(risk_amount / risk_per_unit)
-            )
+            if self.quantity is not None:
+                return int(self.quantity)
             if self.max_position_value is not None:
-                quantity_limit = min(quantity_limit, int(trade_capital / price))
+                return int(trade_capital / price)
+            return int(risk_amount / risk_per_unit)
         elif self.max_position_value is not None:
             quantity_limit = int(trade_capital / price)
         else:
