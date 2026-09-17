@@ -318,6 +318,19 @@ def _process_symbols(
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
         active_position = trades.get_position(symbol, tick.exchange)
+        if (
+            str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb"
+            and exit_prices is not None
+            and active_position is not None
+        ):
+            logger.debug(
+                "MCX_ORB_GOLDPETAL EXIT RANGE symbol=%s stop_loss=%.2f <-- "
+                "current=%.2f --> target=%.2f",
+                symbol,
+                exit_prices[0],
+                tick.ltp,
+                exit_prices[1],
+            )
         trailing_atr = None
         if (
             exit_prices is not None
@@ -442,10 +455,10 @@ def _process_symbols(
         strategy.context.tick = tick
         signal = strategy.on_tick(tick)
         logger.debug(
-            "strategy.on_tick returned symbol=%s strategy=%s signal=%s",
+            "strategy.on_tick returned symbol=%s strategy=%s signal=%r",
             symbol,
             type(strategy).__name__,
-            signal.signal_type.value if signal is not None else None,
+            signal,
         )
         if signal is None or signal.signal_type not in {
             SignalType.BUY,
@@ -480,6 +493,17 @@ def _process_symbols(
             entered.add(symbol)
         if order.status == OrderStatus.FILLED:
             stop_loss, target, _ = trades.get_exit_prices(symbol, tick.exchange)
+            if str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb":
+                logger.debug(
+                    "MCX_ORB_GOLDPETAL POSITION OPEN symbol=%s side=%s qty=%s "
+                    "entry=%.2f stop_loss=%.2f target=%.2f",
+                    symbol,
+                    order.side.value,
+                    order.quantity,
+                    order.price,
+                    stop_loss,
+                    target,
+                )
             logger.done(
                 "%s %s filled %s: %s qty=%s entry_price=%.2f value=%.2f "
                 "stop_loss=%.2f target=%.2f funds=%.2f",

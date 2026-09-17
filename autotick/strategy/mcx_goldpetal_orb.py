@@ -10,6 +10,10 @@ from __future__ import annotations
 from autotick.models.market import MarketTick
 from autotick.models.signal import Signal, SignalType
 from autotick.strategy.base import Strategy
+from autotick.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class MCXGoldPetalORBStrategy(Strategy):
@@ -40,6 +44,14 @@ class MCXGoldPetalORBStrategy(Strategy):
     def on_tick(self, tick: MarketTick) -> Signal | None:
         if tick.ltp is None or self.long_trigger is None or self.short_trigger is None:
             return None
+        logger.debug(
+            "MCX_ORB_GOLDPETAL ENTRY RANGE symbol=%s low_trigger=%.2f <-- "
+            "current=%.2f --> high_trigger=%.2f",
+            tick.symbol,
+            self.short_trigger,
+            tick.ltp,
+            self.long_trigger,
+        )
         signal_type = (
             SignalType.BUY if tick.ltp > self.long_trigger
             else SignalType.SELL if tick.ltp < self.short_trigger
