@@ -39,6 +39,10 @@
 - Simulated desktop UI/control-panel support is removed.
 - README, this plan, architecture guide, and soak runbook must show the same status.
 
+## Deferred Observation
+
+- 2026-09-17: AngelOne startup recovery reported unknown broker orders/position and blocked GoldPetal, while the broker terminal showed GoldPetal and NIFTYBEES closed. Keep the current safety block; revisit broker-history filtering after more live observation.
+
 ## References
 
 - [Architecture and implementation guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt)
