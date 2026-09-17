@@ -21,8 +21,9 @@ from autotick.providers.brokers.simulated.session import SimulatedSession
 class SimulatedExecutionProvider(ExecutionProvider):
     """Simple in-memory execution provider for simulated trading."""
 
-    def __init__(self, session: SimulatedSession) -> None:
+    def __init__(self, session: SimulatedSession, margin_pct: float = 100.0) -> None:
         self.session = session
+        self.margin_pct = float(margin_pct) / 100
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._holdings: list[Position] = []
@@ -136,13 +137,14 @@ class SimulatedExecutionProvider(ExecutionProvider):
         """Update simulated cash, position, trade, and realized P&L."""
         price = float(order.price or 0.0)
         value = price * order.quantity
+        margin = value * self.margin_pct
         key = (order.symbol, order.exchange)
         position = self._positions.get(key)
 
         if order.intent == OrderIntent.ENTRY:
             if position is not None and position.quantity != 0:
                 return False
-            if self.session.state.update_funds(-value) is None:
+            if self.session.state.update_funds(-margin) is None:
                 return False
             self._positions[key] = Position(
                 symbol=order.symbol,
@@ -165,7 +167,7 @@ class SimulatedExecutionProvider(ExecutionProvider):
                 if is_long_exit
                 else (position.average_price - price) * order.quantity
             )
-            release = position.average_price * order.quantity + pnl
+            release = position.average_price * order.quantity * self.margin_pct + pnl
             self.session.state.update_funds(release, allow_negative=True)
             self._pnl += pnl
             remaining = (

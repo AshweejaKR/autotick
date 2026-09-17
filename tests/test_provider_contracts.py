@@ -22,6 +22,7 @@ from autotick.providers.brokers.angelone import (
     AngelOneExecutionProvider,
     AngelOneMarketDataProvider,
 )
+from autotick.providers.brokers.angelone.session import AngelOneSession
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
@@ -230,11 +231,26 @@ def test_angelone_provider_contracts_offline() -> None:
 
     order = Order("", "INFY-EQ", "NSE", OrderSide.BUY, 1)
     assert execution.place_order(order).status == OrderStatus.SUBMITTED
+    assert session.client.placed_orders[-1]["price"] == 0
     assert execution.modify_order(order).status == OrderStatus.SUBMITTED
     assert execution.cancel_order("A2") is True
     market.unsubscribe(["INFY-EQ"])
     market.disconnect()
     account.disconnect()
+
+
+def test_angelone_trade_time_and_auth_classification() -> None:
+    trade = AngelOneExecutionProvider._to_trade({
+        "tradeid": "T1", "orderid": "A1", "tradingsymbol": "INFY-EQ",
+        "exchange": "NSE", "transactiontype": "BUY", "quantity": "1",
+        "fillprice": "100", "filltime": "09:16:00",
+    })
+
+    assert trade.timestamp.strftime("%H:%M:%S") == "09:16:00"
+    assert AngelOneSession._is_auth_error({"status": False, "errorcode": "AG8001"})
+    assert not AngelOneSession._is_auth_error(
+        {"status": False, "message": "Invalid symbol token"}
+    )
 
 
 def test_angelone_entry_uses_broker_margin_and_charges() -> None:
@@ -248,6 +264,21 @@ def test_angelone_entry_uses_broker_margin_and_charges() -> None:
     assert order.status == OrderStatus.SUBMITTED
     assert order.quantity == 3
     assert session.client.placed_orders[-1]["quantity"] == 3
+
+
+def test_simulated_margin_allows_goldpetal_paper_entry() -> None:
+    session = SimulatedSession()
+    market = SimulatedMarketDataProvider(session, "MCX")
+    market.set_tick(MarketTick("GOLDPETAL", "MCX", 15_000, 1, datetime.now(timezone.utc)))
+    account = SimulatedAccountProvider(session, 5_000)
+    execution = SimulatedExecutionProvider(session, margin_pct=10)
+
+    entry = execution.place_order(Order("MCX-1", "GOLDPETAL", "MCX", OrderSide.BUY, 1))
+    assert entry.status == OrderStatus.FILLED
+    assert account.get_balance() == 3_500
+
+    execution.square_off()
+    assert account.get_balance() == 5_000
 
 
 class _FailedReadClient:

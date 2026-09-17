@@ -157,7 +157,10 @@ autotick/
     tests.yml
 provider_test.py
 tests/
-  test_simulated_short.py
+  conftest.py
+  test_audit_trail.py, test_core.py, test_end_to_end.py, test_integration.py
+  test_mcx_goldpetal_orb.py, test_provider_contracts.py
+  test_recovery_reconciliation.py, test_simulated_short.py
 pyproject.toml
 README.md
 PLAN.md
@@ -195,7 +198,7 @@ SWING STRATEGY
 ================================================================================
 
 - strategy_config.csv_file points to symbol,trigger_price watchlist data.
-- max_position_value limits capital allocated per trade.
+- max_position_value limits capital allocated per trade, including margin-aware sizing.
 - RiskManager applies risk_per_trade_pct and stop-loss sizing.
 - watchlist reloads once at each trading-day open.
 - CSV removal blocks new entries but does not stop management of an open position.
@@ -214,7 +217,7 @@ RISK AND TRADE MANAGEMENT
 
 RiskManager:
 - owns position sizing and entry risk checks.
-- applies max_position_value when configured.
+- applies max_position_value when configured, including broker-margin sizing.
 - Live AngelOne entries use broker-calculated margin and charges before placement.
 - calculates long/short stop-loss, target, and ATR trailing levels.
 - records realized daily P&L and activates the kill switch at max loss or max trades.
@@ -234,6 +237,7 @@ SimulatedExecutionProvider:
 - BUY opens/adds LONG or covers an existing SHORT.
 - SELL closes LONG or opens SHORT for ENTRY intent.
 - realized P&L and simulated funds update on LONG and SHORT exits.
+- simulated.margin_pct reserves simple margin for futures Paper entries.
 - square_off() closes both position directions.
 
 ORDER STATE MACHINE
@@ -349,4 +353,4 @@ GitHub pytest CI: enabled and passing
 Current milestone: Milestone 10 - Production
 Next phase: Phase 33 - five-market-day Paper soak
 Phase 33 status: runbook ready; five Paper market days pending
-Last updated: 2026-09-16
+Last updated: 2026-09-17

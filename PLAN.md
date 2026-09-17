@@ -28,6 +28,7 @@
 
 - One run uses one market and one exchange.
 - Paper uses selected-broker market data with simulated account/execution; Paper never sends broker orders.
+- Paper futures reserve configured `simulated.margin_pct`; default GoldPetal uses 10%.
 - Simulated execution supports LONG and SHORT positions and square-off in both directions.
 - Live and Paper recover state before strategy setup.
 - Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.

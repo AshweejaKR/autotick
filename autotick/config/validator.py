@@ -262,6 +262,10 @@ def validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("simulated must be a mapping")
         if simulated.get("ui_data_enabled") or simulated.get("broker_auto_fetch"):
             raise ConfigValidationError("simulated control-panel options are no longer supported")
+        margin_pct = simulated.get("margin_pct", 100)
+        _number(margin_pct, "simulated.margin_pct", positive=True)
+        if margin_pct > 100:
+            raise ConfigValidationError("simulated.margin_pct must not exceed 100")
 
     session = _mapping(config, "session")
     _validate_session(session)

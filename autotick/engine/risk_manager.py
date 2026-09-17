@@ -58,6 +58,8 @@ class RiskManager:
                 if self.quantity is not None
                 else int(risk_amount / risk_per_unit)
             )
+            if self.max_position_value is not None:
+                quantity_limit = min(quantity_limit, int(trade_capital / price))
         elif self.max_position_value is not None:
             quantity_limit = int(trade_capital / price)
         else:

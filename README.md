@@ -52,6 +52,7 @@ Manual provider check:
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
 - Live AngelOne entries use broker margin plus estimated charges before placement.
+- Paper uses `simulated.margin_pct` for simple futures margin; default GoldPetal is 10%.
 - Use one configured calendar profile for all symbols in a run.
 - Normal CLI SIGNAL validation routes through `TradingEngine` + `EventDispatcher`; recovery/reconnect remains in the main runtime loop.
 - The old simulated desktop control panel and its config flags are removed.

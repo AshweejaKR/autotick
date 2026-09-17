@@ -307,8 +307,6 @@ class TradeManager:
         for broker_order in self.execution.get_orders():
             current = pending.get(broker_order.order_id)
             if current is None:
-                if broker_order.order_id not in self._orders:
-                    self.track_order(broker_order)
                 continue
             if current.status == broker_order.status:
                 continue
@@ -579,6 +577,7 @@ class TradeManager:
             raise KeyError(f"Unknown position: {symbol}:{exchange}")
         closed = replace(position, quantity=0, unrealized_pnl=0.0, status=PositionStatus.CLOSED)
         self._positions[key] = closed
+        self._exit_levels.pop(key, None)
         return closed
 
     def square_off_intraday(self) -> list[Order]:
@@ -744,18 +743,3 @@ class TradeManager:
                 | {symbol for symbol, _ in unknown_position_keys}
             ),
         )
-
-    def reconcile_positions(self) -> None:
-        broker_positions = self.execution.get_positions()
-        active_keys = set()
-
-        for position in broker_positions:
-            self.update_position(position)
-            if position.quantity != 0:
-                active_keys.add(self._position_key(position))
-
-        for key, position in list(self._positions.items()):
-            if position.status == PositionStatus.OPEN and key not in active_keys:
-                self.close_position(*key)
-
-        self._trades = {trade.trade_id: trade for trade in self.execution.get_trades()}

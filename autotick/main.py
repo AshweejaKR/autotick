@@ -306,8 +306,12 @@ def _process_symbols(
     for symbol in list(symbols):
         logger.debug("_process_symbols symbol entry symbol=%s", symbol)
         tick = providers.market_data.get_tick(symbol)
-        if tick is None or tick.ltp is None:
-            logger.debug("_process_symbols symbol exit symbol=%s reason=no_tick", symbol)
+        if tick is None or tick.ltp is None or tick.ltp <= 0:
+            logger.warning(
+                "Skipping invalid tick symbol=%s ltp=%s",
+                symbol,
+                getattr(tick, "ltp", None),
+            )
             continue
 
         logger.debug(
@@ -492,7 +496,15 @@ def _process_symbols(
         if order.status != OrderStatus.REJECTED:
             entered.add(symbol)
         if order.status == OrderStatus.FILLED:
-            stop_loss, target, _ = trades.get_exit_prices(symbol, tick.exchange)
+            exit_prices = trades.get_exit_prices(symbol, tick.exchange)
+            if exit_prices is None:
+                risk.activate_kill_switch()
+                logger.error(
+                    "Filled entry has no usable fill price or exit levels: %s; new entries blocked",
+                    symbol,
+                )
+                continue
+            stop_loss, target, _ = exit_prices
             if str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb":
                 logger.debug(
                     "MCX_ORB_GOLDPETAL POSITION OPEN symbol=%s side=%s qty=%s "
@@ -624,15 +636,22 @@ def _run_realtime(
 
         try:
             if keep_running and market_open and last_watchlist_date != now.date():
-                _reload_swing_symbols(
-                    providers,
-                    config,
-                    symbols,
-                    trades,
-                    now.date(),
-                )
-                strategies = None
-                last_watchlist_date = now.date()
+                try:
+                    _reload_swing_symbols(
+                        providers,
+                        config,
+                        symbols,
+                        trades,
+                        now.date(),
+                    )
+                except ValueError as exc:
+                    logger.error(
+                        "Swing watchlist reload rejected; keeping current list: %s",
+                        exc,
+                    )
+                else:
+                    strategies = None
+                    last_watchlist_date = now.date()
 
             if strategies is None:
                 logger.debug("_run_realtime setting up strategies")

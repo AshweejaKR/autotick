@@ -13,6 +13,9 @@ trade:
   quantity: 1
   position_type: POSITIONAL
 
+simulated:
+  margin_pct: 10
+
 risk:
   max_loss: -2000
   max_trades_per_day: 5

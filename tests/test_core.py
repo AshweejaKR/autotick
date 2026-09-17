@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -19,6 +20,7 @@ from autotick.engine.trade_manager import TradeManager
 from autotick.engine.trading_engine import TradingEngine
 from autotick.config.loader import _resolve_file_paths
 from autotick.main import (
+    _process_symbols,
     _remove_closed_swing_symbols,
     _save_state,
     _square_off_if_due,
@@ -67,7 +69,15 @@ def test_margin_aware_risk_uses_broker_quantity_limit(make_config) -> None:
 
     config["trade"].pop("quantity")
     risk = RiskManager(config)
-    assert risk.position_size(15_000, margin_aware=True) == 16
+    assert risk.position_size(15_000, margin_aware=True) == 0
+
+
+def test_margin_aware_risk_honors_max_position_value(make_config) -> None:
+    config = make_config(capital=100_000, max_position_value=5_000)
+    config["trade"].pop("quantity")
+    risk = RiskManager(config)
+
+    assert risk.position_size(100, margin_aware=True) == 50
 
 
 def test_trading_engine_dispatches_signal() -> None:
@@ -85,6 +95,87 @@ def test_trading_engine_dispatches_signal() -> None:
 
     assert event.data is signal
     assert received == [signal]
+
+
+def test_invalid_tick_skips_strategy(make_config) -> None:
+    session = SimulatedSession()
+    market = SimulatedMarketDataProvider(session)
+    market.set_tick(MarketTick("INFY-EQ", "NSE", 0, 1, datetime.now(timezone.utc)))
+    account = SimulatedAccountProvider(session, 1_000)
+    trades = TradeManager(SimulatedExecutionProvider(session), RiskManager(make_config()))
+    strategy = SimpleNamespace(context=SimpleNamespace(tick=None))
+
+    _process_symbols(
+        ProviderBundle(market, account, trades.execution),
+        ["INFY-EQ"],
+        {"INFY-EQ": strategy},
+        trades,
+        trades.risk_manager,
+        set(),
+        PositionType.POSITIONAL,
+        make_config(),
+    )
+
+    assert trades.get_orders() == []
+
+
+def test_filled_order_without_exit_levels_blocks_new_entries(make_config) -> None:
+    class _MissingFillPrice:
+        def place_order(self, order: Order) -> Order:
+            return replace(order, price=None, status=OrderStatus.FILLED)
+
+    session = SimulatedSession()
+    market = SimulatedMarketDataProvider(session)
+    now = datetime.now(timezone.utc)
+    market.set_tick(MarketTick("INFY-EQ", "NSE", 100, 1, now))
+    account = SimulatedAccountProvider(session, 1_000)
+    risk = RiskManager(make_config())
+    trades = TradeManager(_MissingFillPrice(), risk)
+    strategy = SimpleNamespace(
+        context=SimpleNamespace(tick=None),
+        on_tick=lambda tick: Signal(tick.symbol, tick.exchange, SignalType.BUY, price=tick.ltp),
+    )
+
+    _process_symbols(
+        ProviderBundle(market, account, trades.execution),
+        ["INFY-EQ"],
+        {"INFY-EQ": strategy},
+        trades,
+        risk,
+        set(),
+        PositionType.POSITIONAL,
+        make_config(),
+    )
+
+    assert risk.kill_switch is True
+
+
+def test_reconcile_orders_does_not_adopt_unknown_broker_orders(make_config) -> None:
+    known = Order("KNOWN", "INFY-EQ", "NSE", OrderSide.BUY, 1, status=OrderStatus.SUBMITTED)
+    manual = Order("MANUAL", "TCS-EQ", "NSE", OrderSide.BUY, 1, status=OrderStatus.OPEN)
+    execution = SimpleNamespace(get_orders=lambda: [known, manual])
+    trades = TradeManager(execution, RiskManager(make_config()))
+    trades.track_order(known)
+
+    trades.reconcile_orders()
+
+    assert trades.get_order("MANUAL") is None
+
+
+def test_close_position_removes_exit_levels(make_config) -> None:
+    session = SimulatedSession()
+    market = SimulatedMarketDataProvider(session)
+    now = datetime.now(timezone.utc)
+    market.set_tick(MarketTick("INFY-EQ", "NSE", 100, 1, now))
+    SimulatedAccountProvider(session, 1_000)
+    execution = SimulatedExecutionProvider(session)
+    trades = TradeManager(execution, RiskManager(make_config()))
+
+    trades.create_order(Order("ENTRY-1", "INFY-EQ", "NSE", OrderSide.BUY, 1))
+    assert trades.get_exit_prices("INFY-EQ", "NSE") is not None
+    trades.close_position("INFY-EQ", "NSE")
+
+    assert trades.get_exit_prices("INFY-EQ", "NSE") is None
 
 
 def test_trade_entry_target_exit_and_invalid_transition(make_config) -> None:

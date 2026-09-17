@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus, OrderType
@@ -158,7 +159,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             "ordertype": order.order_type.value,
             "producttype": product,
             "duration": "DAY",
-            "price": order.price if order.order_type == OrderType.LIMIT else None,
+            "price": order.price if order.order_type == OrderType.LIMIT else 0,
             "quantity": order.quantity,
         }
 
@@ -319,7 +320,14 @@ class AngelOneExecutionProvider(ExecutionProvider):
         try:
             parsed_time = datetime.fromisoformat(timestamp)
         except ValueError:
-            parsed_time = datetime.now()
+            try:
+                parsed_time = datetime.combine(
+                    datetime.now(ZoneInfo("Asia/Kolkata")).date(),
+                    datetime.strptime(timestamp, "%H:%M:%S").time(),
+                    ZoneInfo("Asia/Kolkata"),
+                )
+            except ValueError:
+                parsed_time = datetime.now(ZoneInfo("Asia/Kolkata"))
         return Trade(
             trade_id=str(item.get("tradeid", item.get("orderid", ""))),
             order_id=str(item.get("orderid", "")),

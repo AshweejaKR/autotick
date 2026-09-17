@@ -21,6 +21,7 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 4. Keep `reports.enabled: true` so trade, summary, and audit CSVs are saved.
 5. Keep the prior SQLite state. Do not delete it between soak days.
 6. Use normal AutoTick Paper mode; no simulated control-panel settings are required.
+7. Confirm `simulated.margin_pct` suits the instrument; default GoldPetal uses 10%.
 
 ## Daily Pass Check
 
