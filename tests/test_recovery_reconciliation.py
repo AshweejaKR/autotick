@@ -175,4 +175,4 @@ def test_offline_profile_does_not_load_broker_secrets(mode, make_config) -> None
     recovery = RecoveryManager(config, TradeManager(execution, risk), risk, account, execution)
 
     assert recovery.profile["account_id"] == ""
-    assert ReportManager.context(config, execution)[2] == "user"
+    assert ReportManager.context(config, execution)[2] == "tester"
