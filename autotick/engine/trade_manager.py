@@ -151,6 +151,8 @@ class TradeManager:
         self.track_order(updated)
         if self._audit is not None:
             self._audit.record_order(updated)
+        if status == OrderStatus.FILLED:
+            self._record_trade(updated)
         if changed_fill:
             if updated.intent == OrderIntent.ENTRY:
                 if previous_filled == 0 and self.risk_manager is not None:
@@ -158,8 +160,6 @@ class TradeManager:
                 self._apply_entry_fill(updated, filled_quantity - previous_filled)
             else:
                 self._apply_exit_fill(updated, filled_quantity - previous_filled)
-        if status == OrderStatus.FILLED:
-            self._record_trade(updated)
         elif (
             updated.intent == OrderIntent.EXIT
             and status in {
