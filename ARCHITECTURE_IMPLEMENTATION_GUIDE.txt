@@ -191,6 +191,7 @@ CONFIGURATION
 - AngelOne secrets stay in ignored angelone_keys.env.
 - required AngelOne values: API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET.
 - Live requires persistence, reconnect, only_market_hours, and logging enabled.
+- Live/Paper startup waits only within session.startup_wait_minutes before a DAILY market open; default 30 minutes.
 - one run uses one market/exchange calendar.
 - old simulated control-panel flags are not part of current configuration.
 

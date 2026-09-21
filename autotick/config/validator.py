@@ -135,6 +135,10 @@ def _validate_session(session: dict[str, Any]) -> None:
     only_market_hours = _require(session, "only_market_hours", "session")
     if not isinstance(only_market_hours, bool):
         raise ConfigValidationError("session.only_market_hours must be boolean")
+    startup_wait_minutes = session.get("startup_wait_minutes", 30)
+    _number(startup_wait_minutes, "session.startup_wait_minutes")
+    if startup_wait_minutes < 0:
+        raise ConfigValidationError("session.startup_wait_minutes must not be negative")
     _number(_require(session, "replay_speed", "session"), "session.replay_speed", positive=True)
 
 

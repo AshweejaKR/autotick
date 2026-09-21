@@ -44,6 +44,7 @@ session:
   market_end: "15:30"
   square_off_time: "15:15"
   only_market_hours: true
+  startup_wait_minutes: 30
   replay_speed: 1.0
 
 backtest:

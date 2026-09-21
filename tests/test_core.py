@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from autotick.engine.dispatcher import EventDispatcher
+from autotick.engine.market_session import CalendarSessionManager
 from autotick.engine.risk_manager import RiskManager
 from autotick.engine.signal_validator import SignalValidationError, SignalValidator
 from autotick.engine.trade_manager import TradeManager
@@ -24,6 +25,7 @@ from autotick.main import (
     _remove_closed_swing_symbols,
     _save_state,
     _square_off_if_due,
+    _startup_wait_seconds,
 )
 from autotick.models.event import EventType
 from autotick.models.market import MarketTick
@@ -57,6 +59,23 @@ def test_signal_and_risk_rules(make_config) -> None:
     risk.record_entry()
     risk.record_entry()
     assert risk.kill_switch is True
+
+
+def test_startup_wait_is_limited_to_final_pre_market_window() -> None:
+    calendar = CalendarSessionManager({
+        "schedule_type": "DAILY",
+        "timezone": "Asia/Kolkata",
+        "trading_days": ["MON", "TUE", "WED", "THU", "FRI"],
+        "market_start": "09:15",
+        "market_end": "15:30",
+        "square_off_time": "15:15",
+    })
+    config = {"session": {"startup_wait_minutes": 30}}
+    near_open = datetime(2026, 9, 21, 8, 45, tzinfo=calendar.now().tzinfo)
+    too_early = datetime(2026, 9, 21, 8, 44, tzinfo=calendar.now().tzinfo)
+
+    assert _startup_wait_seconds(calendar, config, near_open) == 1_800
+    assert _startup_wait_seconds(calendar, config, too_early) is None
 
 
 def test_margin_aware_risk_uses_broker_quantity_limit(make_config) -> None:

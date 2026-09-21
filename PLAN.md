@@ -34,6 +34,7 @@
 - Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.
 - Strategies create signals only. RiskManager and TradeManager own sizing and execution.
 - Live AngelOne entries use broker-calculated margin and charges before placement.
+- Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
 - GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged default configuration.
 - Default strategy: LONG above prior-day high + 0.15%; SHORT below prior-day low - 0.15%.

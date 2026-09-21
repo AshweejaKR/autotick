@@ -73,6 +73,15 @@ def _is_swing(config: dict) -> bool:
     return str(config["strategy"]).strip().lower() == "swing"
 
 
+def _startup_wait_seconds(calendar, config: dict, now: datetime) -> float | None:
+    """Return a short pre-market wait, or None when startup must exit."""
+    window_minutes = float(config["session"].get("startup_wait_minutes", 30))
+    if window_minutes <= 0 or calendar.current_session(now) != "pre_market":
+        return None
+    seconds = (calendar.next_open(now) - now).total_seconds()
+    return seconds if 0 < seconds <= window_minutes * 60 else None
+
+
 def _configured_symbols(config: dict) -> list[str]:
     """Return static symbols or the latest validated swing CSV symbols."""
     if not _is_swing(config):
@@ -600,6 +609,23 @@ def _run_realtime(
         )
         if config["session"]["only_market_hours"] and not market_open:
             next_open = providers.calendar_session.next_open(now)
+            startup_wait = _startup_wait_seconds(
+                providers.calendar_session, config, now
+            )
+            if startup_wait is not None:
+                if not market_closed_logged:
+                    logger.info(
+                        "Pre-market startup at %s; waiting for market open at %s",
+                        now,
+                        next_open,
+                    )
+                    market_closed_logged = True
+                wait_seconds = min(60.0, max(1.0, startup_wait))
+                if stop_event is None:
+                    sleep(wait_seconds)
+                else:
+                    stop_event.wait(wait_seconds)
+                continue
             if not keep_running:
                 logger.warning(
                     "Market is closed at %s; next open is %s. Exiting realtime runner.",
@@ -869,16 +895,22 @@ def _run_providers(
         if (
             mode in {"live", "paper"}
             and config["session"]["only_market_hours"]
-            and not _is_swing(config)
         ):
             now = providers.calendar_session.now()
             if not providers.calendar_session.is_market_open(now):
-                logger.warning(
-                    "Market is closed at %s; next open is %s. Provider setup skipped.",
+                next_open = providers.calendar_session.next_open(now)
+                if _startup_wait_seconds(providers.calendar_session, config, now) is None:
+                    logger.warning(
+                        "Market is closed at %s; next open is %s. Provider setup skipped.",
+                        now,
+                        next_open,
+                    )
+                    return
+                logger.info(
+                    "Pre-market startup at %s; providers will wait for market open at %s",
                     now,
-                    providers.calendar_session.next_open(now),
+                    next_open,
                 )
-                return
 
         startup_reconnected = False
         try:
