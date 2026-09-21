@@ -20,19 +20,23 @@ from uuid import uuid4
 from autotick.config.loader import load_config
 from autotick.engine import (
     CalendarSessionManager,
+    EventDispatcher,
     ReconnectManager,
     ReconnectStopped,
     RiskManager,
     SignalValidator,
     TradeManager,
+    TradingEngine,
 )
 from autotick.indicators import AverageTrueRange
 from autotick.models import (
+    EventType,
     Order,
     OrderIntent,
     OrderSide,
     OrderStatus,
     PositionType,
+    PositionStatus,
     SignalType,
 )
 from autotick.persistence import PersistenceError, RecoveryManager, RecoveryResult
@@ -44,6 +48,7 @@ from autotick.providers.session_pool import (
 )
 from autotick.strategy.base import Strategy
 from autotick.strategy.context import StrategyContext
+from autotick.strategy.mcx_goldpetal_orb import MCXGoldPetalORBStrategy
 from autotick.strategy.simple_strategy import SimpleStrategy
 from autotick.strategy.swing_strategy import SwingStrategy, load_swing_watchlist
 from autotick.utils.logger import configure_logging, get_logger, log_call
@@ -68,6 +73,15 @@ def _is_swing(config: dict) -> bool:
     return str(config["strategy"]).strip().lower() == "swing"
 
 
+def _startup_wait_seconds(calendar, config: dict, now: datetime) -> float | None:
+    """Return a short pre-market wait, or None when startup must exit."""
+    window_minutes = float(config["session"].get("startup_wait_minutes", 30))
+    if window_minutes <= 0 or calendar.current_session(now) != "pre_market":
+        return None
+    seconds = (calendar.next_open(now) - now).total_seconds()
+    return seconds if 0 < seconds <= window_minutes * 60 else None
+
+
 def _configured_symbols(config: dict) -> list[str]:
     """Return static symbols or the latest validated swing CSV symbols."""
     if not _is_swing(config):
@@ -83,6 +97,8 @@ def _configured_symbols(config: dict) -> list[str]:
 def _new_strategy(config: dict) -> Strategy:
     if _is_swing(config):
         return SwingStrategy(config["strategy_config"]["csv_file"])
+    if str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb":
+        return MCXGoldPetalORBStrategy()
     return SimpleStrategy()
 
 
@@ -132,6 +148,7 @@ def _place_order(
     risk: RiskManager,
     signal,
     position_type: PositionType,
+    margin_aware: bool = False,
 ) -> Order:
     order = Order(
         order_id=str(uuid4()),
@@ -142,11 +159,13 @@ def _place_order(
             if signal.signal_type == SignalType.BUY
             else OrderSide.SELL
         ),
-        quantity=risk.position_size(float(signal.price or 0)),
+        quantity=risk.position_size(float(signal.price or 0), margin_aware),
         price=signal.price,
         position_type=position_type,
     )
-    return trades.create_order(risk.validate_order(order, signal.price))
+    return trades.create_order(
+        risk.validate_order(order, signal.price, margin_aware)
+    )
 
 
 def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
@@ -155,6 +174,25 @@ def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
     for order in trades.reconcile_orders():
         if order.intent == OrderIntent.ENTRY and order.status in failed:
             entered.discard(order.symbol)
+
+
+def _remove_closed_swing_symbols(
+    providers,
+    symbols: list[str],
+    strategies: dict[str, Strategy] | None,
+    trades: TradeManager,
+    exchange: str,
+) -> None:
+    """Unsubscribe Swing symbols once a reconciled or immediate exit closes them."""
+    for symbol in list(symbols):
+        position = trades.get_position(symbol, exchange)
+        if position is None or position.status != PositionStatus.CLOSED:
+            continue
+        providers.market_data.unsubscribe([symbol])
+        symbols.remove(symbol)
+        if strategies is not None:
+            strategies.pop(symbol, None)
+        logger.info("Swing symbol removed after position close: %s", symbol)
 
 
 def _save_state(
@@ -169,8 +207,26 @@ def _save_state(
     try:
         persistence.save(trading_date, last_processed_at)
     except PersistenceError:
-        risk.activate_kill_switch()
+        risk.block_for_persistence_failure()
         logger.exception("State persistence failed; new entries blocked")
+
+
+def _square_off_if_due(
+    providers,
+    trades: TradeManager,
+    position_type: PositionType,
+    now: datetime,
+) -> bool:
+    """Square off intraday positions and block new intraday entries after cutoff."""
+    if (
+        position_type != PositionType.INTRADAY
+        or not providers.calendar_session.should_square_off(now)
+    ):
+        return False
+    orders = trades.square_off_intraday()
+    if orders:
+        logger.warning("Intraday square-off submitted orders=%s", len(orders))
+    return True
 
 
 def _trailing_atr(providers, risk: RiskManager, symbol: str, now: datetime | None) -> float | None:
@@ -245,6 +301,8 @@ def _process_symbols(
     entered: set[str],
     position_type: PositionType,
     config: dict,
+    engine: TradingEngine | None = None,
+    allow_entries: bool = True,
 ) -> None:
     mode = config["mode"]
     logger.debug(
@@ -257,8 +315,12 @@ def _process_symbols(
     for symbol in list(symbols):
         logger.debug("_process_symbols symbol entry symbol=%s", symbol)
         tick = providers.market_data.get_tick(symbol)
-        if tick is None or tick.ltp is None:
-            logger.debug("_process_symbols symbol exit symbol=%s reason=no_tick", symbol)
+        if tick is None or tick.ltp is None or tick.ltp <= 0:
+            logger.warning(
+                "Skipping invalid tick symbol=%s ltp=%s",
+                symbol,
+                getattr(tick, "ltp", None),
+            )
             continue
 
         logger.debug(
@@ -269,6 +331,19 @@ def _process_symbols(
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
         active_position = trades.get_position(symbol, tick.exchange)
+        if (
+            str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb"
+            and exit_prices is not None
+            and active_position is not None
+        ):
+            logger.debug(
+                "MCX_ORB_GOLDPETAL EXIT RANGE symbol=%s stop_loss=%.2f <-- "
+                "current=%.2f --> target=%.2f",
+                symbol,
+                exit_prices[0],
+                tick.ltp,
+                exit_prices[1],
+            )
         trailing_atr = None
         if (
             exit_prices is not None
@@ -334,10 +409,13 @@ def _process_symbols(
                     symbol,
                     tick.exchange,
                 ):
-                    providers.market_data.unsubscribe([symbol])
-                    symbols.remove(symbol)
-                    strategies.pop(symbol, None)
-                    logger.info("Swing symbol removed after position close: %s", symbol)
+                    _remove_closed_swing_symbols(
+                        providers,
+                        symbols,
+                        strategies,
+                        trades,
+                        tick.exchange,
+                    )
             else:
                 log_order = (
                     logger.error
@@ -356,6 +434,10 @@ def _process_symbols(
                     order.status.value,
                 )
             logger.debug("_process_symbols symbol exit symbol=%s reason=exit_order", symbol)
+            continue
+
+        if not allow_entries:
+            logger.debug("Strategy skipped symbol=%s reason=intraday_square_off", symbol)
             continue
 
         active_trade = trades.has_active_trade(symbol, tick.exchange)
@@ -386,10 +468,10 @@ def _process_symbols(
         strategy.context.tick = tick
         signal = strategy.on_tick(tick)
         logger.debug(
-            "strategy.on_tick returned symbol=%s strategy=%s signal=%s",
+            "strategy.on_tick returned symbol=%s strategy=%s signal=%r",
             symbol,
             type(strategy).__name__,
-            signal.signal_type.value if signal is not None else None,
+            signal,
         )
         if signal is None or signal.signal_type not in {
             SignalType.BUY,
@@ -398,8 +480,14 @@ def _process_symbols(
             logger.debug("_process_symbols symbol exit symbol=%s reason=no_entry_signal", symbol)
             continue
 
-        SignalValidator.validate(signal)
-        if signal.price is None or not risk.can_trade(signal.price):
+        if engine is None:
+            SignalValidator.validate(signal)
+        else:
+            engine.emit(EventType.SIGNAL, signal)
+        margin_aware = mode.lower() == "live" and bool(
+            getattr(providers.execution, "uses_broker_margin", False)
+        )
+        if signal.price is None or not risk.can_trade(signal.price, margin_aware):
             logger.debug(
                 "Order blocked by risk limits: %s price=%s",
                 symbol,
@@ -407,11 +495,36 @@ def _process_symbols(
             )
             continue
 
-        order = _place_order(trades, risk, signal, position_type)
+        order = _place_order(
+            trades,
+            risk,
+            signal,
+            position_type,
+            margin_aware,
+        )
         if order.status != OrderStatus.REJECTED:
             entered.add(symbol)
         if order.status == OrderStatus.FILLED:
-            stop_loss, target, _ = trades.get_exit_prices(symbol, tick.exchange)
+            exit_prices = trades.get_exit_prices(symbol, tick.exchange)
+            if exit_prices is None:
+                risk.activate_kill_switch()
+                logger.error(
+                    "Filled entry has no usable fill price or exit levels: %s; new entries blocked",
+                    symbol,
+                )
+                continue
+            stop_loss, target, _ = exit_prices
+            if str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb":
+                logger.debug(
+                    "MCX_ORB_GOLDPETAL POSITION OPEN symbol=%s side=%s qty=%s "
+                    "entry=%.2f stop_loss=%.2f target=%.2f",
+                    symbol,
+                    order.side.value,
+                    order.quantity,
+                    order.price,
+                    stop_loss,
+                    target,
+                )
             logger.done(
                 "%s %s filled %s: %s qty=%s entry_price=%.2f value=%.2f "
                 "stop_loss=%.2f target=%.2f funds=%.2f",
@@ -457,6 +570,7 @@ def _run_realtime(
     state_manager: RecoveryManager | None = None,
     reconnect: ReconnectManager | None = None,
     stop_event: Event | None = None,
+    engine: TradingEngine | None = None,
 ) -> date:
     strategies: dict[str, Strategy] | None = None
     blocked = set(recovery.blocked_symbols) if recovery else set()
@@ -495,6 +609,23 @@ def _run_realtime(
         )
         if config["session"]["only_market_hours"] and not market_open:
             next_open = providers.calendar_session.next_open(now)
+            startup_wait = _startup_wait_seconds(
+                providers.calendar_session, config, now
+            )
+            if startup_wait is not None:
+                if not market_closed_logged:
+                    logger.info(
+                        "Pre-market startup at %s; waiting for market open at %s",
+                        now,
+                        next_open,
+                    )
+                    market_closed_logged = True
+                wait_seconds = min(60.0, max(1.0, startup_wait))
+                if stop_event is None:
+                    sleep(wait_seconds)
+                else:
+                    stop_event.wait(wait_seconds)
+                continue
             if not keep_running:
                 logger.warning(
                     "Market is closed at %s; next open is %s. Exiting realtime runner.",
@@ -531,15 +662,22 @@ def _run_realtime(
 
         try:
             if keep_running and market_open and last_watchlist_date != now.date():
-                _reload_swing_symbols(
-                    providers,
-                    config,
-                    symbols,
-                    trades,
-                    now.date(),
-                )
-                strategies = None
-                last_watchlist_date = now.date()
+                try:
+                    _reload_swing_symbols(
+                        providers,
+                        config,
+                        symbols,
+                        trades,
+                        now.date(),
+                    )
+                except ValueError as exc:
+                    logger.error(
+                        "Swing watchlist reload rejected; keeping current list: %s",
+                        exc,
+                    )
+                else:
+                    strategies = None
+                    last_watchlist_date = now.date()
 
             if strategies is None:
                 logger.debug("_run_realtime setting up strategies")
@@ -551,6 +689,20 @@ def _run_realtime(
                 logger.debug("_run_realtime balance=%s", balance)
                 risk.update(balance)
                 _reconcile_orders(trades, entered)
+                if _is_swing(config):
+                    _remove_closed_swing_symbols(
+                        providers,
+                        symbols,
+                        strategies,
+                        trades,
+                        config["market"]["exchange"],
+                    )
+                allow_entries = not _square_off_if_due(
+                    providers,
+                    trades,
+                    position_type,
+                    now,
+                )
                 _process_symbols(
                     providers,
                     symbols,
@@ -560,6 +712,8 @@ def _run_realtime(
                     entered,
                     position_type,
                     config,
+                    engine,
+                    allow_entries,
                 )
                 _save_state(persistence, risk, trading_date)
         except BrokerError as exc:
@@ -586,6 +740,14 @@ def _run_realtime(
             blocked.update(reconciled.blocked_symbols)
             entered = set(reconciled.entered_symbols) | blocked
             strategies = None
+            if _is_swing(config):
+                _remove_closed_swing_symbols(
+                    providers,
+                    symbols,
+                    strategies,
+                    trades,
+                    config["market"]["exchange"],
+                )
             _save_state(persistence, risk, trading_date)
             logger.debug(
                 "_run_realtime recovery completed blocked=%s entered=%s",
@@ -618,6 +780,7 @@ def _run_historical(
     risk: RiskManager,
     position_type: PositionType,
     persistence: RecoveryManager | None = None,
+    engine: TradingEngine | None = None,
 ) -> date | None:
     logger.debug("_run_historical entry symbols=%s", symbols)
     timestamps = providers.market_data.timestamps()
@@ -646,6 +809,21 @@ def _run_historical(
             if not providers.calendar_session.is_market_open(value):
                 continue
         _reconcile_orders(trades, entered)
+        if _is_swing(config):
+            _remove_closed_swing_symbols(
+                providers,
+                symbols,
+                strategies,
+                trades,
+                config["market"]["exchange"],
+            )
+        risk.update(providers.account.get_balance())
+        allow_entries = not _square_off_if_due(
+            providers,
+            trades,
+            position_type,
+            value,
+        )
         _process_symbols(
             providers,
             symbols,
@@ -655,6 +833,8 @@ def _run_historical(
             entered,
             position_type,
             config,
+            engine,
+            allow_entries,
         )
     if trading_date is not None:
         _save_state(persistence, risk, trading_date, last_processed_at)
@@ -672,6 +852,14 @@ def _run_providers(
     logger.debug("_run_providers entry mode=%s symbols=%s", mode, symbols)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
+    dispatcher = EventDispatcher()
+    dispatcher.register(EventType.SIGNAL, lambda event: SignalValidator.validate(event.data))
+    engine = TradingEngine(
+        providers,
+        dispatcher,
+        loop_sleep_s=float(config["engine"]["loop_sleep_s"]),
+        risk_manager=risk,
+    )
     state_manager = RecoveryManager(
         config,
         trades,
@@ -707,16 +895,22 @@ def _run_providers(
         if (
             mode in {"live", "paper"}
             and config["session"]["only_market_hours"]
-            and not _is_swing(config)
         ):
             now = providers.calendar_session.now()
             if not providers.calendar_session.is_market_open(now):
-                logger.warning(
-                    "Market is closed at %s; next open is %s. Provider setup skipped.",
+                next_open = providers.calendar_session.next_open(now)
+                if _startup_wait_seconds(providers.calendar_session, config, now) is None:
+                    logger.warning(
+                        "Market is closed at %s; next open is %s. Provider setup skipped.",
+                        now,
+                        next_open,
+                    )
+                    return
+                logger.info(
+                    "Pre-market startup at %s; providers will wait for market open at %s",
                     now,
-                    providers.calendar_session.next_open(now),
+                    next_open,
                 )
-                return
 
         startup_reconnected = False
         try:
@@ -756,9 +950,9 @@ def _run_providers(
                 return
             except BrokerAuthenticationError:
                 risk.activate_kill_switch()
-                _save_state(persistence, risk, runtime_date)
                 logger.error(
-                    "Broker authentication recovery exhausted; startup stopped safely"
+                    "Broker authentication recovery exhausted before state recovery; "
+                    "startup stopped without replacing saved state"
                 )
                 return
             startup_reconnected = True
@@ -780,6 +974,7 @@ def _run_providers(
                 risk,
                 position_type,
                 persistence,
+                engine,
             )
         else:
             logger.debug("_run_providers entering realtime runner")
@@ -795,6 +990,7 @@ def _run_providers(
                 state_manager,
                 reconnect,
                 stop_event,
+                engine,
             )
     finally:
         logger.debug("_run_providers shutdown entry runtime_date=%s", runtime_date)
@@ -815,39 +1011,6 @@ def _run_providers(
                 providers.broker_session.logout()
         logger.done("AutoTick provider shutdown completed")
         logger.debug("_run_providers exit")
-
-
-def _run_ui_data(config: dict) -> None:
-    """Run Paper mode with UI-backed simulated providers in one process."""
-    from simulated_control_panel import run_control_panel
-
-    symbols = _configured_symbols(config)
-    if not symbols:
-        raise ValueError("Simulated UI requires at least one configured symbol")
-    broker = str(config["broker"]).strip().lower()
-    simulated_config = config.get("simulated", {})
-    broker_auto_fetch = simulated_config.get("broker_auto_fetch", False)
-    credentials_file = (
-        config.get("broker_config", {}).get(broker, {}).get("credentials_file")
-    )
-
-    def runner(providers, stop_event: Event) -> None:
-        calendar = CalendarSessionManager(config["session"])
-        calendar.configure_mode("paper")
-        providers.calendar_session = calendar
-        _run_providers(providers, config, stop_event)
-
-    run_control_panel(
-        strategy_runner=runner,
-        configured_capital=float(config["capital"]),
-        exchange=config["market"]["exchange"],
-        initial_symbol=symbols[0],
-        initial_interval="1d",
-        credentials_file=credentials_file,
-        source_broker=broker if broker != "simulated" else None,
-        source_config=config,
-        broker_auto_fetch=broker_auto_fetch,
-    )
 
 
 def main(config_path: str | Path | None = None) -> None:
@@ -875,19 +1038,15 @@ def main(config_path: str | Path | None = None) -> None:
         logger.done("Configuration loaded from %s", config_path)
         logger.info("Starting mode=%s", mode.upper())
 
-        if config.get("simulated", {}).get("ui_data_enabled", False):
-            logger.info("Starting Paper mode with simulated UI data")
-            _run_ui_data(config)
-        else:
-            logger.debug("main creating providers mode=%s", mode)
-            providers = ProviderFactory.create_bundle(mode, config)
-            logger.debug(
-                "main providers created market_data=%s account=%s execution=%s",
-                type(providers.market_data).__name__,
-                type(providers.account).__name__,
-                type(providers.execution).__name__,
-            )
-            _run_providers(providers, config)
+        logger.debug("main creating providers mode=%s", mode)
+        providers = ProviderFactory.create_bundle(mode, config)
+        logger.debug(
+            "main providers created market_data=%s account=%s execution=%s",
+            type(providers.market_data).__name__,
+            type(providers.account).__name__,
+            type(providers.execution).__name__,
+        )
+        _run_providers(providers, config)
     except KeyboardInterrupt:
         logger.done("AutoTick stopped by user")
     except Exception:

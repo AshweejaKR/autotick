@@ -99,12 +99,19 @@ class TradeManager:
         if provider_order.order_id != original_id:
             self._orders.pop(original_id, None)
         submitted = self.update_order_state(
-            replace(provider_order, status=OrderStatus.VALIDATED),
+            replace(
+                provider_order,
+                status=OrderStatus.VALIDATED,
+                filled_quantity=None,
+            ),
             OrderStatus.SUBMITTED,
         )
         if provider_order.status == OrderStatus.SUBMITTED:
             return submitted
-        return self.update_order_state(submitted, provider_order.status)
+        return self.update_order_state(
+            replace(submitted, filled_quantity=provider_order.filled_quantity),
+            provider_order.status,
+        )
 
     def track_order(self, order: Order) -> None:
         if order.order_id:
@@ -127,22 +134,32 @@ class TradeManager:
         return cancelled
 
     def update_order_state(self, order: Order, status: OrderStatus) -> Order:
-        if order.status == status:
-            return order
-        if status not in self._TRANSITIONS.get(order.status, set()):
-            raise ValueError(f"Invalid order transition: {order.status} -> {status}")
-        updated = replace(order, status=status, status_updated_at=datetime.now())
+        current = self._orders.get(order.order_id, order)
+        previous_filled = self._filled_quantity(current)
+        filled_quantity = self._filled_quantity(order, status)
+        changed_fill = filled_quantity > previous_filled
+        if current.status == status and not changed_fill:
+            return current
+        if current.status != status and status not in self._TRANSITIONS.get(current.status, set()):
+            raise ValueError(f"Invalid order transition: {current.status} -> {status}")
+        updated = replace(
+            order,
+            status=status,
+            status_updated_at=order.status_updated_at or datetime.now(),
+            filled_quantity=filled_quantity or None,
+        )
         self.track_order(updated)
         if self._audit is not None:
             self._audit.record_order(updated)
         if status == OrderStatus.FILLED:
             self._record_trade(updated)
+        if changed_fill:
             if updated.intent == OrderIntent.ENTRY:
-                if self.risk_manager is not None:
+                if previous_filled == 0 and self.risk_manager is not None:
                     self.risk_manager.record_entry()
-                self._open_filled_entry(updated)
+                self._apply_entry_fill(updated, filled_quantity - previous_filled)
             else:
-                self._close_filled_exit(updated)
+                self._apply_exit_fill(updated, filled_quantity - previous_filled)
         elif (
             updated.intent == OrderIntent.EXIT
             and status in {
@@ -290,15 +307,17 @@ class TradeManager:
         for broker_order in self.execution.get_orders():
             current = pending.get(broker_order.order_id)
             if current is None:
-                if broker_order.order_id not in self._orders:
-                    self.track_order(broker_order)
                 continue
             if current.status == broker_order.status:
                 continue
             price = broker_order.price or current.price
             changed.append(
                 self.update_order_state(
-                    replace(current, price=price),
+                    replace(
+                        current,
+                        price=price,
+                        filled_quantity=broker_order.filled_quantity,
+                    ),
                     broker_order.status,
                 )
             )
@@ -390,30 +409,52 @@ class TradeManager:
             return None
         return self._submit_exit(position, price), reason
 
-    def _open_filled_entry(self, order: Order) -> None:
+    @staticmethod
+    def _filled_quantity(order: Order, status: OrderStatus | None = None) -> int:
+        state = status or order.status
+        if state == OrderStatus.FILLED:
+            return order.quantity
+        return max(0, min(order.quantity, int(order.filled_quantity or 0)))
+
+    def _apply_entry_fill(self, order: Order, quantity: int) -> None:
         price = float(order.price or 0)
-        if price <= 0:
+        if price <= 0 or quantity <= 0:
             return
-        position = self.open_position(
-            Position(
-                symbol=order.symbol,
-                exchange=order.exchange,
-                quantity=(
-                    order.quantity
-                    if order.side == OrderSide.BUY
-                    else -order.quantity
-                ),
-                average_price=price,
-                position_type=order.position_type,
+        key = (order.symbol, order.exchange)
+        signed_quantity = quantity if order.side == OrderSide.BUY else -quantity
+        existing = self._positions.get(key)
+        if existing is not None and existing.quantity:
+            if existing.quantity * signed_quantity < 0:
+                raise ValueError("Entry fill direction conflicts with open position")
+            total_quantity = existing.quantity + signed_quantity
+            average_price = (
+                existing.average_price * abs(existing.quantity) + price * quantity
+            ) / abs(total_quantity)
+            position = self.update_position(
+                replace(
+                    existing,
+                    quantity=total_quantity,
+                    average_price=average_price,
+                    position_type=order.position_type,
+                )
             )
-        )
-        if self.risk_manager is not None:
+        else:
+            position = self.open_position(
+                Position(
+                    symbol=order.symbol,
+                    exchange=order.exchange,
+                    quantity=signed_quantity,
+                    average_price=price,
+                    position_type=order.position_type,
+                )
+            )
+        if self.risk_manager is not None and key not in self._exit_levels:
             levels = _ExitLevels(
                 stop_loss=self.risk_manager.stop_loss(price, order.side),
                 target=self.risk_manager.target(price, order.side),
                 highest_price=price,
             )
-            self._exit_levels[self._position_key(position)] = levels
+            self._exit_levels[key] = levels
             logger.debug(
                 "Entry levels %s: entry_price=%.2f stop_loss=%.2f target=%.2f",
                 order.symbol,
@@ -422,25 +463,29 @@ class TradeManager:
                 levels.target,
             )
 
-    def _close_filled_exit(self, order: Order) -> None:
+    def _apply_exit_fill(self, order: Order, quantity: int) -> None:
         key = (order.symbol, order.exchange)
         position = self._positions.get(key)
-        if position is not None and order.price is not None:
-            direction = 1 if position.quantity > 0 else -1
-            pnl = (
-                (float(order.price) - position.average_price)
-                * abs(order.quantity)
-                * direction
-            )
-            self._positions[key] = replace(
-                position,
-                quantity=0,
-                realized_pnl=position.realized_pnl + pnl,
-                unrealized_pnl=0.0,
-                status=PositionStatus.CLOSED,
-            )
+        if position is None or order.price is None or quantity <= 0:
+            return
+        if abs(position.quantity) < quantity:
+            raise ValueError("Exit fill exceeds open position quantity")
+        direction = 1 if position.quantity > 0 else -1
+        pnl = (float(order.price) - position.average_price) * quantity * direction
+        remaining = position.quantity - quantity * direction
+        closed = remaining == 0
+        self._positions[key] = replace(
+            position,
+            quantity=remaining,
+            realized_pnl=position.realized_pnl + pnl,
+            unrealized_pnl=0.0,
+            status=PositionStatus.CLOSED if closed else PositionStatus.EXIT_PENDING,
+        )
+        if self.risk_manager is not None:
+            self.risk_manager.record_realized_pnl(pnl)
+        if closed:
+            self._exit_levels.pop(key, None)
             self._report_completed_trade(order, pnl)
-        self._exit_levels.pop(key, None)
 
     def _report_completed_trade(self, exit_order: Order, pnl: float) -> None:
         if self._reporter is None:
@@ -532,23 +577,40 @@ class TradeManager:
             raise KeyError(f"Unknown position: {symbol}:{exchange}")
         closed = replace(position, quantity=0, unrealized_pnl=0.0, status=PositionStatus.CLOSED)
         self._positions[key] = closed
+        self._exit_levels.pop(key, None)
         return closed
 
     def square_off_intraday(self) -> list[Order]:
         """Submit exit orders only for open intraday positions."""
         orders = []
         for key, position in list(self._positions.items()):
-            if position.quantity == 0 or position.position_type != PositionType.INTRADAY:
+            if (
+                position.quantity == 0
+                or position.position_type != PositionType.INTRADAY
+                or position.status != PositionStatus.OPEN
+            ):
                 continue
-            self._positions[key] = replace(position, status=PositionStatus.EXIT_PENDING)
-            orders.append(self.create_order(Order(
+            order = self.create_order(Order(
                 order_id=str(uuid4()),
                 symbol=position.symbol,
                 exchange=position.exchange,
                 side=OrderSide.SELL if position.quantity > 0 else OrderSide.BUY,
                 quantity=abs(position.quantity),
                 intent=OrderIntent.EXIT,
-            )))
+                position_type=position.position_type,
+            ))
+            if order.status in {
+                OrderStatus.SUBMITTED,
+                OrderStatus.OPEN,
+                OrderStatus.PARTIAL,
+            }:
+                current = self._positions.get(key)
+                if current is not None and current.quantity:
+                    self._positions[key] = replace(
+                        current,
+                        status=PositionStatus.EXIT_PENDING,
+                    )
+            orders.append(order)
         return orders
 
     def get_positions(self) -> list[Position]:
@@ -600,7 +662,11 @@ class TradeManager:
                 continue
             if provider_order.status in self._TRANSITIONS.get(current.status, set()):
                 self.update_order_state(
-                    replace(current, price=provider_order.price or current.price),
+                    replace(
+                        current,
+                        price=provider_order.price or current.price,
+                        filled_quantity=provider_order.filled_quantity,
+                    ),
                     provider_order.status,
                 )
                 changed_orders += 1
@@ -677,18 +743,3 @@ class TradeManager:
                 | {symbol for symbol, _ in unknown_position_keys}
             ),
         )
-
-    def reconcile_positions(self) -> None:
-        broker_positions = self.execution.get_positions()
-        active_keys = set()
-
-        for position in broker_positions:
-            self.update_position(position)
-            if position.quantity != 0:
-                active_keys.add(self._position_key(position))
-
-        for key, position in list(self._positions.items()):
-            if position.status == PositionStatus.OPEN and key not in active_keys:
-                self.close_position(*key)
-
-        self._trades = {trade.trade_id: trade for trade in self.execution.get_trades()}

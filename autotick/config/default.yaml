@@ -1,23 +1,25 @@
-mode: paper
+mode: live
 broker: angelone
-strategy: simple
+strategy: mcx_goldpetal_orb
 
 market:
   symbols:
-    - NIFTYBEES-EQ
-    - INFY-EQ
-  exchange: NSE
+    - GOLDPETAL30SEP26FUT
+  exchange: MCX
 
-capital: 100000
+capital: 5000
 
 trade:
-  quantity: 10
+  quantity: 1
   position_type: POSITIONAL
+
+simulated:
+  margin_pct: 10
 
 risk:
   max_loss: -2000
   max_trades_per_day: 5
-  risk_per_trade_pct: 1
+  risk_per_trade_pct: 20
   stoploss_pct: 2
   target_pct: 5
   trailing_atr_period: 14
@@ -33,19 +35,16 @@ reconnect:
   max_delay_s: 60
   auth_max_attempts: 3
 
-simulated:
-  ui_data_enabled: false
-  broker_auto_fetch: false
-
 session:
   schedule_type: DAILY
   timezone: Asia/Kolkata
   trading_days: [MON, TUE, WED, THU, FRI]
   closed_dates: []
   market_start: "09:15"
-  market_end: "15:30"
-  square_off_time: "15:15"
+  market_end: "23:30"
+  square_off_time: "23:20"
   only_market_hours: true
+  startup_wait_minutes: 30
   replay_speed: 1.0
 
 backtest:
@@ -68,6 +67,6 @@ reports:
 
 logging:
   enabled: true
-  level: INFO
+  level: DEBUG
   log_file: "logs/autotick.log"
   timestamp: true

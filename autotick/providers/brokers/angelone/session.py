@@ -182,10 +182,13 @@ class AngelOneSession(BrokerSession):
         if isinstance(value, dict):
             if value.get("status") is not False:
                 return False
-            text = f"{value.get('errorcode', '')} {value.get('message', '')}".lower()
+            code = str(value.get("errorcode", "")).upper()
+            if code in {"AG8001", "AG8002", "AB8050"}:
+                return True
+            text = str(value.get("message", "")).lower()
         else:
             text = str(value).lower()
-        return any(word in text for word in ("token", "session expired", "unauthorized", "jwt"))
+        return any(word in text for word in ("session expired", "unauthorized", "invalid jwt"))
 
     @staticmethod
     def _is_retryable(value: object) -> bool:

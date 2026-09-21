@@ -143,7 +143,10 @@ class ProviderFactory:
         session = SimulatedSession()
         session.set_market_data(market_data)
         account = SimulatedAccountProvider(session, float(config["capital"]))
-        execution = SimulatedExecutionProvider(session)
+        execution = SimulatedExecutionProvider(
+            session,
+            float(config.get("simulated", {}).get("margin_pct", 100)),
+        )
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode(mode)
         return ProviderBundle(

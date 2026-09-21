@@ -8,14 +8,16 @@ Created on Sat Sep 12 19:28:09 2026
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from autotick.engine.risk_manager import RiskManager
 from autotick.engine.trade_manager import TradeManager
+import autotick.main as runner
 from autotick.main import _process_symbols
 from autotick.models.market import MarketBar, MarketTick
-from autotick.models.order import OrderIntent, OrderSide, OrderStatus
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import PositionStatus, PositionType
 from autotick.models.signal import Signal, SignalType
 from autotick.providers.brokers.angelone import (
@@ -145,3 +147,78 @@ def test_live_provider_wiring_is_offline(
     assert isinstance(providers.account, AngelOneAccountProvider)
     assert isinstance(providers.execution, AngelOneExecutionProvider)
     assert providers.broker_session is session
+
+
+def test_historical_fill_uses_market_timestamp(make_config) -> None:
+    start = datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc)
+    market = _historical_market(start)
+    market.connect()
+    market.subscribe(["INFY-EQ"])
+    market.update_time(start)
+    session = SimulatedSession()
+    session.set_market_data(market)
+    account = SimulatedAccountProvider(session, 1_000)
+    execution = SimulatedExecutionProvider(session)
+    trades = TradeManager(execution, RiskManager(make_config()))
+
+    trades.create_order(Order("HIST-1", "INFY-EQ", "NSE", OrderSide.BUY, 5))
+
+    assert account.get_balance() == 495
+    assert trades.get_trades()[0].timestamp == start
+
+    market.update_time(start + timedelta(minutes=1))
+    assert trades.monitor_exit("INFY-EQ", "NSE", 107) is not None
+    assert trades.get_trades()[1].timestamp == start + timedelta(minutes=1)
+
+
+def test_historical_runner_refreshes_risk_balance(monkeypatch, make_config) -> None:
+    timestamps = [
+        datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc),
+        datetime(2026, 9, 12, 9, 16, tzinfo=timezone.utc),
+    ]
+    balances = iter((900.0, 800.0))
+
+    class _Market:
+        def timestamps(self):
+            return timestamps
+
+        def update_time(self, value):
+            pass
+
+    class _Calendar:
+        def wait_until(self, value):
+            pass
+
+        def update_time(self, value):
+            pass
+
+        def should_square_off(self, value):
+            return False
+
+    providers = SimpleNamespace(
+        market_data=_Market(),
+        calendar_session=_Calendar(),
+        account=SimpleNamespace(get_balance=lambda: next(balances)),
+    )
+    config = make_config()
+    config["session"] = {"only_market_hours": False}
+    risk = RiskManager(config)
+    capital_seen = []
+    monkeypatch.setattr(runner, "_setup_strategies", lambda *args: {})
+    monkeypatch.setattr(runner, "_reconcile_orders", lambda *args: None)
+    monkeypatch.setattr(
+        runner,
+        "_process_symbols",
+        lambda *args, **kwargs: capital_seen.append(args[4].capital),
+    )
+
+    runner._run_historical(
+        providers,
+        config,
+        ["INFY-EQ"],
+        SimpleNamespace(),
+        risk,
+        PositionType.POSITIONAL,
+    )
+
+    assert capital_seen == [900.0, 800.0]
