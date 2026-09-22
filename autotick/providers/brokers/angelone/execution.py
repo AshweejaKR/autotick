@@ -211,6 +211,9 @@ class AngelOneExecutionProvider(ExecutionProvider):
                 }],
             },
         )
+        margin_required = self._response_amount(margin, "totalMarginRequired")
+        if order.exchange.upper() == "MCX":
+            return margin_required
         charges = self.session.call(
             self.session.client.estimateCharges,
             {
@@ -228,7 +231,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
                 }],
             },
         )
-        return self._response_amount(margin, "totalMarginRequired") + self._charge_amount(charges)
+        return margin_required + self._charge_amount(charges)
 
     def _available_margin(self) -> float:
         response = self.session.call(self.session.client.rmsLimit)

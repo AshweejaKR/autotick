@@ -260,7 +260,7 @@ def test_angelone_trade_time_and_auth_classification() -> None:
     )
 
 
-def test_angelone_entry_uses_broker_margin_and_charges() -> None:
+def test_angelone_mcx_entry_uses_broker_margin_without_charge_estimate() -> None:
     session = _FakeSession()
     execution = AngelOneExecutionProvider(session)
 
@@ -272,7 +272,20 @@ def test_angelone_entry_uses_broker_margin_and_charges() -> None:
     assert order.quantity == 3
     assert session.client.placed_orders[-1]["quantity"] == 3
     assert session.client.margin_requests[-1]["positions"][0]["orderType"] == "MARKET"
-    assert session.client.charge_requests[-1]["orders"][0]["symbol_name"] == "GOLDPETAL"
+    assert session.client.charge_requests == []
+
+
+def test_angelone_cash_entry_adds_estimated_charges() -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    order = execution.place_order(
+        Order("", "INFY-EQ", "NSE", OrderSide.BUY, 4, price=1_500)
+    )
+
+    assert order.status == OrderStatus.SUBMITTED
+    assert order.quantity == 3
+    assert session.client.charge_requests[-1]["orders"][0]["symbol_name"] == "INFY-EQ"
 
 
 def test_simulated_margin_allows_goldpetal_paper_entry() -> None:

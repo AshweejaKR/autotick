@@ -219,7 +219,7 @@ RISK AND TRADE MANAGEMENT
 RiskManager:
 - owns position sizing and entry risk checks.
 - uses fixed quantity for broker-margin entries; otherwise applies max_position_value.
-- Live AngelOne entries use broker-calculated margin and charges before placement.
+- Live AngelOne entries use broker-calculated margin; MCX skips the unreliable charge-estimate endpoint.
 - calculates long/short stop-loss, target, and ATR trailing levels.
 - records realized daily P&L and activates the kill switch at max loss or max trades.
 - keeps the kill switch active after a runtime persistence failure.

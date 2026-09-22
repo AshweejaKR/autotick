@@ -51,7 +51,7 @@ Manual provider check:
 - `autotick/config/default.yaml` is Live MCX GoldPetal; update its futures symbol after expiry.
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
-- Live AngelOne entries use broker margin plus estimated charges before placement.
+- Live AngelOne entries use broker margin before placement; MCX skips the unreliable charge-estimate endpoint.
 - Live/Paper startup waits only during the final configured pre-market window (30 minutes by default).
 - Paper uses `simulated.margin_pct` for simple futures margin; default GoldPetal is 10%.
 - Use one configured calendar profile for all symbols in a run.

@@ -33,7 +33,7 @@
 - Live and Paper recover state before strategy setup.
 - Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.
 - Strategies create signals only. RiskManager and TradeManager own sizing and execution.
-- Live AngelOne entries use broker-calculated margin and charges before placement.
+- Live AngelOne entries use broker-calculated margin; MCX skips the unreliable charge-estimate endpoint.
 - Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
 - GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged default configuration.
