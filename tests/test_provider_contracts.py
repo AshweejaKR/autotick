@@ -14,8 +14,8 @@ import pytest
 
 from autotick.models.account import Account
 from autotick.models.market import MarketBar, MarketTick
-from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
-from autotick.models.position import Position
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus, OrderType
+from autotick.models.position import Position, PositionType
 from autotick.models.trade import Trade
 from autotick.providers.brokers.angelone import (
     AngelOneAccountProvider,
@@ -136,7 +136,10 @@ class _FakeClient:
         self.charge_requests: list[dict] = []
 
     def rmsLimit(self) -> dict:
-        return {"status": True, "data": {"availablecash": "1000", "availablelimitmargin": "5000"}}
+        return {
+            "status": True,
+            "data": {"availablecash": "5000", "availablelimitmargin": "0"},
+        }
 
     def getMarginApi(self, params: dict) -> dict:
         self.margin_requests.append(params)
@@ -227,7 +230,9 @@ def test_angelone_provider_contracts_offline() -> None:
     market.subscribe(["INFY-EQ"])
 
     assert isinstance(account.get_profile(), Account)
-    assert account.get_balance() == 1_000
+    assert account.get_balance() == 5_000
+    assert account.get_margin() == 0
+    assert account.get_buying_power() == 5_000
     assert isinstance(market.get_tick("INFY-EQ"), MarketTick)
     assert isinstance(market.get_bars("INFY-EQ", "1m")[0], MarketBar)
     assert isinstance(execution.get_orders()[0], Order)
@@ -285,7 +290,74 @@ def test_angelone_cash_entry_adds_estimated_charges() -> None:
 
     assert order.status == OrderStatus.SUBMITTED
     assert order.quantity == 3
+    assert session.client.margin_requests[-1] == {
+        "positions": [{
+            "exchange": "NSE",
+            "qty": 3,
+            "price": 0,
+            "productType": "DELIVERY",
+            "token": "123",
+            "tradeType": "BUY",
+            "orderType": "MARKET",
+        }],
+    }
     assert session.client.charge_requests[-1]["orders"][0]["symbol_name"] == "INFY-EQ"
+
+
+@pytest.mark.parametrize("exchange", ["NSE", "BSE"])
+def test_angelone_rejects_new_positional_cash_equity_sell(exchange: str) -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    order = execution.place_order(
+        Order("", "INFY-EQ", exchange, OrderSide.SELL, 1, price=1_500)
+    )
+
+    assert order.status == OrderStatus.REJECTED
+    assert order.quantity == 0
+    assert session.client.margin_requests == []
+    assert session.client.placed_orders == []
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        Order(
+            "EXIT-1",
+            "INFY-EQ",
+            "NSE",
+            OrderSide.SELL,
+            1,
+            price=1_500,
+            intent=OrderIntent.EXIT,
+        ),
+        Order(
+            "INTRADAY-1",
+            "INFY-EQ",
+            "NSE",
+            OrderSide.SELL,
+            1,
+            price=1_500,
+            position_type=PositionType.INTRADAY,
+        ),
+        Order(
+            "MCX-1",
+            "GOLDPETAL30SEP26FUT",
+            "MCX",
+            OrderSide.SELL,
+            1,
+            price=15_000,
+        ),
+    ],
+)
+def test_angelone_allows_supported_sell_orders(order: Order) -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    result = execution.place_order(order)
+
+    assert result.status == OrderStatus.SUBMITTED
+    assert session.client.placed_orders[-1]["transactiontype"] == "SELL"
 
 
 def test_simulated_margin_allows_goldpetal_paper_entry() -> None:

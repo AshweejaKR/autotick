@@ -33,6 +33,14 @@ class AngelOneExecutionProvider(ExecutionProvider):
 
     def place_order(self, order: Order) -> Order:
         if order.intent == OrderIntent.ENTRY:
+            if self._is_unsupported_delivery_short(order):
+                logger.warning(
+                    "AngelOne entry blocked: positional cash-equity SELL is not a supported "
+                    "short entry symbol=%s exchange=%s",
+                    order.symbol,
+                    order.exchange,
+                )
+                return replace(order, quantity=0, status=OrderStatus.REJECTED)
             order = self._fit_to_available_margin(order)
             if order.quantity <= 0:
                 return replace(order, status=OrderStatus.REJECTED)
@@ -240,7 +248,21 @@ class AngelOneExecutionProvider(ExecutionProvider):
         data = response.get("data")
         if not isinstance(data, dict):
             raise BrokerConnectionError("AngelOne RMS margin read returned invalid data")
-        return float(data.get("availablelimitmargin", data.get("availablecash", 0)) or 0)
+        try:
+            return float(data["availablecash"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BrokerConnectionError(
+                "AngelOne RMS available cash was invalid"
+            ) from exc
+
+    @staticmethod
+    def _is_unsupported_delivery_short(order: Order) -> bool:
+        return (
+            order.intent == OrderIntent.ENTRY
+            and order.side == OrderSide.SELL
+            and order.position_type == PositionType.POSITIONAL
+            and order.exchange.upper() in {"NSE", "BSE"}
+        )
 
     @staticmethod
     def _response_amount(response: object, key: str) -> float:
