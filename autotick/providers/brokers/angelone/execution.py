@@ -290,6 +290,8 @@ class AngelOneExecutionProvider(ExecutionProvider):
             message = response.get("message", "unknown error") if isinstance(response, dict) else "invalid response"
             raise BrokerConnectionError(f"AngelOne {name} read failed: {message}")
         data = response.get("data")
+        if data is None:
+            return []
         if not isinstance(data, list):
             raise BrokerConnectionError(f"AngelOne {name} read returned invalid data")
         return data

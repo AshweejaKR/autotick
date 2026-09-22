@@ -294,6 +294,30 @@ class _FailedReadSession:
         return function(*args, **kwargs)
 
 
+class _EmptyReadClient:
+    def orderBook(self) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    position = holding = tradeBook = orderBook
+
+
+class _EmptyReadSession:
+    def __init__(self) -> None:
+        self.client = _EmptyReadClient()
+
+    def call(self, function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+
+def test_angelone_successful_empty_reads_return_empty_lists() -> None:
+    execution = AngelOneExecutionProvider(_EmptyReadSession())
+
+    assert execution.get_orders() == []
+    assert execution.get_positions() == []
+    assert execution.get_holdings() == []
+    assert execution.get_trades() == []
+
+
 def test_angelone_failed_position_read_does_not_look_empty() -> None:
     execution = AngelOneExecutionProvider(_FailedReadSession())
 
