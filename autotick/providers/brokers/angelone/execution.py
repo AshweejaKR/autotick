@@ -7,6 +7,7 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -206,6 +207,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
                     "productType": product,
                     "token": token,
                     "tradeType": order.side.value,
+                    "orderType": order.order_type.value,
                 }],
             },
         )
@@ -218,7 +220,10 @@ class AngelOneExecutionProvider(ExecutionProvider):
                     "quantity": str(quantity),
                     "price": str(int(round(float(order.price or 0)))),
                     "exchange": order.exchange,
-                    "symbol_name": trading_symbol,
+                    "symbol_name": self._charge_symbol_name(
+                        trading_symbol,
+                        order.exchange,
+                    ),
                     "token": token,
                 }],
             },
@@ -259,6 +264,17 @@ class AngelOneExecutionProvider(ExecutionProvider):
         if order.position_type == PositionType.INTRADAY:
             return "INTRADAY"
         return "DELIVERY" if order.exchange.upper() in {"NSE", "BSE"} else "CARRYFORWARD"
+
+    @staticmethod
+    def _charge_symbol_name(trading_symbol: str, exchange: str) -> str:
+        """Return the underlying name required for derivative charge estimates."""
+        if exchange.upper() not in {"NFO", "BFO", "MCX", "CDS"}:
+            return trading_symbol
+        match = re.match(
+            r"^(.+?)\d{2}[A-Z]{3}\d{2}(?:FUT|\d+(?:\.\d+)?(?:CE|PE))$",
+            trading_symbol.upper(),
+        )
+        return match.group(1) if match else trading_symbol
 
     @classmethod
     def _to_order(cls, item: dict) -> Order:

@@ -132,15 +132,19 @@ def test_simulated_provider_contracts() -> None:
 class _FakeClient:
     def __init__(self) -> None:
         self.placed_orders: list[dict] = []
+        self.margin_requests: list[dict] = []
+        self.charge_requests: list[dict] = []
 
     def rmsLimit(self) -> dict:
         return {"status": True, "data": {"availablecash": "1000", "availablelimitmargin": "5000"}}
 
     def getMarginApi(self, params: dict) -> dict:
+        self.margin_requests.append(params)
         quantity = params["positions"][0]["qty"]
         return {"status": True, "data": {"totalMarginRequired": quantity * 1450}}
 
     def estimateCharges(self, params: dict) -> dict:
+        self.charge_requests.append(params)
         quantity = int(params["orders"][0]["quantity"])
         return {"status": True, "data": {"summary": {"total_charges": quantity * 10}}}
 
@@ -261,12 +265,14 @@ def test_angelone_entry_uses_broker_margin_and_charges() -> None:
     execution = AngelOneExecutionProvider(session)
 
     order = execution.place_order(
-        Order("", "GOLDPETAL", "MCX", OrderSide.BUY, 4, price=15_000)
+        Order("", "GOLDPETAL30SEP26FUT", "MCX", OrderSide.BUY, 4, price=15_000)
     )
 
     assert order.status == OrderStatus.SUBMITTED
     assert order.quantity == 3
     assert session.client.placed_orders[-1]["quantity"] == 3
+    assert session.client.margin_requests[-1]["positions"][0]["orderType"] == "MARKET"
+    assert session.client.charge_requests[-1]["orders"][0]["symbol_name"] == "GOLDPETAL"
 
 
 def test_simulated_margin_allows_goldpetal_paper_entry() -> None:
