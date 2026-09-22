@@ -31,7 +31,10 @@ from autotick.providers.brokers.simulated import (
 )
 from autotick.providers.factory import ProviderFactory
 from autotick.providers.historical import HistoricalProvider
-from autotick.providers.session_pool import BrokerConnectionError
+from autotick.providers.session_pool import (
+    BrokerAuthenticationError,
+    BrokerConnectionError,
+)
 
 
 def _bar(timestamp: datetime, close: float) -> MarketBar:
@@ -309,6 +312,29 @@ class _EmptyReadSession:
         return function(*args, **kwargs)
 
 
+class _NoneDataClient:
+    def getProfile(self, refresh_token: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def rmsLimit(self) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def generateSession(self, client_id: str, password: str, totp: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def generateToken(self, refresh_token: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+
+class _NoneDataSession:
+    def __init__(self) -> None:
+        self.client = _NoneDataClient()
+        self.refresh_token = "refresh"
+
+    def call(self, function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+
 def test_angelone_successful_empty_reads_return_empty_lists() -> None:
     execution = AngelOneExecutionProvider(_EmptyReadSession())
 
@@ -316,6 +342,39 @@ def test_angelone_successful_empty_reads_return_empty_lists() -> None:
     assert execution.get_positions() == []
     assert execution.get_holdings() == []
     assert execution.get_trades() == []
+
+
+def test_angelone_required_account_data_cannot_be_none() -> None:
+    session = _NoneDataSession()
+    account = AngelOneAccountProvider(session)
+
+    with pytest.raises(BrokerConnectionError, match="profile read returned invalid data"):
+        account.get_profile()
+    with pytest.raises(BrokerConnectionError, match="RMS read returned invalid data"):
+        account.get_balance()
+
+
+def test_angelone_required_margin_data_cannot_be_none() -> None:
+    execution = AngelOneExecutionProvider(_NoneDataSession())
+
+    with pytest.raises(BrokerConnectionError, match="RMS margin read returned invalid data"):
+        execution._available_margin()
+
+
+@pytest.mark.parametrize("operation", ["login", "refresh"])
+def test_angelone_session_data_cannot_be_none(operation: str) -> None:
+    session = object.__new__(AngelOneSession)
+    session.client = _NoneDataClient()
+    session.client_id = "C1"
+    session.password = "password"
+    session.totp_secret = "JBSWY3DPEHPK3PXP"
+    session.refresh_token = "refresh"
+    session._connected = False
+    session._throttle = lambda: None
+
+    with pytest.raises(BrokerAuthenticationError, match="invalid session data"):
+        getattr(session, operation)()
+    assert session.is_connected() is False
 
 
 def test_angelone_failed_position_read_does_not_look_empty() -> None:

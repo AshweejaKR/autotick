@@ -10,6 +10,7 @@ from __future__ import annotations
 from autotick.interfaces.account import AccountProvider
 from autotick.models.account import Account
 from autotick.providers.brokers.angelone.session import AngelOneSession
+from autotick.providers.session_pool import BrokerConnectionError
 
 
 class AngelOneAccountProvider(AccountProvider):
@@ -43,7 +44,9 @@ class AngelOneAccountProvider(AccountProvider):
         ) or {}
         if not response.get("status"):
             raise RuntimeError(f"AngelOne profile failed: {response.get('message', 'unknown error')}")
-        profile = response.get("data") or {}
+        profile = response.get("data")
+        if not isinstance(profile, dict):
+            raise BrokerConnectionError("AngelOne profile read returned invalid data")
         rms = self._rms_data()
         return Account(
             configured_capital=self.configured_capital,
@@ -63,7 +66,10 @@ class AngelOneAccountProvider(AccountProvider):
         response = self.session.call(self.session.client.rmsLimit) or {}
         if not response.get("status"):
             raise RuntimeError(f"AngelOne RMS failed: {response.get('message', 'unknown error')}")
-        return response.get("data") or {}
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise BrokerConnectionError("AngelOne RMS read returned invalid data")
+        return data
 
     @staticmethod
     def _text(value: object) -> str | None:

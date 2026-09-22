@@ -108,7 +108,11 @@ class AngelOneSession(BrokerSession):
             self._raise_session_error(exc, "login")
         if not response or not response.get("status"):
             self._raise_session_error(response, "login")
-        self.refresh_token = response["data"]["refreshToken"]
+        data = response.get("data")
+        if not isinstance(data, dict) or not data.get("refreshToken"):
+            self._connected = False
+            raise BrokerAuthenticationError("AngelOne login returned invalid session data")
+        self.refresh_token = str(data["refreshToken"])
         self._connected = True
         logger.done("AngelOne login completed")
 
@@ -133,8 +137,14 @@ class AngelOneSession(BrokerSession):
             self._raise_session_error(exc, "token refresh")
         if not response or not response.get("status"):
             self._raise_session_error(response, "token refresh")
+        data = response.get("data")
+        if not isinstance(data, dict):
+            self._connected = False
+            raise BrokerAuthenticationError(
+                "AngelOne token refresh returned invalid session data"
+            )
         self.refresh_token = str(
-            (response.get("data") or {}).get("refreshToken") or self.refresh_token
+            data.get("refreshToken") or self.refresh_token
         )
         self._connected = True
         logger.done("AngelOne token refresh completed")

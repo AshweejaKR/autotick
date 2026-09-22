@@ -229,7 +229,9 @@ class AngelOneExecutionProvider(ExecutionProvider):
         response = self.session.call(self.session.client.rmsLimit)
         if not isinstance(response, dict) or response.get("status") is not True:
             raise BrokerConnectionError("AngelOne RMS margin read failed")
-        data = response.get("data") or {}
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise BrokerConnectionError("AngelOne RMS margin read returned invalid data")
         return float(data.get("availablelimitmargin", data.get("availablecash", 0)) or 0)
 
     @staticmethod
