@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import autotick.strategy.mcx_goldpetal_orb as orb_module
 from autotick.models.market import MarketBar, MarketTick
 from autotick.models.signal import SignalType
 from autotick.strategy.context import StrategyContext
@@ -51,3 +52,29 @@ def test_mcx_goldpetal_orb_previous_day_breakout() -> None:
         strategy.on_tick(MarketTick("GOLDPETAL", "MCX", 89.86, 1, now)).signal_type
         == SignalType.SELL
     )
+
+
+def test_entry_range_console_status_is_throttled(monkeypatch) -> None:
+    messages = []
+    times = iter((100.0, 159.9, 160.0))
+    strategy = MCXGoldPetalORBStrategy()
+    strategy.long_trigger = 110.0
+    strategy.short_trigger = 90.0
+    tick = MarketTick(
+        "GOLDPETAL",
+        "MCX",
+        100.0,
+        1,
+        datetime(2026, 9, 17, 9, 0, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(orb_module, "monotonic", lambda: next(times))
+    monkeypatch.setattr(
+        orb_module.logger,
+        "console_only",
+        lambda *args, **kwargs: messages.append((args, kwargs)),
+    )
+
+    for _ in range(3):
+        strategy.on_tick(tick)
+
+    assert len(messages) == 2

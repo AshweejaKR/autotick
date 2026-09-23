@@ -67,6 +67,6 @@ reports:
 
 logging:
   enabled: true
-  level: DEBUG
+  level: INFO
   log_file: "logs/autotick.log"
-  timestamp: true
+  timestamp: false

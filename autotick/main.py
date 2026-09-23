@@ -14,7 +14,7 @@ from contextlib import suppress
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Event
-from time import sleep
+from time import monotonic, sleep
 from uuid import uuid4
 
 from autotick.config.loader import load_config
@@ -55,6 +55,8 @@ from autotick.utils.logger import configure_logging, get_logger, log_call
 
 logger = get_logger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
+EXIT_STATUS_INTERVAL_S = 60.0
+_exit_status_last_logged: dict[tuple[str, str], float] = {}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -71,6 +73,30 @@ def _symbols(value: str | list[str]) -> list[str]:
 
 def _is_swing(config: dict) -> bool:
     return str(config["strategy"]).strip().lower() == "swing"
+
+
+def _log_exit_status(
+    symbol: str,
+    exchange: str,
+    stop_loss: float,
+    price: float,
+    target: float,
+) -> None:
+    """Show an active exit range on the console at a limited rate."""
+    key = (symbol, exchange)
+    now = monotonic()
+    last_logged = _exit_status_last_logged.get(key)
+    if last_logged is not None and now - last_logged < EXIT_STATUS_INTERVAL_S:
+        return
+    logger.console_only(
+        "MCX_ORB_GOLDPETAL EXIT RANGE symbol=%s stop_loss=%.2f <-- "
+        "current=%.2f --> target=%.2f",
+        symbol,
+        stop_loss,
+        price,
+        target,
+    )
+    _exit_status_last_logged[key] = now
 
 
 def _startup_wait_seconds(calendar, config: dict, now: datetime) -> float | None:
@@ -331,15 +357,17 @@ def _process_symbols(
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
         active_position = trades.get_position(symbol, tick.exchange)
+        exit_status_key = (symbol, tick.exchange)
+        if active_position is None:
+            _exit_status_last_logged.pop(exit_status_key, None)
         if (
             str(config["strategy"]).strip().lower() == "mcx_goldpetal_orb"
             and exit_prices is not None
             and active_position is not None
         ):
-            logger.debug(
-                "MCX_ORB_GOLDPETAL EXIT RANGE symbol=%s stop_loss=%.2f <-- "
-                "current=%.2f --> target=%.2f",
+            _log_exit_status(
                 symbol,
+                tick.exchange,
                 exit_prices[0],
                 tick.ltp,
                 exit_prices[1],

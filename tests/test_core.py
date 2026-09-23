@@ -7,6 +7,7 @@ Created on Sat Sep 12 19:28:09 2026
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
@@ -21,6 +22,8 @@ from autotick.engine.trade_manager import TradeManager
 from autotick.engine.trading_engine import TradingEngine
 from autotick.config.loader import _resolve_file_paths
 from autotick.main import (
+    _exit_status_last_logged,
+    _log_exit_status,
     _process_symbols,
     _remove_closed_swing_symbols,
     _save_state,
@@ -40,6 +43,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedSession,
 )
 from autotick.providers.factory import ProviderBundle
+from autotick.utils.logger import configure_logging, get_logger
 
 
 def test_signal_and_risk_rules(make_config) -> None:
@@ -76,6 +80,47 @@ def test_startup_wait_is_limited_to_final_pre_market_window() -> None:
 
     assert _startup_wait_seconds(calendar, config, near_open) == 1_800
     assert _startup_wait_seconds(calendar, config, too_early) is None
+
+
+def test_exit_status_is_throttled_to_once_per_minute(monkeypatch) -> None:
+    messages = []
+    times = iter((100.0, 159.9, 160.0))
+    _exit_status_last_logged.clear()
+    monkeypatch.setattr("autotick.main.monotonic", lambda: next(times))
+    monkeypatch.setattr(
+        "autotick.main.logger.console_only",
+        lambda *args, **kwargs: messages.append((args, kwargs)),
+    )
+
+    for _ in range(3):
+        _log_exit_status("GOLDPETAL", "MCX", 98.0, 100.0, 105.0)
+
+    assert len(messages) == 2
+    _exit_status_last_logged.clear()
+
+
+def test_console_only_message_is_not_written_to_file(tmp_path, capsys) -> None:
+    root_logger = logging.getLogger()
+    previous_handlers = list(root_logger.handlers)
+    previous_level = root_logger.level
+    log_path = tmp_path / "autotick.log"
+    try:
+        configure_logging(level="INFO", log_file=log_path)
+        test_logger = get_logger("tests.console_only")
+        test_logger.console_only("active exit range")
+        test_logger.info("saved event")
+        for handler in root_logger.handlers:
+            handler.flush()
+
+        assert "active exit range" in capsys.readouterr().err
+        file_text = log_path.read_text(encoding="utf-8")
+        assert "active exit range" not in file_text
+        assert "saved event" in file_text
+    finally:
+        for handler in root_logger.handlers:
+            handler.close()
+        root_logger.handlers[:] = previous_handlers
+        root_logger.setLevel(previous_level)
 
 
 def test_margin_aware_risk_uses_broker_quantity_limit(make_config) -> None:
