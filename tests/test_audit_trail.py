@@ -21,6 +21,13 @@ from autotick.providers.brokers.simulated import (
     SimulatedMarketDataProvider,
     SimulatedSession,
 )
+from autotick.reports.audit import AuditTrail
+
+
+def test_audit_timestamp_uses_ist_log_format() -> None:
+    timestamp = datetime(2026, 9, 24, 12, 30, 1, tzinfo=timezone.utc)
+
+    assert AuditTrail._timestamp(timestamp) == "2026-09-24 18:00:01"
 
 
 def test_audit_records_order_states_and_recovery(tmp_path, make_config) -> None:

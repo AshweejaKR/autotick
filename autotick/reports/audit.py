@@ -10,12 +10,14 @@ from __future__ import annotations
 import csv
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from autotick.models.order import Order
 from autotick.reports.report import ReportManager
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
+IST = ZoneInfo("Asia/Kolkata")
 
 
 class AuditTrail:
@@ -84,7 +86,7 @@ class AuditTrail:
             return
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            row = {"timestamp": datetime.now(timezone.utc).isoformat(), **row}
+            row = {"timestamp": self._timestamp(), **row}
             lock_path = self.path.with_name(f".{self.path.stem}.lock")
             with ReportManager.file_lock(lock_path):
                 write_header = not self.path.exists() or self.path.stat().st_size == 0
@@ -95,3 +97,8 @@ class AuditTrail:
                     writer.writerow(row)
         except Exception:
             logger.exception("Audit update failed: %s", self.path)
+
+    @staticmethod
+    def _timestamp(value: datetime | None = None) -> str:
+        current = value or datetime.now(timezone.utc)
+        return current.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S")
