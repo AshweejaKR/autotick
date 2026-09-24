@@ -260,9 +260,69 @@ def test_angelone_trade_time_and_auth_classification() -> None:
 
     assert trade.timestamp.strftime("%H:%M:%S") == "09:16:00"
     assert AngelOneSession._is_auth_error({"status": False, "errorcode": "AG8001"})
+    assert AngelOneSession._is_auth_error(
+        {"status": False, "errorcode": "AB1007", "message": "Invalid Token"}
+    )
+    assert AngelOneSession._is_auth_error(RuntimeError("Invalid Token"))
     assert not AngelOneSession._is_auth_error(
         {"status": False, "message": "Invalid symbol token"}
     )
+
+
+def test_angelone_none_read_retries_then_raises_connection_error(monkeypatch) -> None:
+    session = object.__new__(AngelOneSession)
+    session._throttle = lambda: None
+    attempts = 0
+
+    def unavailable_read():
+        nonlocal attempts
+        attempts += 1
+        return None
+
+    monkeypatch.setattr("autotick.providers.brokers.angelone.session.sleep", lambda _: None)
+
+    with pytest.raises(BrokerConnectionError, match="unavailable after retries"):
+        session.call(unavailable_read)
+
+    assert attempts == 3
+
+
+def test_angelone_malformed_json_read_enters_recovery(monkeypatch) -> None:
+    session = object.__new__(AngelOneSession)
+    session._throttle = lambda: None
+    attempts = 0
+
+    def malformed_read():
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError(
+            "Couldn't parse the JSON response received from the server: b'not found'"
+        )
+
+    monkeypatch.setattr("autotick.providers.brokers.angelone.session.sleep", lambda _: None)
+
+    with pytest.raises(BrokerConnectionError, match="failed after retries"):
+        session.call(malformed_read)
+
+    assert attempts == 3
+
+
+def test_angelone_invalid_token_starts_authentication_recovery() -> None:
+    session = object.__new__(AngelOneSession)
+    session._connected = True
+    session._throttle = lambda: None
+
+    with pytest.raises(BrokerAuthenticationError, match="session expired"):
+        session.call(
+            lambda: {
+                "status": False,
+                "errorcode": "AB1007",
+                "message": "Invalid Token",
+                "data": None,
+            }
+        )
+
+    assert session.is_connected() is False
 
 
 def test_angelone_mcx_entry_uses_broker_margin_without_charge_estimate() -> None:
@@ -379,6 +439,8 @@ class _FailedReadClient:
     def position(self) -> dict:
         return {"status": False, "message": "service unavailable", "data": None}
 
+    rmsLimit = position
+
 
 class _FailedReadSession:
     def __init__(self) -> None:
@@ -473,3 +535,10 @@ def test_angelone_failed_position_read_does_not_look_empty() -> None:
 
     with pytest.raises(BrokerConnectionError, match="positions read failed"):
         execution.get_positions()
+
+
+def test_angelone_failed_rms_read_enters_broker_recovery() -> None:
+    account = AngelOneAccountProvider(_FailedReadSession())
+
+    with pytest.raises(BrokerConnectionError, match="RMS read failed"):
+        account.get_balance()
