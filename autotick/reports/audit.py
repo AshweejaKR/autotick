@@ -8,7 +8,7 @@ Created on Sat Sep 12 19:28:09 2026
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -79,6 +79,25 @@ class AuditTrail:
                 f"recovered={recovered};changed_orders={changed_orders};"
                 f"unresolved_orders={unresolved_orders}"
             ),
+        })
+
+    def record_expiry_exit(
+        self,
+        order: Order,
+        expiry: date,
+        cutoff: datetime,
+    ) -> None:
+        self._append({
+            "event": "EXPIRY_EXIT",
+            "order_id": order.order_id,
+            "symbol": order.symbol,
+            "exchange": order.exchange,
+            "side": order.side.value,
+            "quantity": order.quantity,
+            "status": order.status.value,
+            "price": order.price,
+            "intent": order.intent.value,
+            "details": f"expiry={expiry.isoformat()};cutoff={cutoff.isoformat()}",
         })
 
     def _append(self, row: dict[str, Any]) -> None:

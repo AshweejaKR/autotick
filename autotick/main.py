@@ -28,6 +28,7 @@ from autotick.engine import (
     TradeManager,
     TradingEngine,
 )
+from autotick.engine.expiry import ExpiryState, derivative_symbol, resolve_expiry_state
 from autotick.indicators import AverageTrueRange
 from autotick.models import (
     EventType,
@@ -57,6 +58,7 @@ logger = get_logger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 EXIT_STATUS_INTERVAL_S = 60.0
 _exit_status_last_logged: dict[tuple[str, str], float] = {}
+_expiry_warnings_logged: set[tuple[str, str, str]] = set()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -357,6 +359,84 @@ def _process_symbols(
         )
         exit_prices = trades.get_exit_prices(symbol, tick.exchange)
         active_position = trades.get_position(symbol, tick.exchange)
+        expiry_state = ExpiryState()
+        if (
+            position_type == PositionType.POSITIONAL
+            and config.get("trade", {}).get("expiry_exit", {}).get("enabled", False)
+        ):
+            try:
+                expiry_state = resolve_expiry_state(
+                    providers.market_data,
+                    symbol,
+                    providers.calendar_session.now(),
+                    providers.calendar_session,
+                    config,
+                )
+            except BrokerError as exc:
+                if derivative_symbol(symbol):
+                    expiry_state = ExpiryState(
+                        is_derivative=True,
+                        block_entry=True,
+                        reason="expiry metadata unavailable",
+                    )
+                    warning_key = (symbol, tick.exchange, expiry_state.reason)
+                    if warning_key not in _expiry_warnings_logged:
+                        logger.warning(
+                            "Derivative entries blocked for %s: %s (%s)",
+                            symbol,
+                            expiry_state.reason,
+                            exc,
+                        )
+                        _expiry_warnings_logged.add(warning_key)
+
+        if (
+            expiry_state.exit_due
+            and expiry_state.expiry is not None
+            and expiry_state.cutoff is not None
+            and active_position is not None
+        ):
+            order = trades.exit_for_expiry(
+                symbol,
+                tick.exchange,
+                tick.ltp,
+                expiry_state.expiry,
+                expiry_state.cutoff,
+            )
+            if order is not None:
+                if order.status == OrderStatus.FILLED:
+                    position = trades.get_position(symbol, tick.exchange)
+                    logger.done(
+                        "%s EXPIRY_EXIT %s filled %s: %s qty=%s "
+                        "expiry=%s exit_price=%.2f pnl=%.2f funds=%.2f",
+                        mode.upper(),
+                        order.side.value,
+                        order.order_id,
+                        symbol,
+                        order.quantity,
+                        expiry_state.expiry,
+                        order.price,
+                        position.realized_pnl,
+                        providers.account.get_balance(),
+                    )
+                else:
+                    log_order = (
+                        logger.error
+                        if order.status == OrderStatus.REJECTED
+                        else logger.info
+                    )
+                    log_order(
+                        "%s EXPIRY_EXIT %s order %s: %s qty=%s expiry=%s "
+                        "status=%s",
+                        mode.upper(),
+                        order.side.value,
+                        order.order_id,
+                        symbol,
+                        order.quantity,
+                        expiry_state.expiry,
+                        order.status.value,
+                    )
+                continue
+
         exit_status_key = (symbol, tick.exchange)
         if active_position is None:
             _exit_status_last_logged.pop(exit_status_key, None)
@@ -466,6 +546,23 @@ def _process_symbols(
 
         if not allow_entries:
             logger.debug("Strategy skipped symbol=%s reason=intraday_square_off", symbol)
+            continue
+
+        if expiry_state.block_entry:
+            warning_key = (
+                symbol,
+                tick.exchange,
+                expiry_state.reason or "expiry entry block",
+            )
+            if warning_key not in _expiry_warnings_logged:
+                logger.warning(
+                    "Derivative entry blocked for %s: %s expiry=%s cutoff=%s",
+                    symbol,
+                    expiry_state.reason,
+                    expiry_state.expiry,
+                    expiry_state.cutoff,
+                )
+                _expiry_warnings_logged.add(warning_key)
             continue
 
         active_trade = trades.has_active_trade(symbol, tick.exchange)

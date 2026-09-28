@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from autotick.models.market import MarketBar, MarketTick
+from autotick.models.market import ContractInfo, MarketBar, MarketTick
 
 
 class MarketDataProvider(ABC):
@@ -45,3 +45,7 @@ class MarketDataProvider(ABC):
         end_date: datetime | None = None,
     ) -> list[MarketBar]:
         """Return normalized OHLCV candles for the requested date range."""
+
+    def get_contract(self, symbol: str) -> ContractInfo | None:
+        """Return derivative contract metadata when the provider supports it."""
+        return None

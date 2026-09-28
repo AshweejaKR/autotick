@@ -192,6 +192,23 @@ def validate_config(config: dict[str, Any]) -> None:
     position_type = trade.get("position_type", "POSITIONAL")
     if not isinstance(position_type, str) or position_type.upper() not in _VALID_POSITION_TYPES:
         raise ConfigValidationError("trade.position_type must be INTRADAY or POSITIONAL")
+    expiry_exit = trade.get("expiry_exit")
+    if expiry_exit is not None:
+        if not isinstance(expiry_exit, dict):
+            raise ConfigValidationError("trade.expiry_exit must be a mapping")
+        enabled = expiry_exit.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ConfigValidationError("trade.expiry_exit.enabled must be boolean")
+        days_before = expiry_exit.get("trading_days_before", 1)
+        if (
+            isinstance(days_before, bool)
+            or not isinstance(days_before, int)
+            or days_before < 0
+        ):
+            raise ConfigValidationError(
+                "trade.expiry_exit.trading_days_before must be a non-negative integer"
+            )
+        _hhmm(expiry_exit.get("time", "23:00"), "trade.expiry_exit.time")
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
@@ -273,6 +290,21 @@ def validate_config(config: dict[str, Any]) -> None:
 
     session = _mapping(config, "session")
     _validate_session(session)
+    if (
+        expiry_exit is not None
+        and expiry_exit.get("enabled", True)
+        and str(session["schedule_type"]).upper() == "DAILY"
+    ):
+        expiry_time = _hhmm(
+            expiry_exit.get("time", "23:00"),
+            "trade.expiry_exit.time",
+        )
+        market_start = _hhmm(session["market_start"], "session.market_start")
+        market_end = _hhmm(session["market_end"], "session.market_end")
+        if not market_start <= expiry_time <= market_end:
+            raise ConfigValidationError(
+                "trade.expiry_exit.time must be inside market hours"
+            )
 
     broker_access = mode in {"live", "paper"}
     if broker_access:

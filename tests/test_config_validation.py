@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
+from autotick.config.validator import ConfigValidationError
 from autotick.config.validator import validate_config
 
 
@@ -63,3 +66,27 @@ def test_goldpetal_strategy_allows_manually_changed_market() -> None:
     config["market"] = {"symbols": ["SBIN-EQ"], "exchange": "NSE"}
 
     validate_config(config)
+
+
+def test_expiry_exit_configuration_is_validated() -> None:
+    config = _goldpetal_config()
+    config["trade"]["expiry_exit"] = {
+        "enabled": True,
+        "trading_days_before": -1,
+        "time": "23:00",
+    }
+
+    with pytest.raises(ConfigValidationError, match="non-negative integer"):
+        validate_config(config)
+
+
+def test_expiry_exit_time_must_be_inside_market_hours() -> None:
+    config = _goldpetal_config()
+    config["trade"]["expiry_exit"] = {
+        "enabled": True,
+        "trading_days_before": 1,
+        "time": "23:45",
+    }
+
+    with pytest.raises(ConfigValidationError, match="inside market hours"):
+        validate_config(config)

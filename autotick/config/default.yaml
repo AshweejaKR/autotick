@@ -12,6 +12,10 @@ capital: 5000
 trade:
   quantity: 1
   position_type: POSITIONAL
+  expiry_exit:
+    enabled: true
+    trading_days_before: 1
+    time: "23:00"
 
 simulated:
   margin_pct: 10

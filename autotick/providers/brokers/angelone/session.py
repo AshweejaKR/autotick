@@ -7,10 +7,14 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from time import monotonic, sleep
 from typing import Any, Callable
+from urllib.request import urlopen
 
 from autotick.config.secrets import load_secrets
+from autotick.models.market import ContractInfo
 from autotick.providers.session_pool import (
     BrokerAuthenticationError,
     BrokerConnectionError,
@@ -25,6 +29,11 @@ logger = get_logger(__name__)
 class AngelOneSession(BrokerSession):
     """Shared AngelOne SmartAPI authenticated session."""
 
+    _INSTRUMENT_MASTER_URL = (
+        "https://margincalculator.angelbroking.com/OpenAPI_File/files/"
+        "OpenAPIScripMaster.json"
+    )
+
     def __init__(self, credentials_file: str | None = None) -> None:
         if not credentials_file:
             raise ValueError("credentials_file is required for AngelOne")
@@ -37,6 +46,7 @@ class AngelOneSession(BrokerSession):
         self.refresh_token: str | None = None
         self._connected = False
         self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
+        self._contracts: dict[tuple[str, str], ContractInfo] | None = None
         self._last_api_call = 0.0
 
     def _throttle(self) -> None:
@@ -186,6 +196,51 @@ class AngelOneSession(BrokerSession):
 
     def get_token(self, symbol: str, exchange: str) -> str:
         return self.get_instrument(symbol, exchange)[1]
+
+    def get_contract(self, symbol: str, exchange: str) -> ContractInfo | None:
+        """Resolve expiry metadata from AngelOne's official instrument master."""
+        trading_symbol, _ = self.get_instrument(symbol, exchange)
+        if self._contracts is None:
+            self._contracts = self._load_contracts()
+        return self._contracts.get((trading_symbol.upper(), exchange.upper()))
+
+    def _load_contracts(self) -> dict[tuple[str, str], ContractInfo]:
+        try:
+            with urlopen(self._INSTRUMENT_MASTER_URL, timeout=20) as response:
+                payload = json.load(response)
+        except (OSError, ValueError, TypeError) as exc:
+            raise BrokerConnectionError(
+                "AngelOne instrument master is temporarily unavailable"
+            ) from exc
+        if not isinstance(payload, list):
+            raise BrokerConnectionError("AngelOne instrument master returned invalid data")
+        return self._parse_contracts(payload)
+
+    @staticmethod
+    def _parse_contracts(payload: list[object]) -> dict[tuple[str, str], ContractInfo]:
+        contracts: dict[tuple[str, str], ContractInfo] = {}
+        for value in payload:
+            if not isinstance(value, dict):
+                continue
+            instrument_type = str(value.get("instrumenttype") or "").upper()
+            if not instrument_type.startswith(("FUT", "OPT")):
+                continue
+            symbol = str(value.get("symbol") or "").upper()
+            exchange = str(value.get("exch_seg") or "").upper()
+            expiry_text = str(value.get("expiry") or "").upper()
+            if not symbol or not exchange or not expiry_text:
+                continue
+            try:
+                expiry = datetime.strptime(expiry_text, "%d%b%Y").date()
+            except ValueError:
+                continue
+            contracts[(symbol, exchange)] = ContractInfo(
+                symbol=symbol,
+                exchange=exchange,
+                instrument_type=instrument_type,
+                expiry=expiry,
+            )
+        return contracts
 
     @staticmethod
     def _is_auth_error(value: object) -> bool:
