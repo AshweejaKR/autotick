@@ -86,7 +86,35 @@ def test_expiry_exit_time_must_be_inside_market_hours() -> None:
         "enabled": True,
         "trading_days_before": 1,
         "time": "23:45",
+        "contracts": {"GOLDPETAL30SEP26FUT": "2026-09-30"},
     }
 
     with pytest.raises(ConfigValidationError, match="inside market hours"):
+        validate_config(config)
+
+
+def test_historical_derivative_requires_configured_expiry() -> None:
+    config = _goldpetal_config()
+    config["trade"]["expiry_exit"] = {"enabled": True, "contracts": {}}
+
+    with pytest.raises(ConfigValidationError, match="requires expiry for GOLDPETAL"):
+        validate_config(config)
+
+    config["trade"]["expiry_exit"]["contracts"] = {
+        "GOLDPETAL30SEP26FUT": "2026-09-30"
+    }
+    for mode in ("backtest", "replay"):
+        config["mode"] = mode
+        validate_config(config)
+
+
+@pytest.mark.parametrize("expiry", ["2026-02-30", "30SEP2026", 20260930])
+def test_configured_expiry_requires_iso_date(expiry) -> None:
+    config = _goldpetal_config()
+    config["trade"]["expiry_exit"] = {
+        "enabled": True,
+        "contracts": {"GOLDPETAL30SEP26FUT": expiry},
+    }
+
+    with pytest.raises(ConfigValidationError, match="Expiry for GOLDPETAL"):
         validate_config(config)

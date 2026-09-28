@@ -47,6 +47,7 @@ class AngelOneSession(BrokerSession):
         self._connected = False
         self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
         self._contracts: dict[tuple[str, str], ContractInfo] | None = None
+        self._contracts_retry_after = 0.0
         self._last_api_call = 0.0
 
     def _throttle(self) -> None:
@@ -201,7 +202,13 @@ class AngelOneSession(BrokerSession):
         """Resolve expiry metadata from AngelOne's official instrument master."""
         trading_symbol, _ = self.get_instrument(symbol, exchange)
         if self._contracts is None:
-            self._contracts = self._load_contracts()
+            if monotonic() < self._contracts_retry_after:
+                return None
+            try:
+                self._contracts = self._load_contracts()
+            except BrokerConnectionError:
+                self._contracts_retry_after = monotonic() + 300
+                raise
         return self._contracts.get((trading_symbol.upper(), exchange.upper()))
 
     def _load_contracts(self) -> dict[tuple[str, str], ContractInfo]:

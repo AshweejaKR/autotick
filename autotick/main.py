@@ -28,7 +28,7 @@ from autotick.engine import (
     TradeManager,
     TradingEngine,
 )
-from autotick.engine.expiry import ExpiryState, derivative_symbol, resolve_expiry_state
+from autotick.engine.expiry import ExpiryState, resolve_expiry_state
 from autotick.indicators import AverageTrueRange
 from autotick.models import (
     EventType,
@@ -364,30 +364,28 @@ def _process_symbols(
             position_type == PositionType.POSITIONAL
             and config.get("trade", {}).get("expiry_exit", {}).get("enabled", False)
         ):
-            try:
-                expiry_state = resolve_expiry_state(
-                    providers.market_data,
-                    symbol,
-                    providers.calendar_session.now(),
-                    providers.calendar_session,
-                    config,
-                )
-            except BrokerError as exc:
-                if derivative_symbol(symbol):
-                    expiry_state = ExpiryState(
-                        is_derivative=True,
-                        block_entry=True,
-                        reason="expiry metadata unavailable",
+            expiry_state = resolve_expiry_state(
+                providers.market_data,
+                symbol,
+                providers.calendar_session.now(),
+                providers.calendar_session,
+                config,
+            )
+            if (
+                expiry_state.block_entry
+                and expiry_state.expiry is None
+                and active_position is not None
+                and active_position.status in {PositionStatus.OPEN, PositionStatus.EXIT_PENDING}
+            ):
+                risk.activate_kill_switch()
+                warning_key = (symbol, tick.exchange, "open position expiry unknown")
+                if warning_key not in _expiry_warnings_logged:
+                    logger.critical(
+                        "Open derivative position %s has no expiry metadata or configured date; "
+                        "verify expiry and close before expiry. New entries blocked.",
+                        symbol,
                     )
-                    warning_key = (symbol, tick.exchange, expiry_state.reason)
-                    if warning_key not in _expiry_warnings_logged:
-                        logger.warning(
-                            "Derivative entries blocked for %s: %s (%s)",
-                            symbol,
-                            expiry_state.reason,
-                            exc,
-                        )
-                        _expiry_warnings_logged.add(warning_key)
+                    _expiry_warnings_logged.add(warning_key)
 
         if (
             expiry_state.exit_due

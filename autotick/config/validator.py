@@ -209,6 +209,35 @@ def validate_config(config: dict[str, Any]) -> None:
                 "trade.expiry_exit.trading_days_before must be a non-negative integer"
             )
         _hhmm(expiry_exit.get("time", "23:00"), "trade.expiry_exit.time")
+        contracts = expiry_exit.get("contracts", {})
+        if not isinstance(contracts, dict):
+            raise ConfigValidationError("trade.expiry_exit.contracts must be a mapping")
+        for symbol, expiry in contracts.items():
+            if not isinstance(symbol, str) or not symbol or symbol != symbol.upper():
+                raise ConfigValidationError("trade.expiry_exit.contracts symbols must be uppercase")
+            if not isinstance(expiry, str):
+                raise ConfigValidationError(f"Expiry for {symbol} must be a YYYY-MM-DD string")
+            try:
+                parsed = date.fromisoformat(expiry)
+            except ValueError as exc:
+                raise ConfigValidationError(f"Expiry for {symbol} must be a valid YYYY-MM-DD date") from exc
+            if parsed.isoformat() != expiry:
+                raise ConfigValidationError(f"Expiry for {symbol} must use YYYY-MM-DD format")
+        if (
+            enabled
+            and position_type.upper() == "POSITIONAL"
+            and mode in {"backtest", "replay"}
+        ):
+            configured_symbols = [symbols] if isinstance(symbols, str) else symbols
+            missing = [
+                symbol for symbol in configured_symbols
+                if symbol.upper().endswith(("FUT", "CE", "PE"))
+                and symbol.upper() not in contracts
+            ]
+            if missing:
+                raise ConfigValidationError(
+                    f"trade.expiry_exit.contracts requires expiry for {', '.join(missing)}"
+                )
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")

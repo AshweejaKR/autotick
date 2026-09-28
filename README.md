@@ -49,6 +49,7 @@ Manual provider check:
 ## Important Rules
 
 - `autotick/config/default.yaml` is Live MCX GoldPetal; update its futures symbol after expiry.
+- Set `trade.expiry_exit.contracts` to exact uppercase symbol → quoted `YYYY-MM-DD` expiry dates. Broker expiry takes priority; configured dates cover broker metadata outages. Backtest/Replay require dates for configured positional futures/options when expiry exits are enabled. If both sources are missing in Live/Paper, entries are blocked and an open position raises a critical alert.
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
 - Live AngelOne entries use broker margin before placement; MCX skips the unreliable charge-estimate endpoint.

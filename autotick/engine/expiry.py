@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from autotick.models.market import ContractInfo
+from autotick.providers.session_pool import BrokerConnectionError
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,15 +59,27 @@ def resolve_expiry_state(
     if not policy.get("enabled", False):
         return ExpiryState()
 
-    contract = market_data.get_contract(symbol)
+    try:
+        contract = market_data.get_contract(symbol)
+    except (BrokerConnectionError, ValueError):
+        contract = None
     if contract is None:
-        if derivative_symbol(symbol):
+        configured = policy.get("contracts", {}).get(symbol.upper())
+        if configured is not None:
+            contract = ContractInfo(
+                symbol=symbol,
+                exchange=config["market"]["exchange"],
+                instrument_type="OPT" if symbol.upper().endswith(("CE", "PE")) else "FUT",
+                expiry=date.fromisoformat(configured),
+            )
+        elif derivative_symbol(symbol):
             return ExpiryState(
                 is_derivative=True,
                 block_entry=True,
-                reason="expiry metadata unavailable",
+                reason="expiry metadata unavailable; configure trade.expiry_exit.contracts",
             )
-        return ExpiryState()
+        else:
+            return ExpiryState()
     if not contract.is_derivative:
         return ExpiryState()
 

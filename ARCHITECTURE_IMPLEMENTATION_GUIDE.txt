@@ -193,6 +193,7 @@ CONFIGURATION
 - Live requires persistence, reconnect, only_market_hours, and logging enabled.
 - Live/Paper startup waits only within session.startup_wait_minutes before a DAILY market open; default 30 minutes.
 - one run uses one market/exchange calendar.
+- trade.expiry_exit.contracts maps exact uppercase derivative symbols to quoted YYYY-MM-DD dates; broker metadata takes priority. Backtest/Replay require configured dates for positional derivatives. Unknown expiry blocks entries and triggers a critical alert and kill switch for an open position.
 - old simulated control-panel flags are not part of current configuration.
 
 SWING STRATEGY
