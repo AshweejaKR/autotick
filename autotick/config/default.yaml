@@ -1,23 +1,20 @@
 mode: live
 broker: angelone
-strategy: mcx_goldpetal_orb
+strategy: swing
 
 market:
   symbols:
-    - GOLDPETAL30SEP26FUT
-  exchange: MCX
+    # Add NSE cash symbols to swing_watchlist.csv
+  exchange: NSE
 
-capital: 5000
+capital: 100000
+
+strategy_config:
+  csv_file: "swing_watchlist.csv"
 
 trade:
-  quantity: 1
+  max_position_value: 5000
   position_type: POSITIONAL
-  expiry_exit:
-    enabled: true
-    trading_days_before: 1
-    time: "23:00"
-    contracts:
-      GOLDPETAL30SEP26FUT: "2026-09-30"
 
 simulated:
   margin_pct: 10
@@ -25,15 +22,16 @@ simulated:
 risk:
   max_loss: -2000
   max_trades_per_day: 5
-  risk_per_trade_pct: 20
+  risk_per_trade_pct: 1
   stoploss_pct: 2
-  target_pct: 5
+  target_pct: 0
+  trailing_activation_pct: 5
   trailing_atr_period: 14
   trailing_atr_interval: 1d
   trailing_atr_multiplier: 2.5
 
 engine:
-  loop_sleep_s: 1
+  loop_sleep_s: 20
 
 reconnect:
   enabled: true
@@ -47,8 +45,8 @@ session:
   trading_days: [MON, TUE, WED, THU, FRI]
   closed_dates: []
   market_start: "09:15"
-  market_end: "23:30"
-  square_off_time: "23:20"
+  market_end: "15:30"
+  square_off_time: "15:15"
   only_market_hours: true
   startup_wait_minutes: 30
   replay_speed: 1.0
@@ -64,7 +62,7 @@ broker_config:
 
 persistence:
   enabled: true
-  state_path: "state/autotick.db"
+  state_path: "state/swing_default.db"
 
 reports:
   enabled: true
