@@ -15,13 +15,13 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 
 ## Before Each Day
 
-1. Confirm `mode: paper`; do not use packaged default.yaml, which is Live MCX GoldPetal.
+1. Confirm `mode: paper`; packaged default.yaml is Live NSE delivery swing.
 2. Confirm latest GitHub pytest CI is passing.
 3. Keep persistence, reconnect, reports, logging, and `only_market_hours` enabled.
 4. Keep `reports.enabled: true` so trade, summary, and audit CSVs are saved.
 5. Keep the prior SQLite state. Do not delete it between soak days.
 6. Use normal AutoTick Paper mode; no simulated control-panel settings are required.
-7. Confirm `simulated.margin_pct` suits the instrument; default GoldPetal uses 10%.
+7. Confirm `simulated.margin_pct` suits the instrument; packaged default uses 100% for NSE delivery.
 8. Start up to 30 minutes before market open; otherwise start during market hours.
 9. For positional futures/options, configure the exact symbol and quoted expiry date under `trade.expiry_exit.contracts`.
 10. Keep `session.closed_dates` updated for exchange holidays used by the expiry cutoff.
