@@ -61,6 +61,22 @@ def test_goldpetal_strategy_accepts_mcx_goldpetal_symbol() -> None:
     validate_config(_goldpetal_config())
 
 
+def test_positional_config_does_not_require_square_off_time() -> None:
+    config = _goldpetal_config()
+    config["session"].pop("square_off_time")
+
+    validate_config(config)
+
+
+def test_intraday_config_requires_square_off_time() -> None:
+    config = _goldpetal_config()
+    config["trade"]["position_type"] = "INTRADAY"
+    config["session"].pop("square_off_time")
+
+    with pytest.raises(ConfigValidationError, match="required for INTRADAY"):
+        validate_config(config)
+
+
 def test_goldpetal_strategy_allows_manually_changed_market() -> None:
     config = _goldpetal_config()
     config["market"] = {"symbols": ["SBIN-EQ"], "exchange": "NSE"}
