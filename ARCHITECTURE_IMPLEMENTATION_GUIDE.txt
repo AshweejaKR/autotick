@@ -10,7 +10,7 @@ This guide, README.md, PLAN.md, and PAPER_SOAK_RUNBOOK.md describe the same bran
 - Completed phases: 1 through 32
 - Provider cleanup: completed
 - Simulated UI cleanup: completed
-- Default strategy: Live MCX GoldPetal previous-day range breakout, one configured unit
+- Default strategy: Live NSE positional delivery swing with CSV trigger watchlist
 - Current milestone: Milestone 10 - Production
 - Next phase: Phase 33 - five-market-day Paper soak
 - Last updated: 2026-09-29
@@ -98,7 +98,7 @@ Removed obsolete simulated desktop UI support:
 - validator rejects old enabled UI-control-panel options with a clear error.
 - Paper mode now has one normal path: selected-broker market data with simulated
   account and execution.
-- packaged default remains autotick/config/default.yaml.
+- packaged default remains autotick/config/default.yaml (NSE delivery swing).
 
 Runtime improvements:
 - normal CLI SIGNAL validation now passes through TradingEngine/EventDispatcher.
@@ -192,7 +192,7 @@ CONFIGURATION
 ================================================================================
 
 - autotick/config/default.yaml is the packaged default YAML.
-- default.yaml is Live MCX GoldPetal; update GOLDPETAL30SEP26FUT after expiry.
+- default.yaml is Live NSE delivery swing. The shipped swing_watchlist.csv has only a header; add exact cash symbols and positive trigger prices before trading.
 - relative credential, CSV, persistence, report, and log paths resolve from the
   YAML file directory.
 - AngelOne secrets stay in ignored angelone_keys.env.
@@ -221,7 +221,7 @@ MCX GOLDPETAL ORB STRATEGY
 
 - LONG when LTP is above previous-day high + 0.15%.
 - SHORT when LTP is below previous-day low - 0.15%.
-- default.yaml uses one configured unit, 20% risk per trade, and 2% stop-loss.
+- The MCX GoldPetal ORB strategy remains available with a custom YAML.
 
 RISK AND TRADE MANAGEMENT
 ================================================================================
