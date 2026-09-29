@@ -19,11 +19,11 @@ simulated:
   margin_pct: 100
 
 risk:
-  max_loss: -2000
+  max_loss: -5000
   max_trades_per_day: 5
   risk_per_trade_pct: 8
   stoploss_pct: 7.5
-  target_pct: 0
+  target_pct: 10
   trailing_activation_pct: 3.5
   trailing_atr_period: 14
   trailing_atr_interval: 1d
