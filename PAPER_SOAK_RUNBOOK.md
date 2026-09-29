@@ -23,6 +23,8 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 6. Use normal AutoTick Paper mode; no simulated control-panel settings are required.
 7. Confirm `simulated.margin_pct` suits the instrument; default GoldPetal uses 10%.
 8. Start up to 30 minutes before market open; otherwise start during market hours.
+9. For positional futures/options, configure the exact symbol and quoted expiry date under `trade.expiry_exit.contracts`.
+10. Keep `session.closed_dates` updated for exchange holidays used by the expiry cutoff.
 
 ## Daily Pass Check
 
@@ -32,6 +34,7 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 4. Check report and audit CSVs for consistent order, recovery, and completed-trade records.
 5. Confirm simulated LONG/SHORT behavior is correct for any generated signals.
 6. Confirm no broker order was placed.
+7. If an expiry cutoff occurs, confirm the simulated MARKET exit and `EXPIRY_EXIT` audit row.
 
 | Day | Date | Startup/recovery | Reports/audit | No broker order | Result |
 |---|---|---|---|---|---|
