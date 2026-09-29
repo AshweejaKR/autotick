@@ -14,8 +14,8 @@ import pytest
 
 from autotick.models.account import Account
 from autotick.models.market import MarketBar, MarketTick
-from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
-from autotick.models.position import Position
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus, OrderType
+from autotick.models.position import Position, PositionType
 from autotick.models.trade import Trade
 from autotick.providers.brokers.angelone import (
     AngelOneAccountProvider,
@@ -31,7 +31,10 @@ from autotick.providers.brokers.simulated import (
 )
 from autotick.providers.factory import ProviderFactory
 from autotick.providers.historical import HistoricalProvider
-from autotick.providers.session_pool import BrokerConnectionError
+from autotick.providers.session_pool import (
+    BrokerAuthenticationError,
+    BrokerConnectionError,
+)
 
 
 def _bar(timestamp: datetime, close: float) -> MarketBar:
@@ -129,15 +132,22 @@ def test_simulated_provider_contracts() -> None:
 class _FakeClient:
     def __init__(self) -> None:
         self.placed_orders: list[dict] = []
+        self.margin_requests: list[dict] = []
+        self.charge_requests: list[dict] = []
 
     def rmsLimit(self) -> dict:
-        return {"status": True, "data": {"availablecash": "1000", "availablelimitmargin": "5000"}}
+        return {
+            "status": True,
+            "data": {"availablecash": "5000", "availablelimitmargin": "0"},
+        }
 
     def getMarginApi(self, params: dict) -> dict:
+        self.margin_requests.append(params)
         quantity = params["positions"][0]["qty"]
         return {"status": True, "data": {"totalMarginRequired": quantity * 1450}}
 
     def estimateCharges(self, params: dict) -> dict:
+        self.charge_requests.append(params)
         quantity = int(params["orders"][0]["quantity"])
         return {"status": True, "data": {"summary": {"total_charges": quantity * 10}}}
 
@@ -220,7 +230,9 @@ def test_angelone_provider_contracts_offline() -> None:
     market.subscribe(["INFY-EQ"])
 
     assert isinstance(account.get_profile(), Account)
-    assert account.get_balance() == 1_000
+    assert account.get_balance() == 5_000
+    assert account.get_margin() == 0
+    assert account.get_buying_power() == 5_000
     assert isinstance(market.get_tick("INFY-EQ"), MarketTick)
     assert isinstance(market.get_bars("INFY-EQ", "1m")[0], MarketBar)
     assert isinstance(execution.get_orders()[0], Order)
@@ -248,22 +260,164 @@ def test_angelone_trade_time_and_auth_classification() -> None:
 
     assert trade.timestamp.strftime("%H:%M:%S") == "09:16:00"
     assert AngelOneSession._is_auth_error({"status": False, "errorcode": "AG8001"})
+    assert AngelOneSession._is_auth_error(
+        {"status": False, "errorcode": "AB1007", "message": "Invalid Token"}
+    )
+    assert AngelOneSession._is_auth_error(RuntimeError("Invalid Token"))
     assert not AngelOneSession._is_auth_error(
         {"status": False, "message": "Invalid symbol token"}
     )
 
 
-def test_angelone_entry_uses_broker_margin_and_charges() -> None:
+def test_angelone_none_read_retries_then_raises_connection_error(monkeypatch) -> None:
+    session = object.__new__(AngelOneSession)
+    session._throttle = lambda: None
+    attempts = 0
+
+    def unavailable_read():
+        nonlocal attempts
+        attempts += 1
+        return None
+
+    monkeypatch.setattr("autotick.providers.brokers.angelone.session.sleep", lambda _: None)
+
+    with pytest.raises(BrokerConnectionError, match="unavailable after retries"):
+        session.call(unavailable_read)
+
+    assert attempts == 3
+
+
+def test_angelone_malformed_json_read_enters_recovery(monkeypatch) -> None:
+    session = object.__new__(AngelOneSession)
+    session._throttle = lambda: None
+    attempts = 0
+
+    def malformed_read():
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError(
+            "Couldn't parse the JSON response received from the server: b'not found'"
+        )
+
+    monkeypatch.setattr("autotick.providers.brokers.angelone.session.sleep", lambda _: None)
+
+    with pytest.raises(BrokerConnectionError, match="failed after retries"):
+        session.call(malformed_read)
+
+    assert attempts == 3
+
+
+def test_angelone_invalid_token_starts_authentication_recovery() -> None:
+    session = object.__new__(AngelOneSession)
+    session._connected = True
+    session._throttle = lambda: None
+
+    with pytest.raises(BrokerAuthenticationError, match="session expired"):
+        session.call(
+            lambda: {
+                "status": False,
+                "errorcode": "AB1007",
+                "message": "Invalid Token",
+                "data": None,
+            }
+        )
+
+    assert session.is_connected() is False
+
+
+def test_angelone_mcx_entry_uses_broker_margin_without_charge_estimate() -> None:
     session = _FakeSession()
     execution = AngelOneExecutionProvider(session)
 
     order = execution.place_order(
-        Order("", "GOLDPETAL", "MCX", OrderSide.BUY, 4, price=15_000)
+        Order("", "GOLDPETAL30SEP26FUT", "MCX", OrderSide.BUY, 4, price=15_000)
     )
 
     assert order.status == OrderStatus.SUBMITTED
     assert order.quantity == 3
     assert session.client.placed_orders[-1]["quantity"] == 3
+    assert session.client.margin_requests[-1]["positions"][0]["orderType"] == "MARKET"
+    assert session.client.charge_requests == []
+
+
+def test_angelone_cash_entry_adds_estimated_charges() -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    order = execution.place_order(
+        Order("", "INFY-EQ", "NSE", OrderSide.BUY, 4, price=1_500)
+    )
+
+    assert order.status == OrderStatus.SUBMITTED
+    assert order.quantity == 3
+    assert session.client.margin_requests[-1] == {
+        "positions": [{
+            "exchange": "NSE",
+            "qty": 3,
+            "price": 0,
+            "productType": "DELIVERY",
+            "token": "123",
+            "tradeType": "BUY",
+            "orderType": "MARKET",
+        }],
+    }
+    assert session.client.charge_requests[-1]["orders"][0]["symbol_name"] == "INFY-EQ"
+
+
+@pytest.mark.parametrize("exchange", ["NSE", "BSE"])
+def test_angelone_rejects_new_positional_cash_equity_sell(exchange: str) -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    order = execution.place_order(
+        Order("", "INFY-EQ", exchange, OrderSide.SELL, 1, price=1_500)
+    )
+
+    assert order.status == OrderStatus.REJECTED
+    assert order.quantity == 0
+    assert session.client.margin_requests == []
+    assert session.client.placed_orders == []
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        Order(
+            "EXIT-1",
+            "INFY-EQ",
+            "NSE",
+            OrderSide.SELL,
+            1,
+            price=1_500,
+            intent=OrderIntent.EXIT,
+        ),
+        Order(
+            "INTRADAY-1",
+            "INFY-EQ",
+            "NSE",
+            OrderSide.SELL,
+            1,
+            price=1_500,
+            position_type=PositionType.INTRADAY,
+        ),
+        Order(
+            "MCX-1",
+            "GOLDPETAL30SEP26FUT",
+            "MCX",
+            OrderSide.SELL,
+            1,
+            price=15_000,
+        ),
+    ],
+)
+def test_angelone_allows_supported_sell_orders(order: Order) -> None:
+    session = _FakeSession()
+    execution = AngelOneExecutionProvider(session)
+
+    result = execution.place_order(order)
+
+    assert result.status == OrderStatus.SUBMITTED
+    assert session.client.placed_orders[-1]["transactiontype"] == "SELL"
 
 
 def test_simulated_margin_allows_goldpetal_paper_entry() -> None:
@@ -285,6 +439,8 @@ class _FailedReadClient:
     def position(self) -> dict:
         return {"status": False, "message": "service unavailable", "data": None}
 
+    rmsLimit = position
+
 
 class _FailedReadSession:
     def __init__(self) -> None:
@@ -294,8 +450,95 @@ class _FailedReadSession:
         return function(*args, **kwargs)
 
 
+class _EmptyReadClient:
+    def orderBook(self) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    position = holding = tradeBook = orderBook
+
+
+class _EmptyReadSession:
+    def __init__(self) -> None:
+        self.client = _EmptyReadClient()
+
+    def call(self, function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+
+class _NoneDataClient:
+    def getProfile(self, refresh_token: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def rmsLimit(self) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def generateSession(self, client_id: str, password: str, totp: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+    def generateToken(self, refresh_token: str) -> dict:
+        return {"status": True, "message": "SUCCESS", "data": None}
+
+
+class _NoneDataSession:
+    def __init__(self) -> None:
+        self.client = _NoneDataClient()
+        self.refresh_token = "refresh"
+
+    def call(self, function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+
+def test_angelone_successful_empty_reads_return_empty_lists() -> None:
+    execution = AngelOneExecutionProvider(_EmptyReadSession())
+
+    assert execution.get_orders() == []
+    assert execution.get_positions() == []
+    assert execution.get_holdings() == []
+    assert execution.get_trades() == []
+
+
+def test_angelone_required_account_data_cannot_be_none() -> None:
+    session = _NoneDataSession()
+    account = AngelOneAccountProvider(session)
+
+    with pytest.raises(BrokerConnectionError, match="profile read returned invalid data"):
+        account.get_profile()
+    with pytest.raises(BrokerConnectionError, match="RMS read returned invalid data"):
+        account.get_balance()
+
+
+def test_angelone_required_margin_data_cannot_be_none() -> None:
+    execution = AngelOneExecutionProvider(_NoneDataSession())
+
+    with pytest.raises(BrokerConnectionError, match="RMS margin read returned invalid data"):
+        execution._available_margin()
+
+
+@pytest.mark.parametrize("operation", ["login", "refresh"])
+def test_angelone_session_data_cannot_be_none(operation: str) -> None:
+    session = object.__new__(AngelOneSession)
+    session.client = _NoneDataClient()
+    session.client_id = "C1"
+    session.password = "password"
+    session.totp_secret = "JBSWY3DPEHPK3PXP"
+    session.refresh_token = "refresh"
+    session._connected = False
+    session._throttle = lambda: None
+
+    with pytest.raises(BrokerAuthenticationError, match="invalid session data"):
+        getattr(session, operation)()
+    assert session.is_connected() is False
+
+
 def test_angelone_failed_position_read_does_not_look_empty() -> None:
     execution = AngelOneExecutionProvider(_FailedReadSession())
 
     with pytest.raises(BrokerConnectionError, match="positions read failed"):
         execution.get_positions()
+
+
+def test_angelone_failed_rms_read_enters_broker_recovery() -> None:
+    account = AngelOneAccountProvider(_FailedReadSession())
+
+    with pytest.raises(BrokerConnectionError, match="RMS read failed"):
+        account.get_balance()

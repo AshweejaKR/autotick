@@ -7,6 +7,8 @@ Created on Wed Sep 17 2026
 
 from __future__ import annotations
 
+from time import monotonic
+
 from autotick.models.market import MarketTick
 from autotick.models.signal import Signal, SignalType
 from autotick.strategy.base import Strategy
@@ -20,11 +22,13 @@ class MCXGoldPetalORBStrategy(Strategy):
     """Trade the first 0.15% breakout of the previous daily range."""
 
     BUFFER_PCT = 0.15
+    STATUS_INTERVAL_S = 60.0
 
     def __init__(self) -> None:
         super().__init__()
         self.long_trigger: float | None = None
         self.short_trigger: float | None = None
+        self._last_status_logged: float | None = None
 
     def on_initial_setup(self) -> None:
         if self.context is None:
@@ -44,14 +48,20 @@ class MCXGoldPetalORBStrategy(Strategy):
     def on_tick(self, tick: MarketTick) -> Signal | None:
         if tick.ltp is None or self.long_trigger is None or self.short_trigger is None:
             return None
-        logger.debug(
-            "MCX_ORB_GOLDPETAL ENTRY RANGE symbol=%s low_trigger=%.2f <-- "
-            "current=%.2f --> high_trigger=%.2f",
-            tick.symbol,
-            self.short_trigger,
-            tick.ltp,
-            self.long_trigger,
-        )
+        now = monotonic()
+        if (
+            self._last_status_logged is None
+            or now - self._last_status_logged >= self.STATUS_INTERVAL_S
+        ):
+            logger.console_only(
+                "MCX_ORB_GOLDPETAL ENTRY RANGE symbol=%s low_trigger=%.2f <-- "
+                "current=%.2f --> high_trigger=%.2f",
+                tick.symbol,
+                self.short_trigger,
+                tick.ltp,
+                self.long_trigger,
+            )
+            self._last_status_logged = now
         signal_type = (
             SignalType.BUY if tick.ltp > self.long_trigger
             else SignalType.SELL if tick.ltp < self.short_trigger

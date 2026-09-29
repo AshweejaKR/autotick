@@ -66,7 +66,7 @@ def _day(value: Any, name: str) -> str:
     return value.upper()
 
 
-def _validate_session(session: dict[str, Any]) -> None:
+def _validate_session(session: dict[str, Any], position_type: str) -> None:
     schedule_type = _require(session, "schedule_type", "session")
     if not isinstance(schedule_type, str) or schedule_type.upper() not in _VALID_SCHEDULE_TYPES:
         raise ConfigValidationError(
@@ -104,12 +104,19 @@ def _validate_session(session: dict[str, Any]) -> None:
             raise ConfigValidationError("session.trading_days must not contain duplicates")
         market_start = _hhmm(_require(session, "market_start", "session"), "session.market_start")
         market_end = _hhmm(_require(session, "market_end", "session"), "session.market_end")
-        square_off = _hhmm(
-            _require(session, "square_off_time", "session"), "session.square_off_time"
+        square_off_value = session.get("square_off_time")
+        if square_off_value is None and position_type == "INTRADAY":
+            raise ConfigValidationError(
+                "session.square_off_time is required for INTRADAY positions"
+            )
+        square_off = (
+            _hhmm(square_off_value, "session.square_off_time")
+            if square_off_value is not None
+            else None
         )
         if market_start >= market_end:
             raise ConfigValidationError("session.market_start must be before session.market_end")
-        if not market_start <= square_off <= market_end:
+        if square_off is not None and not market_start <= square_off <= market_end:
             raise ConfigValidationError("session.square_off_time must be inside market hours")
 
     if schedule_type == "WEEKLY":
@@ -192,6 +199,52 @@ def validate_config(config: dict[str, Any]) -> None:
     position_type = trade.get("position_type", "POSITIONAL")
     if not isinstance(position_type, str) or position_type.upper() not in _VALID_POSITION_TYPES:
         raise ConfigValidationError("trade.position_type must be INTRADAY or POSITIONAL")
+    expiry_exit = trade.get("expiry_exit")
+    if expiry_exit is not None:
+        if not isinstance(expiry_exit, dict):
+            raise ConfigValidationError("trade.expiry_exit must be a mapping")
+        enabled = expiry_exit.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ConfigValidationError("trade.expiry_exit.enabled must be boolean")
+        days_before = expiry_exit.get("trading_days_before", 1)
+        if (
+            isinstance(days_before, bool)
+            or not isinstance(days_before, int)
+            or days_before < 0
+        ):
+            raise ConfigValidationError(
+                "trade.expiry_exit.trading_days_before must be a non-negative integer"
+            )
+        _hhmm(expiry_exit.get("time", "23:00"), "trade.expiry_exit.time")
+        contracts = expiry_exit.get("contracts", {})
+        if not isinstance(contracts, dict):
+            raise ConfigValidationError("trade.expiry_exit.contracts must be a mapping")
+        for symbol, expiry in contracts.items():
+            if not isinstance(symbol, str) or not symbol or symbol != symbol.upper():
+                raise ConfigValidationError("trade.expiry_exit.contracts symbols must be uppercase")
+            if not isinstance(expiry, str):
+                raise ConfigValidationError(f"Expiry for {symbol} must be a YYYY-MM-DD string")
+            try:
+                parsed = date.fromisoformat(expiry)
+            except ValueError as exc:
+                raise ConfigValidationError(f"Expiry for {symbol} must be a valid YYYY-MM-DD date") from exc
+            if parsed.isoformat() != expiry:
+                raise ConfigValidationError(f"Expiry for {symbol} must use YYYY-MM-DD format")
+        if (
+            enabled
+            and position_type.upper() == "POSITIONAL"
+            and mode in {"backtest", "replay"}
+        ):
+            configured_symbols = [symbols] if isinstance(symbols, str) else symbols
+            missing = [
+                symbol for symbol in configured_symbols
+                if symbol.upper().endswith(("FUT", "CE", "PE"))
+                and symbol.upper() not in contracts
+            ]
+            if missing:
+                raise ConfigValidationError(
+                    f"trade.expiry_exit.contracts requires expiry for {', '.join(missing)}"
+                )
 
     risk = _mapping(config, "risk")
     _number(_require(risk, "max_loss", "risk"), "risk.max_loss")
@@ -272,7 +325,22 @@ def validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("simulated.margin_pct must not exceed 100")
 
     session = _mapping(config, "session")
-    _validate_session(session)
+    _validate_session(session, position_type.upper())
+    if (
+        expiry_exit is not None
+        and expiry_exit.get("enabled", True)
+        and str(session["schedule_type"]).upper() == "DAILY"
+    ):
+        expiry_time = _hhmm(
+            expiry_exit.get("time", "23:00"),
+            "trade.expiry_exit.time",
+        )
+        market_start = _hhmm(session["market_start"], "session.market_start")
+        market_end = _hhmm(session["market_end"], "session.market_end")
+        if not market_start <= expiry_time <= market_end:
+            raise ConfigValidationError(
+                "trade.expiry_exit.time must be inside market hours"
+            )
 
     broker_access = mode in {"live", "paper"}
     if broker_access:

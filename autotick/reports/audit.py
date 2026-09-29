@@ -8,14 +8,16 @@ Created on Sat Sep 12 19:28:09 2026
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from autotick.models.order import Order
 from autotick.reports.report import ReportManager
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
+IST = ZoneInfo("Asia/Kolkata")
 
 
 class AuditTrail:
@@ -79,12 +81,31 @@ class AuditTrail:
             ),
         })
 
+    def record_expiry_exit(
+        self,
+        order: Order,
+        expiry: date,
+        cutoff: datetime,
+    ) -> None:
+        self._append({
+            "event": "EXPIRY_EXIT",
+            "order_id": order.order_id,
+            "symbol": order.symbol,
+            "exchange": order.exchange,
+            "side": order.side.value,
+            "quantity": order.quantity,
+            "status": order.status.value,
+            "price": order.price,
+            "intent": order.intent.value,
+            "details": f"expiry={expiry.isoformat()};cutoff={cutoff.isoformat()}",
+        })
+
     def _append(self, row: dict[str, Any]) -> None:
         if not self.enabled:
             return
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            row = {"timestamp": datetime.now(timezone.utc).isoformat(), **row}
+            row = {"timestamp": self._timestamp(), **row}
             lock_path = self.path.with_name(f".{self.path.stem}.lock")
             with ReportManager.file_lock(lock_path):
                 write_header = not self.path.exists() or self.path.stat().st_size == 0
@@ -95,3 +116,8 @@ class AuditTrail:
                     writer.writerow(row)
         except Exception:
             logger.exception("Audit update failed: %s", self.path)
+
+    @staticmethod
+    def _timestamp(value: datetime | None = None) -> str:
+        current = value or datetime.now(timezone.utc)
+        return current.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S")

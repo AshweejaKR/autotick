@@ -10,6 +10,10 @@ from __future__ import annotations
 from autotick.interfaces.account import AccountProvider
 from autotick.models.account import Account
 from autotick.providers.brokers.angelone.session import AngelOneSession
+from autotick.providers.session_pool import (
+    BrokerAuthenticationError,
+    BrokerConnectionError,
+)
 
 
 class AngelOneAccountProvider(AccountProvider):
@@ -36,14 +40,18 @@ class AngelOneAccountProvider(AccountProvider):
 
     def get_profile(self) -> Account:
         if not self.session.refresh_token:
-            raise RuntimeError("AngelOne session is not connected")
+            raise BrokerAuthenticationError("AngelOne session is not connected")
         response = self.session.call(
             self.session.client.getProfile,
             self.session.refresh_token,
         ) or {}
         if not response.get("status"):
-            raise RuntimeError(f"AngelOne profile failed: {response.get('message', 'unknown error')}")
-        profile = response.get("data") or {}
+            raise BrokerConnectionError(
+                f"AngelOne profile read failed: {response.get('message', 'unknown error')}"
+            )
+        profile = response.get("data")
+        if not isinstance(profile, dict):
+            raise BrokerConnectionError("AngelOne profile read returned invalid data")
         rms = self._rms_data()
         return Account(
             configured_capital=self.configured_capital,
@@ -62,8 +70,13 @@ class AngelOneAccountProvider(AccountProvider):
     def _rms_data(self) -> dict:
         response = self.session.call(self.session.client.rmsLimit) or {}
         if not response.get("status"):
-            raise RuntimeError(f"AngelOne RMS failed: {response.get('message', 'unknown error')}")
-        return response.get("data") or {}
+            raise BrokerConnectionError(
+                f"AngelOne RMS read failed: {response.get('message', 'unknown error')}"
+            )
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise BrokerConnectionError("AngelOne RMS read returned invalid data")
+        return data
 
     @staticmethod
     def _text(value: object) -> str | None:

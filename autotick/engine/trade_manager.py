@@ -409,6 +409,23 @@ class TradeManager:
             return None
         return self._submit_exit(position, price), reason
 
+    def exit_for_expiry(
+        self,
+        symbol: str,
+        exchange: str,
+        price: float,
+        expiry: date,
+        cutoff: datetime,
+    ) -> Order | None:
+        """Submit one market exit for an open derivative position."""
+        position = self._positions.get((symbol, exchange))
+        if position is None or position.status != PositionStatus.OPEN:
+            return None
+        order = self._submit_exit(position, price)
+        if self._audit is not None:
+            self._audit.record_expiry_exit(order, expiry, cutoff)
+        return order
+
     @staticmethod
     def _filled_quantity(order: Order, status: OrderStatus | None = None) -> int:
         state = status or order.status

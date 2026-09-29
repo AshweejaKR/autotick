@@ -7,6 +7,7 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -32,6 +33,14 @@ class AngelOneExecutionProvider(ExecutionProvider):
 
     def place_order(self, order: Order) -> Order:
         if order.intent == OrderIntent.ENTRY:
+            if self._is_unsupported_delivery_short(order):
+                logger.warning(
+                    "AngelOne entry blocked: positional cash-equity SELL is not a supported "
+                    "short entry symbol=%s exchange=%s",
+                    order.symbol,
+                    order.exchange,
+                )
+                return replace(order, quantity=0, status=OrderStatus.REJECTED)
             order = self._fit_to_available_margin(order)
             if order.quantity <= 0:
                 return replace(order, status=OrderStatus.REJECTED)
@@ -206,9 +215,13 @@ class AngelOneExecutionProvider(ExecutionProvider):
                     "productType": product,
                     "token": token,
                     "tradeType": order.side.value,
+                    "orderType": order.order_type.value,
                 }],
             },
         )
+        margin_required = self._response_amount(margin, "totalMarginRequired")
+        if order.exchange.upper() == "MCX":
+            return margin_required
         charges = self.session.call(
             self.session.client.estimateCharges,
             {
@@ -218,19 +231,38 @@ class AngelOneExecutionProvider(ExecutionProvider):
                     "quantity": str(quantity),
                     "price": str(int(round(float(order.price or 0)))),
                     "exchange": order.exchange,
-                    "symbol_name": trading_symbol,
+                    "symbol_name": self._charge_symbol_name(
+                        trading_symbol,
+                        order.exchange,
+                    ),
                     "token": token,
                 }],
             },
         )
-        return self._response_amount(margin, "totalMarginRequired") + self._charge_amount(charges)
+        return margin_required + self._charge_amount(charges)
 
     def _available_margin(self) -> float:
         response = self.session.call(self.session.client.rmsLimit)
         if not isinstance(response, dict) or response.get("status") is not True:
             raise BrokerConnectionError("AngelOne RMS margin read failed")
-        data = response.get("data") or {}
-        return float(data.get("availablelimitmargin", data.get("availablecash", 0)) or 0)
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise BrokerConnectionError("AngelOne RMS margin read returned invalid data")
+        try:
+            return float(data["availablecash"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BrokerConnectionError(
+                "AngelOne RMS available cash was invalid"
+            ) from exc
+
+    @staticmethod
+    def _is_unsupported_delivery_short(order: Order) -> bool:
+        return (
+            order.intent == OrderIntent.ENTRY
+            and order.side == OrderSide.SELL
+            and order.position_type == PositionType.POSITIONAL
+            and order.exchange.upper() in {"NSE", "BSE"}
+        )
 
     @staticmethod
     def _response_amount(response: object, key: str) -> float:
@@ -257,6 +289,17 @@ class AngelOneExecutionProvider(ExecutionProvider):
         if order.position_type == PositionType.INTRADAY:
             return "INTRADAY"
         return "DELIVERY" if order.exchange.upper() in {"NSE", "BSE"} else "CARRYFORWARD"
+
+    @staticmethod
+    def _charge_symbol_name(trading_symbol: str, exchange: str) -> str:
+        """Return the underlying name required for derivative charge estimates."""
+        if exchange.upper() not in {"NFO", "BFO", "MCX", "CDS"}:
+            return trading_symbol
+        match = re.match(
+            r"^(.+?)\d{2}[A-Z]{3}\d{2}(?:FUT|\d+(?:\.\d+)?(?:CE|PE))$",
+            trading_symbol.upper(),
+        )
+        return match.group(1) if match else trading_symbol
 
     @classmethod
     def _to_order(cls, item: dict) -> Order:
@@ -290,6 +333,8 @@ class AngelOneExecutionProvider(ExecutionProvider):
             message = response.get("message", "unknown error") if isinstance(response, dict) else "invalid response"
             raise BrokerConnectionError(f"AngelOne {name} read failed: {message}")
         data = response.get("data")
+        if data is None:
+            return []
         if not isinstance(data, list):
             raise BrokerConnectionError(f"AngelOne {name} read returned invalid data")
         return data

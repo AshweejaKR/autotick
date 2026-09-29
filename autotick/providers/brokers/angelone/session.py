@@ -7,10 +7,14 @@ Created on Mon Aug 24 19:56:33 2026
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from time import monotonic, sleep
 from typing import Any, Callable
+from urllib.request import urlopen
 
 from autotick.config.secrets import load_secrets
+from autotick.models.market import ContractInfo
 from autotick.providers.session_pool import (
     BrokerAuthenticationError,
     BrokerConnectionError,
@@ -25,6 +29,11 @@ logger = get_logger(__name__)
 class AngelOneSession(BrokerSession):
     """Shared AngelOne SmartAPI authenticated session."""
 
+    _INSTRUMENT_MASTER_URL = (
+        "https://margincalculator.angelbroking.com/OpenAPI_File/files/"
+        "OpenAPIScripMaster.json"
+    )
+
     def __init__(self, credentials_file: str | None = None) -> None:
         if not credentials_file:
             raise ValueError("credentials_file is required for AngelOne")
@@ -37,6 +46,8 @@ class AngelOneSession(BrokerSession):
         self.refresh_token: str | None = None
         self._connected = False
         self._instruments: dict[tuple[str, str], tuple[str, str]] = {}
+        self._contracts: dict[tuple[str, str], ContractInfo] | None = None
+        self._contracts_retry_after = 0.0
         self._last_api_call = 0.0
 
     def _throttle(self) -> None:
@@ -108,7 +119,11 @@ class AngelOneSession(BrokerSession):
             self._raise_session_error(exc, "login")
         if not response or not response.get("status"):
             self._raise_session_error(response, "login")
-        self.refresh_token = response["data"]["refreshToken"]
+        data = response.get("data")
+        if not isinstance(data, dict) or not data.get("refreshToken"):
+            self._connected = False
+            raise BrokerAuthenticationError("AngelOne login returned invalid session data")
+        self.refresh_token = str(data["refreshToken"])
         self._connected = True
         logger.done("AngelOne login completed")
 
@@ -133,8 +148,14 @@ class AngelOneSession(BrokerSession):
             self._raise_session_error(exc, "token refresh")
         if not response or not response.get("status"):
             self._raise_session_error(response, "token refresh")
+        data = response.get("data")
+        if not isinstance(data, dict):
+            self._connected = False
+            raise BrokerAuthenticationError(
+                "AngelOne token refresh returned invalid session data"
+            )
         self.refresh_token = str(
-            (response.get("data") or {}).get("refreshToken") or self.refresh_token
+            data.get("refreshToken") or self.refresh_token
         )
         self._connected = True
         logger.done("AngelOne token refresh completed")
@@ -177,21 +198,80 @@ class AngelOneSession(BrokerSession):
     def get_token(self, symbol: str, exchange: str) -> str:
         return self.get_instrument(symbol, exchange)[1]
 
+    def get_contract(self, symbol: str, exchange: str) -> ContractInfo | None:
+        """Resolve expiry metadata from AngelOne's official instrument master."""
+        trading_symbol, _ = self.get_instrument(symbol, exchange)
+        if self._contracts is None:
+            if monotonic() < self._contracts_retry_after:
+                return None
+            try:
+                self._contracts = self._load_contracts()
+            except BrokerConnectionError:
+                self._contracts_retry_after = monotonic() + 300
+                raise
+        return self._contracts.get((trading_symbol.upper(), exchange.upper()))
+
+    def _load_contracts(self) -> dict[tuple[str, str], ContractInfo]:
+        try:
+            with urlopen(self._INSTRUMENT_MASTER_URL, timeout=20) as response:
+                payload = json.load(response)
+        except (OSError, ValueError, TypeError) as exc:
+            raise BrokerConnectionError(
+                "AngelOne instrument master is temporarily unavailable"
+            ) from exc
+        if not isinstance(payload, list):
+            raise BrokerConnectionError("AngelOne instrument master returned invalid data")
+        return self._parse_contracts(payload)
+
+    @staticmethod
+    def _parse_contracts(payload: list[object]) -> dict[tuple[str, str], ContractInfo]:
+        contracts: dict[tuple[str, str], ContractInfo] = {}
+        for value in payload:
+            if not isinstance(value, dict):
+                continue
+            instrument_type = str(value.get("instrumenttype") or "").upper()
+            if not instrument_type.startswith(("FUT", "OPT")):
+                continue
+            symbol = str(value.get("symbol") or "").upper()
+            exchange = str(value.get("exch_seg") or "").upper()
+            expiry_text = str(value.get("expiry") or "").upper()
+            if not symbol or not exchange or not expiry_text:
+                continue
+            try:
+                expiry = datetime.strptime(expiry_text, "%d%b%Y").date()
+            except ValueError:
+                continue
+            contracts[(symbol, exchange)] = ContractInfo(
+                symbol=symbol,
+                exchange=exchange,
+                instrument_type=instrument_type,
+                expiry=expiry,
+            )
+        return contracts
+
     @staticmethod
     def _is_auth_error(value: object) -> bool:
         if isinstance(value, dict):
             if value.get("status") is not False:
                 return False
             code = str(value.get("errorcode", "")).upper()
-            if code in {"AG8001", "AG8002", "AB8050"}:
+            if code in {"AG8001", "AG8002", "AB1007", "AB8050"}:
                 return True
             text = str(value.get("message", "")).lower()
         else:
             text = str(value).lower()
-        return any(word in text for word in ("session expired", "unauthorized", "invalid jwt"))
+        return any(word in text for word in (
+            "session expired",
+            "unauthorized",
+            "invalid jwt",
+            "invalid token",
+            "token expired",
+        ))
 
     @staticmethod
     def _is_retryable(value: object) -> bool:
+        if value is None:
+            return True
         if isinstance(value, (TimeoutError, ConnectionError, OSError)):
             return True
         if isinstance(value, dict):
@@ -203,6 +283,8 @@ class AngelOneSession(BrokerSession):
         return any(word in text for word in (
             "rate limit", "access rate", "too many", "timeout", "timed out",
             "temporarily", "service unavailable", "connection", "429", "503",
+            "couldn't parse the json response", "could not parse the json response",
+            "jsondecodeerror",
         ))
 
     @classmethod
