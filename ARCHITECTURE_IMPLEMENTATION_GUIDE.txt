@@ -202,7 +202,7 @@ CONFIGURATION
 - one run uses one market/exchange calendar.
 - trade.expiry_exit.contracts maps exact uppercase derivative symbols to quoted YYYY-MM-DD dates; broker metadata takes priority. Backtest/Replay require configured dates for positional derivatives. Unknown expiry blocks entries and triggers a critical alert and kill switch for an open position.
 - expiry cutoff time must fall inside configured market hours; session.closed_dates must include exchange holidays.
-- default logging uses INFO, a stable log filename, and no filename timestamp suffix.
+- default logging uses INFO and timestamped log filenames.
 - old simulated control-panel flags are not part of current configuration.
 
 SWING STRATEGY
