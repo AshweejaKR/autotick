@@ -7,7 +7,7 @@ Broker-independent trading framework for Live, Paper, Backtest, and Replay.
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
 - Latest hardening: AngelOne response recovery, safer margin handling, concise logging, IST audits, and derivative expiry exits
-- Default: Live MCX GoldPetal previous-day range breakout, one configured unit
+- Default: Live NSE positional delivery swing strategy with a CSV trigger watchlist
 - Current: Milestone 10 — Production
 - Next: Phase 33 — five-market-day Paper soak
 
@@ -48,7 +48,7 @@ Manual provider check:
 
 ## Important Rules
 
-- `autotick/config/default.yaml` is Live MCX GoldPetal; update its futures symbol after expiry.
+- `autotick/config/default.yaml` is Live NSE delivery swing. Add exact NSE cash symbols and positive buy trigger prices to `autotick/config/swing_watchlist.csv` before trading; the shipped watchlist has only its header, so no new entries are placed.
 - Set `trade.expiry_exit.contracts` to exact uppercase symbol → quoted `YYYY-MM-DD` expiry dates. Broker expiry takes priority; configured dates cover broker metadata outages. Backtest/Replay require dates for configured positional futures/options when expiry exits are enabled. If both sources are missing in Live/Paper, entries are blocked and an open position raises a critical alert.
 - Keep AngelOne secrets in the ignored `angelone_keys.env` file. Never commit it.
 - Live requires persistence, reconnect, market-hours gating, and logging.
@@ -56,7 +56,7 @@ Manual provider check:
 - AngelOne usable funds come from `availablecash`; cash-equity positional short entries are rejected.
 - Broker read failures recover with backoff; broker writes are never automatically retried.
 - Live/Paper startup waits only during the final configured pre-market window (30 minutes by default).
-- Paper uses `simulated.margin_pct` for simple futures margin; default GoldPetal is 10%.
+- Paper uses `simulated.margin_pct` for simple futures margin; the default NSE delivery setting is 100% of trade value.
 - Default file logging is `INFO` without timestamped filenames; active strategy ranges remain console-only and throttled.
 - Audit timestamps use IST and forced derivative exits add an `EXPIRY_EXIT` record.
 - Use one configured calendar profile for all symbols in a run.
