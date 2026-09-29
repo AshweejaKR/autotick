@@ -37,7 +37,7 @@
 - AngelOne uses `availablecash`; positional cash-equity short entries are rejected.
 - Expiry exits use broker contract metadata first, then configured per-symbol dates; historical derivatives require configured dates when the policy is enabled.
 - Positional derivatives close at the configured cutoff before expiry; late entries are blocked and exits are audited as `EXPIRY_EXIT`.
-- Default logging is `INFO` with stable filenames; frequent strategy range messages are console-only and throttled.
+- Default logging is `INFO` with timestamped filenames; frequent strategy range messages are console-only and throttled.
 - Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
 - GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged Live NSE delivery swing configuration. Its CSV watchlist ships empty, so no new entries are placed until symbols and trigger prices are supplied.
