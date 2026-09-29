@@ -47,6 +47,8 @@
 
 ## Deferred Production Fixes
 
+- Broker rejection of an expiry exit can be valid, but `TradeManager` disallows `OPEN -> REJECTED`. A later order-book reconciliation raises `ValueError` outside broker recovery, stops the runner before its normal state save, and leaves position closure unconfirmed. Accept the terminal transition, restore the open position when the exit failed, and test the full rejection/reconciliation path. Do not assume the broker position closed; verify it separately. No automatic broker-write retry is requested now.
+- Expiry processing skips a symbol when `get_tick()` returns no valid LTP. An open derivative can miss its configured cutoff without an exit attempt; handle the missing-price case safely and test it.
 - Reconciliation skips increased cumulative fills when broker status remains `PARTIAL`; handle `PARTIAL -> PARTIAL`, cumulative average price, and completed reporting after cancellation.
 - Broker-margin fixed quantity bypasses the `risk_per_trade_pct` sizing cap; enforce both limits before wider production use.
 - Packaged default remains `mode: live`; the empty watchlist prevents entries until configured. Consider a safer non-live default before wider distribution.
