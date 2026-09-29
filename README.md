@@ -57,7 +57,7 @@ Manual provider check:
 - Broker read failures recover with backoff; broker writes are never automatically retried.
 - Live/Paper startup waits only during the final configured pre-market window (30 minutes by default).
 - Paper uses `simulated.margin_pct` for simple futures margin; the default NSE delivery setting is 100% of trade value.
-- Default file logging is `INFO` without timestamped filenames; active strategy ranges remain console-only and throttled.
+- Default file logging is `INFO` with timestamped filenames; active strategy ranges remain console-only and throttled.
 - Audit timestamps use IST and forced derivative exits add an `EXPIRY_EXIT` record.
 - Use one configured calendar profile for all symbols in a run.
 - Normal CLI SIGNAL validation routes through `TradingEngine` + `EventDispatcher`; recovery/reconnect remains in the main runtime loop.
