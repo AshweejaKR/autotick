@@ -3,8 +3,7 @@ broker: angelone
 strategy: swing
 
 market:
-  symbols:
-    # Add NSE cash symbols to swing_watchlist.csv
+  symbols: []  # Add NSE cash symbols to swing_watchlist.csv
   exchange: NSE
 
 capital: 100000
