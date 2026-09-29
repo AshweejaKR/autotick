@@ -5,7 +5,7 @@
 - Version: 0.1.0
 - Completed: Milestones 1–9, Phases 1–32
 - Latest hardening: AngelOne recovery, margin safety, concise logging, IST audits, and derivative expiry exits
-- Default: Live MCX GoldPetal previous-day range breakout, one configured unit
+- Default: Live NSE positional delivery swing strategy with a CSV trigger watchlist
 - Current: Milestone 10 — Production
 - Next: Phase 33 — five-market-day Paper soak
 
@@ -28,7 +28,7 @@
 
 - One run uses one market and one exchange.
 - Paper uses selected-broker market data with simulated account/execution; Paper never sends broker orders.
-- Paper futures reserve configured `simulated.margin_pct`; default GoldPetal uses 10%.
+- Paper futures reserve configured `simulated.margin_pct`; the default NSE delivery setting is 100%.
 - Simulated execution supports LONG and SHORT positions and square-off in both directions.
 - Live and Paper recover state before strategy setup.
 - Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.
@@ -40,8 +40,8 @@
 - Default logging is `INFO` with stable filenames; frequent strategy range messages are console-only and throttled.
 - Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
 - GitHub Actions runs pytest on push and pull request.
-- `autotick/config/default.yaml` is the packaged default configuration.
-- Default strategy: LONG above prior-day high + 0.15%; SHORT below prior-day low - 0.15%.
+- `autotick/config/default.yaml` is the packaged Live NSE delivery swing configuration. Its CSV watchlist ships empty, so no new entries are placed until symbols and trigger prices are supplied.
+- Default strategy: BUY when NSE cash LTP rises above the CSV trigger price; `trade.position_type: POSITIONAL` maps to AngelOne DELIVERY. The MCX GoldPetal ORB strategy remains available through a custom YAML.
 - Simulated desktop UI/control-panel support is removed.
 - README, this plan, architecture guide, and soak runbook must show the same status.
 
@@ -49,7 +49,7 @@
 
 - Reconciliation skips increased cumulative fills when broker status remains `PARTIAL`; handle `PARTIAL -> PARTIAL`, cumulative average price, and completed reporting after cancellation.
 - Broker-margin fixed quantity bypasses the `risk_per_trade_pct` sizing cap; enforce both limits before wider production use.
-- Packaged default remains `mode: live`; consider a safer non-live default before wider distribution.
+- Packaged default remains `mode: live`; the empty watchlist prevents entries until configured. Consider a safer non-live default before wider distribution.
 - Add focused tests for repeated partial fills and partial-fill cancellation followed by exit.
 
 ## Deferred Observation
