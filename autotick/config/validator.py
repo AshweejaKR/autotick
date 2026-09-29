@@ -66,7 +66,7 @@ def _day(value: Any, name: str) -> str:
     return value.upper()
 
 
-def _validate_session(session: dict[str, Any]) -> None:
+def _validate_session(session: dict[str, Any], position_type: str) -> None:
     schedule_type = _require(session, "schedule_type", "session")
     if not isinstance(schedule_type, str) or schedule_type.upper() not in _VALID_SCHEDULE_TYPES:
         raise ConfigValidationError(
@@ -104,12 +104,19 @@ def _validate_session(session: dict[str, Any]) -> None:
             raise ConfigValidationError("session.trading_days must not contain duplicates")
         market_start = _hhmm(_require(session, "market_start", "session"), "session.market_start")
         market_end = _hhmm(_require(session, "market_end", "session"), "session.market_end")
-        square_off = _hhmm(
-            _require(session, "square_off_time", "session"), "session.square_off_time"
+        square_off_value = session.get("square_off_time")
+        if square_off_value is None and position_type == "INTRADAY":
+            raise ConfigValidationError(
+                "session.square_off_time is required for INTRADAY positions"
+            )
+        square_off = (
+            _hhmm(square_off_value, "session.square_off_time")
+            if square_off_value is not None
+            else None
         )
         if market_start >= market_end:
             raise ConfigValidationError("session.market_start must be before session.market_end")
-        if not market_start <= square_off <= market_end:
+        if square_off is not None and not market_start <= square_off <= market_end:
             raise ConfigValidationError("session.square_off_time must be inside market hours")
 
     if schedule_type == "WEEKLY":
@@ -318,7 +325,7 @@ def validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("simulated.margin_pct must not exceed 100")
 
     session = _mapping(config, "session")
-    _validate_session(session)
+    _validate_session(session, position_type.upper())
     if (
         expiry_exit is not None
         and expiry_exit.get("enabled", True)
