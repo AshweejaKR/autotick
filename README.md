@@ -82,6 +82,41 @@ or failed save stops startup and keeps that source file. Earlier successful
 imports remain saved. Saves use an atomic replacement; if source deletion fails,
 restart safely ignores already-added symbols and retries deletion.
 
+## Swing watchlist builder (Windows)
+
+Install once from the repository folder:
+
+    python -m pip install -e ".[watchlist]"
+
+Double-click `swing_watchlist_tool.bat`, or run:
+
+    python -m autotick.swing_watchlist_tool
+
+1. Click **Login: choose keys file** and select your `angelone_keys.env`.
+2. Enter an NSE symbol (prefer the exact cash symbol, such as `INFY-EQ`) and
+   trigger price. Click **Add + Validate** for each row. The table shows the
+   broker-resolved symbol, LTP, signed difference, and warning note. Difference
+   is `(trigger - LTP) / LTP * 100`; absolute differences above 5% warn and
+   above 10% show a stronger warning. Closed-market LTP may be the last price.
+   Remove a row and add it again to change its trigger.
+3. Click **Create CSV** and choose the folder containing your main watchlist.
+   All rows are revalidated with fresh broker reads before saving. The filename
+   timestamp uses IST, and the CSV contains only `symbol,trigger_price`.
+4. Click **Review saved CSV** to open it in your Windows default CSV app. Review
+   the saved file and the warning notes in the window.
+5. Optionally click **Upload to EC2** and confirm manual review. Provide
+   `ec2-user@hostname`, your SSH private key file, and the absolute EC2 folder
+   containing `swing_watchlist.csv` (not merely the repository root).
+
+Upload requires Windows OpenSSH Client (`ssh` and `scp`) and a reachable server.
+Only the generated CSV is transferred; the credentials file stays local. The
+remote folder must already exist. Transfer uses a temporary name followed by a
+rename so startup cannot import a partially transferred CSV. Existing SSH host
+key changes are rejected; first-time hosts are recorded. The local CSV stays
+available after upload. If the saved CSV was edited outside the window, update
+the rows and create a new validated CSV before uploading. EC2 consumes the
+import at its next Swing startup, preserving existing main-watchlist triggers.
+
 ## Documentation
 
 - [Plan](PLAN.md) — milestone status.

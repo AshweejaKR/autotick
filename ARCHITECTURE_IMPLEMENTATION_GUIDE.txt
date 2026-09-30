@@ -213,6 +213,8 @@ SWING STRATEGY
 - imports append missing symbols and preserve existing trigger prices; first imported value wins for a new symbol. Validate each entire source before saving and delete it only after success, including duplicate-only files.
 - invalid imports or failed saves stop startup and retain the source; earlier successful imports remain saved. Atomic replacement protects the main CSV and a retained source can be reprocessed without duplicate rows after a deletion failure.
 - daily reload and per-symbol strategy setup only read the main CSV; imports added during a run wait for restart.
+- standalone Windows utility: python -m autotick.swing_watchlist_tool. Select angelone_keys.env, validate NSE rows against broker LTP, review 5%/10% price-difference warnings, and create an IST timestamped import CSV.
+- optional EC2 upload requires manual review confirmation and SSH settings; only the generated CSV is transferred to a temporary name and then renamed in the remote watchlist folder. This utility is separate from the removed simulated engine control panel.
 - max_position_value limits capital allocated per trade when quantity is not fixed.
 - RiskManager applies risk_per_trade_pct and stop-loss sizing.
 - watchlist reloads once at each trading-day open.
