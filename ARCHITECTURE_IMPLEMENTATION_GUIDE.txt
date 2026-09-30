@@ -209,6 +209,10 @@ SWING STRATEGY
 ================================================================================
 
 - strategy_config.csv_file points to symbol,trigger_price watchlist data.
+- startup calls load_swing_watchlist with import_pending enabled to consume every swing_watchlist_import_YYYYMMDD_HHMMSS.csv beside that file, oldest first.
+- imports append missing symbols and preserve existing trigger prices; first imported value wins for a new symbol. Validate each entire source before saving and delete it only after success, including duplicate-only files.
+- invalid imports or failed saves stop startup and retain the source; earlier successful imports remain saved. Atomic replacement protects the main CSV and a retained source can be reprocessed without duplicate rows after a deletion failure.
+- daily reload and per-symbol strategy setup only read the main CSV; imports added during a run wait for restart.
 - max_position_value limits capital allocated per trade when quantity is not fixed.
 - RiskManager applies risk_per_trade_pct and stop-loss sizing.
 - watchlist reloads once at each trading-day open.

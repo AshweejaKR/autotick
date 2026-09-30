@@ -63,6 +63,25 @@ Manual provider check:
 - Normal CLI SIGNAL validation routes through `TradingEngine` + `EventDispatcher`; recovery/reconnect remains in the main runtime loop.
 - The old simulated desktop control panel and its config flags are removed.
 
+## Swing watchlist imports
+
+Place CSV files named `swing_watchlist_import_YYYYMMDD_HHMMSS.csv` in the same
+folder as the configured `strategy_config.csv_file`. For example, use
+`swing_watchlist_import_20260930_180000.csv`. Each file must have `symbol` and
+`trigger_price` columns with positive finite prices, just like the main watchlist.
+
+At Swing startup, `load_swing_watchlist()` processes all matching files from
+oldest to newest. Missing symbols are appended; existing symbols and trigger
+prices stay unchanged. The first occurrence of a new symbol wins across import
+files and duplicate rows. Each valid file is deleted after its additions are
+saved, including files containing only duplicates or a header.
+
+Imports run once at startup. Daily reload and strategy setup only read the main
+watchlist; files added during a run wait for the next restart. An invalid import
+or failed save stops startup and keeps that source file. Earlier successful
+imports remain saved. Saves use an atomic replacement; if source deletion fails,
+restart safely ignores already-added symbols and retries deletion.
+
 ## Documentation
 
 - [Plan](PLAN.md) — milestone status.

@@ -25,6 +25,7 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 8. Start up to 30 minutes before market open; otherwise start during market hours.
 9. For positional futures/options, configure the exact symbol and quoted expiry date under `trade.expiry_exit.contracts`.
 10. Keep `session.closed_dates` updated for exchange holidays used by the expiry cutoff.
+11. For Swing, place pending `swing_watchlist_import_YYYYMMDD_HHMMSS.csv` files beside the configured watchlist before startup. Confirm missing symbols are appended, existing trigger prices stay unchanged, and successfully processed files are deleted. Files added during a run wait for restart; fix retained invalid files before restarting.
 
 ## Daily Pass Check
 

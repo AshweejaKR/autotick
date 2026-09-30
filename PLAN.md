@@ -42,6 +42,7 @@
 - GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged Live NSE delivery swing configuration. Its CSV watchlist ships empty, so no new entries are placed until symbols and trigger prices are supplied.
 - Default strategy: BUY when NSE cash LTP rises above the CSV trigger price; `trade.position_type: POSITIONAL` maps to AngelOne DELIVERY. The MCX GoldPetal ORB strategy remains available through a custom YAML.
+- Swing startup imports every `swing_watchlist_import_YYYYMMDD_HHMMSS.csv` beside the configured watchlist, oldest first. Append missing symbols only; keep existing trigger prices. Delete each validated source after a successful save, including duplicate-only files. Daily reload and strategy setup do not import files; invalid imports or failed saves retain their source and stop startup.
 - Simulated desktop UI/control-panel support is removed.
 - README, this plan, architecture guide, and soak runbook must show the same status.
 

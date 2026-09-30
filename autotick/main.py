@@ -110,11 +110,13 @@ def _startup_wait_seconds(calendar, config: dict, now: datetime) -> float | None
     return seconds if 0 < seconds <= window_minutes * 60 else None
 
 
-def _configured_symbols(config: dict) -> list[str]:
+def _configured_symbols(config: dict, *, import_pending: bool = False) -> list[str]:
     """Return static symbols or the latest validated swing CSV symbols."""
     if not _is_swing(config):
         return _symbols(config["market"]["symbols"])
-    watchlist = load_swing_watchlist(config["strategy_config"]["csv_file"])
+    watchlist = load_swing_watchlist(
+        config["strategy_config"]["csv_file"], import_pending=import_pending,
+    )
     if watchlist:
         logger.info("Swing watchlist loaded symbols=%s", len(watchlist))
     else:
@@ -971,7 +973,7 @@ def _run_providers(
     stop_event: Event | None = None,
 ) -> None:
     mode = config["mode"].lower()
-    symbols = _configured_symbols(config)
+    symbols = _configured_symbols(config, import_pending=True)
     logger.debug("_run_providers entry mode=%s symbols=%s", mode, symbols)
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
