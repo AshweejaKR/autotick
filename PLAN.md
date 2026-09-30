@@ -38,6 +38,7 @@
 - Expiry exits use broker contract metadata first, then configured per-symbol dates; historical derivatives require configured dates when the policy is enabled.
 - Positional derivatives close at the configured cutoff before expiry; late entries are blocked and exits are audited as `EXPIRY_EXIT`.
 - Default logging is `INFO` with timestamped filenames; frequent strategy range messages are console-only and throttled.
+- Swing Live/Paper runs stop at `session.market_end` for DAILY schedules (15:30 IST by default), save state, and disconnect. Positional holdings remain open; restart before the next session. The close applies even when `only_market_hours` is false.
 - Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
 - GitHub Actions runs pytest on push and pull request.
 - `autotick/config/default.yaml` is the packaged Live NSE delivery swing configuration. Its CSV watchlist ships empty, so no new entries are placed until symbols and trigger prices are supplied.

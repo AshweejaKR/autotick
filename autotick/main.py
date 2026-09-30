@@ -707,7 +707,7 @@ def _run_realtime(
     )
     loop_sleep = float(config["engine"]["loop_sleep_s"])
     loop_count = 0
-    keep_running = _is_swing(config)
+    swing_run = _is_swing(config)
     market_closed_logged = False
     last_watchlist_date: date | None = None
     logger.debug(
@@ -722,6 +722,10 @@ def _run_realtime(
     while stop_event is None or not stop_event.is_set():
         loop_count += 1
         now = providers.calendar_session.now()
+        swing_close = providers.calendar_session.daily_market_end(now) if swing_run else None
+        if swing_close is not None and now >= swing_close:
+            logger.info("Configured market_end reached at %s; stopping Swing runner", now)
+            break
         market_open = providers.calendar_session.is_market_open(now)
         logger.debug(
             "_run_realtime loop=%s now=%s market_open=%s strategies=%s entered=%s blocked=%s",
@@ -751,29 +755,12 @@ def _run_realtime(
                 else:
                     stop_event.wait(wait_seconds)
                 continue
-            if not keep_running:
-                logger.warning(
-                    "Market is closed at %s; next open is %s. Exiting realtime runner.",
-                    now,
-                    next_open,
-                )
-                break
-            if not market_closed_logged:
-                logger.info(
-                    "Swing runner waiting for market open at %s; next open is %s",
-                    now,
-                    next_open,
-                )
-                market_closed_logged = True
-            wait_seconds = min(
-                60.0,
-                max(1.0, (next_open - now).total_seconds()),
+            logger.info(
+                "Market is closed at %s; next open is %s. Exiting realtime runner.",
+                now,
+                next_open,
             )
-            if stop_event is None:
-                sleep(wait_seconds)
-            else:
-                stop_event.wait(wait_seconds)
-            continue
+            break
         market_closed_logged = False
 
         if now.date() != trading_date and market_open:
@@ -786,7 +773,7 @@ def _run_realtime(
             logger.debug("_run_realtime new trading day=%s", trading_date)
 
         try:
-            if keep_running and market_open and last_watchlist_date != now.date():
+            if swing_run and market_open and last_watchlist_date != now.date():
                 try:
                     _reload_swing_symbols(
                         providers,
@@ -889,10 +876,16 @@ def _run_realtime(
                 break
             continue
 
+        wait_seconds = loop_sleep
+        if swing_close is not None:
+            wait_seconds = min(
+                wait_seconds,
+                max(0.0, (swing_close - providers.calendar_session.now()).total_seconds()),
+            )
         if stop_event is None:
-            sleep(loop_sleep)
+            sleep(wait_seconds)
         else:
-            stop_event.wait(loop_sleep)
+            stop_event.wait(wait_seconds)
     logger.debug("_run_realtime exit trading_date=%s loops=%s", trading_date, loop_count)
     return trading_date
 

@@ -217,7 +217,8 @@ SWING STRATEGY
 - optional EC2 upload requires manual review confirmation and SSH settings; only the generated CSV is transferred to a temporary name and then renamed in the remote watchlist folder. This utility is separate from the removed simulated engine control panel.
 - max_position_value limits capital allocated per trade when quantity is not fixed.
 - RiskManager applies risk_per_trade_pct and stop-loss sizing.
-- watchlist reloads once at each trading-day open.
+- Live/Paper Swing stops at DAILY session.market_end, saves state, and disconnects without closing positional holdings; restart for the next session. This also applies with only_market_hours disabled.
+- watchlist reloads at trading-day open.
 - CSV removal blocks new entries but does not stop management of an open position.
 - closed swing positions are removed from runtime subscriptions.
 - recovery uses stable CSV_WATCHLIST profile identity.

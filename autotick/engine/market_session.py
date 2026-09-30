@@ -134,6 +134,13 @@ class CalendarSessionManager:
         )
         return weekly_open and not in_break
 
+    def daily_market_end(self, value: datetime | None = None) -> datetime | None:
+        """Return today's configured close, or None for non-DAILY schedules."""
+        if self._schedule_type != "DAILY":
+            return None
+        current = value or self.now()
+        return datetime.combine(current.date(), self._market_end, self._timezone)
+
     def current_session(self, value: datetime | None = None) -> str:
         """Return pre_market, open, or closed."""
         current = value or self.now()

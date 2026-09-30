@@ -55,6 +55,7 @@ Manual provider check:
 - Live AngelOne entries use broker margin before placement; MCX skips the unreliable charge-estimate endpoint.
 - AngelOne usable funds come from `availablecash`; cash-equity positional short entries are rejected.
 - Broker read failures recover with backoff; broker writes are never automatically retried.
+- Swing Live/Paper runs stop at `session.market_end` for DAILY schedules (15:30 IST by default), save state, and disconnect. Positional holdings remain open; restart before the next session. The close applies even when `only_market_hours` is false.
 - Live/Paper startup waits only during the final configured pre-market window (30 minutes by default).
 - Paper uses `simulated.margin_pct` for simple futures margin; the default NSE delivery setting is 100% of trade value.
 - Default file logging is `INFO` with timestamped filenames; active strategy ranges remain console-only and throttled.

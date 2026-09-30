@@ -37,6 +37,7 @@ Run Paper mode for five complete market days. Paper uses real broker market data
 5. Confirm simulated LONG/SHORT behavior is correct for any generated signals.
 6. Confirm no broker order was placed.
 7. If an expiry cutoff occurs, confirm the simulated MARKET exit and `EXPIRY_EXIT` audit row.
+8. For Swing, confirm shutdown at configured DAILY `session.market_end`, saved state, and open positional holdings preserved. Restart for each next market day.
 
 | Day | Date | Startup/recovery | Reports/audit | No broker order | Result |
 |---|---|---|---|---|---|
