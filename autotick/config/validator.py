@@ -3,11 +3,11 @@
 Created on Sun Aug 23 18:15:19 2026
 
 @author: ashwe
+
+Configuration validation for AutoTick.
 """
 
 from __future__ import annotations
-
-"""Configuration validation for AutoTick."""
 
 from datetime import datetime
 from typing import Any
@@ -100,9 +100,7 @@ def validate_config(config: dict[str, Any]) -> None:
 
     engine = _mapping(config, "engine")
     loop_sleep = _require(engine, "loop_sleep_s", "engine")
-    _number(loop_sleep, "engine.loop_sleep_s")
-    if loop_sleep < 0:
-        raise ConfigValidationError("engine.loop_sleep_s must be >= 0")
+    _number(loop_sleep, "engine.loop_sleep_s", positive=True)
 
     session = _mapping(config, "session")
     for key in ("market_start", "market_end", "square_off_time"):

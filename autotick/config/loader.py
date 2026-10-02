@@ -3,11 +3,11 @@
 Created on Sun Aug 23 18:15:19 2026
 
 @author: ashwe
+
+YAML configuration loader for AutoTick.
 """
 
 from __future__ import annotations
-
-"""YAML configuration loader for AutoTick."""
 
 from pathlib import Path
 from typing import Any

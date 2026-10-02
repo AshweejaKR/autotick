@@ -18,13 +18,33 @@ Foundation is complete through Phase 4:
 - Phase 3: Common market, signal, order, position, trade, account, and event models.
 - Phase 4: MarketData, Account, and Execution interfaces.
 
+## Mode-Neutral Core
+
+- Phase 5: ProviderFactory, ProviderBundle, and mode mapping — completed.
+- Phase 6: SessionPool and broker-session lifecycle — completed.
+- Phase 7: Mode-aware CalendarSessionManager — completed.
+- Phase 8: EventDispatcher and normalized events — completed.
+- Phase 9: TradingEngine lifecycle and event loop — completed.
+
+## Running
+
+Use the packaged default configuration:
+
+`autotick`
+
+Or pass an explicit configuration path:
+
+`autotick --config path/to/config.yaml`
+
+The repository-level `config/config.yaml` remains available for project-local configuration.
+
 ## Status
 
 - Version: 0.1.0
-- Completed milestone: Foundation
-- Completed: Phases 1-4
-- Current milestone: Mode-Neutral Core
-- Next: Phase 5 - ProviderFactory, ProviderBundle, and mode mapping
+- Completed milestones: Foundation, Mode-Neutral Core
+- Completed: Phases 1-9
+- Current milestone: Strategy Framework
+- Current: Phase 10 - Indicator base and initial indicators
 
 ## Plan
 
