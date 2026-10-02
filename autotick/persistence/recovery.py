@@ -35,6 +35,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider,
     SimulatedExecutionProvider,
 )
+from autotick.reports import AuditTrail
 from autotick.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -72,6 +73,7 @@ class RecoveryManager:
         profile_json = json.dumps(self.profile, separators=(",", ":"), sort_keys=True)
         self.profile_key = hashlib.sha256(profile_json.encode("utf-8")).hexdigest()
         self.mode = str(config["mode"]).lower()
+        self.audit = AuditTrail(config, execution)
         self.failed = False
 
     def recover(self, trading_date: date) -> RecoveryResult:
@@ -102,7 +104,7 @@ class RecoveryManager:
             except (KeyError, TypeError, ValueError) as exc:
                 raise PersistenceError("Persisted recovery state is invalid") from exc
 
-        reconciled = self.reconcile(trading_date)
+        reconciled = self.reconcile(trading_date, recovered)
         if recovered:
             logger.done(
                 "Recovered state profile=%s orders=%s positions=%s trades=%s",
@@ -121,10 +123,15 @@ class RecoveryManager:
             recovered=recovered,
         )
 
-    def reconcile(self, trading_date: date) -> RecoveryResult:
+    def reconcile(self, trading_date: date, recovered: bool = False) -> RecoveryResult:
         """Reconcile current in-memory state after a broker reconnect."""
         differences = self.trades.reconcile_startup(trading_date)
         self._handle_differences(differences)
+        self.audit.record_recovery(
+            recovered,
+            differences.changed_orders,
+            differences.unresolved_orders,
+        )
         return RecoveryResult(
             trading_date=trading_date,
             entered_symbols=frozenset(self.trades.entered_symbols(trading_date)),
@@ -229,6 +236,7 @@ class RecoveryManager:
 
     @staticmethod
     def _build_profile(config: dict) -> dict[str, Any]:
+        mode = str(config["mode"]).lower()
         strategy = str(config["strategy"]).lower()
         symbols = config["market"]["symbols"]
         if isinstance(symbols, str):
@@ -237,12 +245,12 @@ class RecoveryManager:
             symbols = ["CSV_WATCHLIST"]
         broker = str(config["broker"]).lower()
         account_id = ""
-        if broker == "angelone":
+        if mode in {"live", "paper"} and broker == "angelone":
             path = config.get("broker_config", {}).get("angelone", {}).get("credentials_file")
             if path:
                 account_id = load_secrets(path)["CLIENT_ID"]
         return {
-            "mode": str(config["mode"]).lower(),
+            "mode": mode,
             "broker": broker,
             "account_id": account_id,
             "exchange": str(config["market"]["exchange"]).upper(),
@@ -263,6 +271,7 @@ def _order_to_dict(order: Order) -> dict[str, Any]:
         "status": order.status.value,
         "intent": order.intent.value,
         "position_type": order.position_type.value,
+        "filled_quantity": order.filled_quantity,
         "status_updated_at": (
             order.status_updated_at.isoformat()
             if order.status_updated_at is not None
@@ -284,6 +293,11 @@ def _order_from_dict(item: dict) -> Order:
         intent=OrderIntent(item["intent"]),
         position_type=PositionType(item["position_type"]),
         status_updated_at=_datetime(item.get("status_updated_at")),
+        filled_quantity=(
+            int(item["filled_quantity"])
+            if item.get("filled_quantity") is not None
+            else None
+        ),
     )
 
 

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from autotick.interfaces.market_data import MarketDataProvider
-from autotick.models.market import MarketBar, MarketTick
+from autotick.models.market import ContractInfo, MarketBar, MarketTick
 from autotick.providers.brokers.angelone.session import AngelOneSession
 
 
@@ -79,6 +79,9 @@ class AngelOneMarketDataProvider(MarketDataProvider):
             volume=int(volume) if volume is not None else None,
             timestamp=datetime.now(self._timezone),
         )
+
+    def get_contract(self, symbol: str) -> ContractInfo | None:
+        return self.session.get_contract(symbol, self.exchange)
 
     def get_bars(
         self,

@@ -41,7 +41,11 @@ class CalendarSessionManager:
             }
             self._market_start = self._parse_time(config.get("market_start", "09:15"))
             self._market_end = self._parse_time(config.get("market_end", "15:30"))
-            self._square_off = self._parse_time(config.get("square_off_time", "15:15"))
+            self._square_off = (
+                self._parse_time(config["square_off_time"])
+                if config.get("square_off_time") is not None
+                else None
+            )
         elif self._schedule_type == "WEEKLY":
             self._week_start = self._week_position(
                 config["week_start_day"], self._parse_time(config["week_start_time"])
@@ -130,6 +134,13 @@ class CalendarSessionManager:
         )
         return weekly_open and not in_break
 
+    def daily_market_end(self, value: datetime | None = None) -> datetime | None:
+        """Return today's configured close, or None for non-DAILY schedules."""
+        if self._schedule_type != "DAILY":
+            return None
+        current = value or self.now()
+        return datetime.combine(current.date(), self._market_end, self._timezone)
+
     def current_session(self, value: datetime | None = None) -> str:
         """Return pre_market, open, or closed."""
         current = value or self.now()
@@ -160,7 +171,11 @@ class CalendarSessionManager:
         if self._schedule_type != "DAILY":
             return False
         current = value or self.now()
-        return self.is_market_open(current) and current.time() >= self._square_off
+        return (
+            self._square_off is not None
+            and self.is_market_open(current)
+            and current.time() >= self._square_off
+        )
 
     def detect_session_boundary(self, previous: datetime, current: datetime) -> bool:
         """Return True when session state changes between two timestamps."""

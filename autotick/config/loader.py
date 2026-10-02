@@ -47,6 +47,7 @@ def _resolve_file_paths(config: dict[str, Any], config_path: Path) -> None:
     _resolve_path(config.get("strategy_config"), "csv_file", base)
     _resolve_path(config.get("persistence"), "state_path", base)
     _resolve_path(config.get("reports"), "output_dir", base)
+    _resolve_path(config.get("logging"), "log_file", base)
 
 
 def load_config(path: str | Path) -> dict[str, Any]:

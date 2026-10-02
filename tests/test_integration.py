@@ -8,14 +8,16 @@ Created on Sat Sep 12 19:28:09 2026
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from autotick.engine.risk_manager import RiskManager
 from autotick.engine.trade_manager import TradeManager
+import autotick.main as runner
 from autotick.main import _process_symbols
 from autotick.models.market import MarketBar, MarketTick
-from autotick.models.order import OrderIntent, OrderSide, OrderStatus
+from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import PositionStatus, PositionType
 from autotick.models.signal import Signal, SignalType
 from autotick.providers.brokers.angelone import (
@@ -40,27 +42,6 @@ class _BuyStrategy(Strategy):
         return Signal(tick.symbol, tick.exchange, SignalType.BUY, price=tick.ltp)
 
 
-def _config(mode: str) -> dict:
-    return {
-        "mode": mode,
-        "broker": "simulated",
-        "strategy": "test",
-        "capital": 100_000,
-        "trade": {"quantity": 10, "position_type": "POSITIONAL"},
-        "risk": {
-            "max_loss": -2_000,
-            "max_trades_per_day": 5,
-            "risk_per_trade_pct": 1,
-            "stoploss_pct": 2,
-            "target_pct": 5,
-            "trailing_atr_period": 14,
-            "trailing_atr_interval": "1d",
-            "trailing_atr_multiplier": 0,
-        },
-        "reports": {"enabled": False},
-    }
-
-
 def _historical_market(start: datetime) -> HistoricalProvider:
     bars = [
         MarketBar("INFY-EQ", "NSE", 100, 102, 99, 101, 10, start),
@@ -69,7 +50,7 @@ def _historical_market(start: datetime) -> HistoricalProvider:
     return HistoricalProvider({("INFY-EQ", "1m"): bars})
 
 
-def _run_trade_flow(mode: str) -> tuple:
+def _run_trade_flow(mode: str, config: dict) -> tuple:
     start = datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc)
     session = SimulatedSession()
     if mode == "paper":
@@ -83,7 +64,7 @@ def _run_trade_flow(mode: str) -> tuple:
     account = SimulatedAccountProvider(session, 100_000)
     execution = SimulatedExecutionProvider(session)
     providers = ProviderBundle(market, account, execution)
-    risk = RiskManager(_config(mode))
+    risk = RiskManager(config)
     trades = TradeManager(execution, risk)
     strategy = _BuyStrategy()
     strategy.initialize(StrategyContext(market, "INFY-EQ"))
@@ -95,11 +76,11 @@ def _run_trade_flow(mode: str) -> tuple:
     market.subscribe(["INFY-EQ"])
     _process_symbols(
         providers, ["INFY-EQ"], strategies, trades, risk, entered,
-        PositionType.POSITIONAL, _config(mode),
+        PositionType.POSITIONAL, config,
     )
     _process_symbols(
         providers, ["INFY-EQ"], strategies, trades, risk, entered,
-        PositionType.POSITIONAL, _config(mode),
+        PositionType.POSITIONAL, config,
     )
     assert len(trades.get_orders()) == 1
 
@@ -109,7 +90,7 @@ def _run_trade_flow(mode: str) -> tuple:
         market.update_time(start + timedelta(minutes=1))
     _process_symbols(
         providers, ["INFY-EQ"], strategies, trades, risk, entered,
-        PositionType.POSITIONAL, _config(mode),
+        PositionType.POSITIONAL, config,
     )
 
     position = trades.get_position("INFY-EQ", "NSE")
@@ -120,8 +101,13 @@ def _run_trade_flow(mode: str) -> tuple:
     return orders, position.status, position.realized_pnl, account.get_balance(), risk.trade_count
 
 
-def test_paper_backtest_replay_trade_flow_parity() -> None:
-    results = {mode: _run_trade_flow(mode) for mode in ("paper", "backtest", "replay")}
+def test_paper_backtest_replay_trade_flow_parity(make_config) -> None:
+    results = {
+        mode: _run_trade_flow(
+            mode, make_config(mode, capital=100_000, quantity=10, max_trades=5)
+        )
+        for mode in ("paper", "backtest", "replay")
+    }
     expected_orders = (
         (OrderSide.BUY, 10, OrderStatus.FILLED, OrderIntent.ENTRY),
         (OrderSide.SELL, 10, OrderStatus.FILLED, OrderIntent.EXIT),
@@ -132,14 +118,16 @@ def test_paper_backtest_replay_trade_flow_parity() -> None:
     }
 
 
-def test_live_provider_wiring_is_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_live_provider_wiring_is_offline(
+    monkeypatch: pytest.MonkeyPatch, make_config
+) -> None:
     session = object()
     monkeypatch.setattr(
         ProviderFactory,
         "_broker_session",
         classmethod(lambda cls, config: ("angelone", session)),
     )
-    config = _config("live") | {
+    config = make_config("live", capital=100_000, quantity=10, max_trades=5) | {
         "market": {"exchange": "NSE"},
         "session": {
             "schedule_type": "DAILY",
@@ -159,3 +147,78 @@ def test_live_provider_wiring_is_offline(monkeypatch: pytest.MonkeyPatch) -> Non
     assert isinstance(providers.account, AngelOneAccountProvider)
     assert isinstance(providers.execution, AngelOneExecutionProvider)
     assert providers.broker_session is session
+
+
+def test_historical_fill_uses_market_timestamp(make_config) -> None:
+    start = datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc)
+    market = _historical_market(start)
+    market.connect()
+    market.subscribe(["INFY-EQ"])
+    market.update_time(start)
+    session = SimulatedSession()
+    session.set_market_data(market)
+    account = SimulatedAccountProvider(session, 1_000)
+    execution = SimulatedExecutionProvider(session)
+    trades = TradeManager(execution, RiskManager(make_config()))
+
+    trades.create_order(Order("HIST-1", "INFY-EQ", "NSE", OrderSide.BUY, 5))
+
+    assert account.get_balance() == 495
+    assert trades.get_trades()[0].timestamp == start
+
+    market.update_time(start + timedelta(minutes=1))
+    assert trades.monitor_exit("INFY-EQ", "NSE", 107) is not None
+    assert trades.get_trades()[1].timestamp == start + timedelta(minutes=1)
+
+
+def test_historical_runner_refreshes_risk_balance(monkeypatch, make_config) -> None:
+    timestamps = [
+        datetime(2026, 9, 12, 9, 15, tzinfo=timezone.utc),
+        datetime(2026, 9, 12, 9, 16, tzinfo=timezone.utc),
+    ]
+    balances = iter((900.0, 800.0))
+
+    class _Market:
+        def timestamps(self):
+            return timestamps
+
+        def update_time(self, value):
+            pass
+
+    class _Calendar:
+        def wait_until(self, value):
+            pass
+
+        def update_time(self, value):
+            pass
+
+        def should_square_off(self, value):
+            return False
+
+    providers = SimpleNamespace(
+        market_data=_Market(),
+        calendar_session=_Calendar(),
+        account=SimpleNamespace(get_balance=lambda: next(balances)),
+    )
+    config = make_config()
+    config["session"] = {"only_market_hours": False}
+    risk = RiskManager(config)
+    capital_seen = []
+    monkeypatch.setattr(runner, "_setup_strategies", lambda *args: {})
+    monkeypatch.setattr(runner, "_reconcile_orders", lambda *args: None)
+    monkeypatch.setattr(
+        runner,
+        "_process_symbols",
+        lambda *args, **kwargs: capital_seen.append(args[4].capital),
+    )
+
+    runner._run_historical(
+        providers,
+        config,
+        ["INFY-EQ"],
+        SimpleNamespace(),
+        risk,
+        PositionType.POSITIONAL,
+    )
+
+    assert capital_seen == [900.0, 800.0]

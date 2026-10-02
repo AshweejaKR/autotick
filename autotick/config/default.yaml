@@ -1,41 +1,42 @@
-mode: paper
+mode: live
 broker: angelone
-strategy: simple
+strategy: swing
 
 market:
-  symbols:
-    - NIFTYBEES-EQ
-    - INFY-EQ
+  symbols: []  # Add NSE cash symbols to swing_watchlist.csv
   exchange: NSE
 
 capital: 100000
 
+strategy_config:
+  csv_file: "swing_watchlist.csv"
+
 trade:
-  quantity: 10
+  max_position_value: 5000
   position_type: POSITIONAL
 
+simulated:
+  margin_pct: 100
+
 risk:
-  max_loss: -2000
+  max_loss: -5000
   max_trades_per_day: 5
-  risk_per_trade_pct: 1
-  stoploss_pct: 2
-  target_pct: 5
+  risk_per_trade_pct: 8
+  stoploss_pct: 7.5
+  target_pct: 10
+  trailing_activation_pct: 3.5
   trailing_atr_period: 14
   trailing_atr_interval: 1d
   trailing_atr_multiplier: 2.5
 
 engine:
-  loop_sleep_s: 1
+  loop_sleep_s: 20
 
 reconnect:
   enabled: true
   initial_delay_s: 1
   max_delay_s: 60
   auth_max_attempts: 3
-
-simulated:
-  ui_data_enabled: false
-  broker_auto_fetch: false
 
 session:
   schedule_type: DAILY
@@ -44,8 +45,8 @@ session:
   closed_dates: []
   market_start: "09:15"
   market_end: "15:30"
-  square_off_time: "15:15"
   only_market_hours: true
+  startup_wait_minutes: 30
   replay_speed: 1.0
 
 backtest:
@@ -59,7 +60,7 @@ broker_config:
 
 persistence:
   enabled: true
-  state_path: "state/autotick.db"
+  state_path: "state/swing_default.db"
 
 reports:
   enabled: true

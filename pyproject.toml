@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
+watchlist = ["logzero>=1.7", "websocket-client>=1.6"]
 
 [project.scripts]
 autotick = "autotick.main:main"

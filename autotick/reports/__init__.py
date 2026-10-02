@@ -5,6 +5,7 @@ Created on Sun Aug 30 09:25:06 2026
 @author: ashwe
 """
 
+from autotick.reports.audit import AuditTrail
 from autotick.reports.report import ReportManager
 
-__all__ = ["ReportManager"]
+__all__ = ["AuditTrail", "ReportManager"]

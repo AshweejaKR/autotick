@@ -56,3 +56,4 @@ class Order:
     intent: OrderIntent = OrderIntent.ENTRY
     position_type: PositionType = PositionType.POSITIONAL
     status_updated_at: datetime | None = None
+    filled_quantity: int | None = None

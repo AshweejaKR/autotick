@@ -1,128 +1,67 @@
-# AutoTick - Plan
+# AutoTick Plan
 
-## Project Goal
+## Status
 
-Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
+- Version: 0.1.0
+- Completed: Milestones 1–9, Phases 1–32
+- Latest hardening: AngelOne recovery, margin safety, concise logging, IST audits, and derivative expiry exits
+- Default: Live NSE positional delivery swing strategy with a CSV trigger watchlist
+- Current: Milestone 10 — Production
+- Next: Phase 33 — five-market-day Paper soak
 
 ## Milestones
 
-- [x] Milestone 1 - Foundation: structure, configuration, models, interfaces, and logging.
-- [x] Milestone 2 - Mode-Neutral Core: providers, sessions, events, and TradingEngine.
-- [x] Milestone 3 - Strategy Framework: indicators, strategy contract, context, simple strategy, and signal validation.
-- [x] Milestone 4 - Provider Layer: historical, simulated, and AngelOne adapters.
-- [x] Milestone 5 - Execution and Risk: order states, positions, P&L, sizing, limits, and square-off methods.
-- [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
-- [x] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
-- [x] Milestone 8 - Reports: performance metrics and trade export.
-- [x] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
-- [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
+| Milestone | Scope | Status |
+| --- | --- | --- |
+| 1 | Foundation | Complete |
+| 2 | Mode-neutral core | Complete |
+| 3 | Strategy framework | Complete |
+| 4 | Provider layer | Complete |
+| 5 | Execution and risk | Complete |
+| 6 | Trading modes | Complete |
+| 7 | Recovery and persistence | Complete |
+| 8 | Reports | Complete |
+| 9 | Testing | Complete |
+| 10 | Production: documentation, audit, and soak | Phase 33 pending |
 
-## Completed Phases
+## Current Rules
 
-- [x] Phase 1 - Project skeleton, packaging, entry point, and logging.
-- [x] Phase 2 - YAML configuration loading and validation.
-- [x] Phase 3 - Common models.
-- [x] Phase 4 - Provider interfaces.
-- [x] Phase 5 - ProviderFactory and mode mapping.
-- [x] Phase 6 - SessionPool and broker-session lifecycle.
-- [x] Phase 7 - CalendarSessionManager.
-- [x] Phase 8 - EventDispatcher.
-- [x] Phase 9 - TradingEngine lifecycle and event loop.
-- [x] Phase 10 - Indicator base and SMA.
-- [x] Phase 11 - Strategy base, context, callbacks, and simple long strategy.
-- [x] Phase 12 - Engine-owned SignalValidator.
-- [x] Phase 13 - Shared HistoricalProvider.
-- [x] Phase 14 - Simulated providers and shared in-memory state.
-- [x] Phase 15 - AngelOne session and account adapters.
-- [x] Phase 16 - AngelOne market-data and execution adapters.
-- [x] Phase 17 - TradeManager and order state machine.
-- [x] Phase 18 - Position lifecycle, exposure, trades, and P&L.
-- [x] Phase 19 - Risk validation, quantity sizing, stop-loss, and target helpers.
-- [x] Phase 20 - Daily trade limit, kill switch, and intraday square-off method.
-- [x] Phase 21 - Paper mode.
-- [x] Phase 22 - Backtest mode.
-- [x] Phase 23 - Replay mode.
-- [x] Phase 24 - Live mode.
-- [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
-- [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
-- [x] Phase 27 - Production configuration and secrets validation.
-- [x] Phase 28 - Performance metrics, strategy/combined reports, and completed-trade CSV export.
-- [x] Phase 29 - Minimal unit and provider-contract tests.
-- [x] Phase 30 - Minimal integration and cross-mode parity tests.
-- [x] Phase 31 - Minimal end-to-end, recovery, and reconciliation tests.
+- One run uses one market and one exchange.
+- Paper uses selected-broker market data with simulated account/execution; Paper never sends broker orders.
+- Paper futures reserve configured `simulated.margin_pct`; the default NSE delivery setting is 100%.
+- Simulated execution supports LONG and SHORT positions and square-off in both directions.
+- Live and Paper recover state before strategy setup.
+- Normal CLI SIGNAL validation routes through TradingEngine/EventDispatcher; recovery and reconnect stay in the main runtime loop.
+- Strategies create signals only. RiskManager and TradeManager own sizing and execution.
+- Live AngelOne entries use broker-calculated margin; MCX skips the unreliable charge-estimate endpoint.
+- AngelOne uses `availablecash`; positional cash-equity short entries are rejected.
+- Expiry exits use broker contract metadata first, then configured per-symbol dates; historical derivatives require configured dates when the policy is enabled.
+- Positional derivatives close at the configured cutoff before expiry; late entries are blocked and exits are audited as `EXPIRY_EXIT`.
+- Default logging is `INFO` with timestamped filenames; frequent strategy range messages are console-only and throttled.
+- Swing Live/Paper runs stop at `session.market_end` for DAILY schedules (15:30 IST by default), save state, and disconnect. Positional holdings remain open; restart before the next session. The close applies even when `only_market_hours` is false.
+- Live/Paper startup waits only during `session.startup_wait_minutes` before market open; otherwise it exits.
+- GitHub Actions runs pytest on push and pull request.
+- `autotick/config/default.yaml` is the packaged Live NSE delivery swing configuration. Its CSV watchlist ships empty, so no new entries are placed until symbols and trigger prices are supplied.
+- Default strategy: BUY when NSE cash LTP rises above the CSV trigger price; `trade.position_type: POSITIONAL` maps to AngelOne DELIVERY. The MCX GoldPetal ORB strategy remains available through a custom YAML.
+- Swing startup imports every `swing_watchlist_import_YYYYMMDD_HHMMSS.csv` beside the configured watchlist, oldest first. Append missing symbols only; keep existing trigger prices. Delete each validated source after a successful save, including duplicate-only files. Daily reload and strategy setup do not import files; invalid imports or failed saves retain their source and stop startup.
+- Standalone `swing_watchlist_tool` Tkinter utility validates NSE symbols and trigger prices using AngelOne LTP, warns above 5%/10% difference, creates IST timestamped import files, and offers optional EC2 SCP upload after manual review confirmation.
+- Simulated desktop UI/control-panel support is removed.
+- README, this plan, architecture guide, and soak runbook must show the same status.
 
-## Post-Phase Cleanup Completed
+## Deferred Production Fixes
 
-- Aligned AngelOne and simulated interfaces, constructors, arguments, exchanges, and normalized return models.
-- Added shared SimulatedSession and SimulatedState.
-- Added optional get_bars() dates with 5-day intraday and 30-day daily defaults.
-- Removed duplicate YAML.
-- Added root provider_test.py.
-- Added Windows simulated_control_panel.py.
-- Connected UI balance, funds, ticks, LTP, volume, price changes, CSV, and bars to the running Paper strategy.
-- Added UI-only and broker-auto-fetch behavior.
-- Added colored console logging and logger.done().
-- Added market-closed warning and realtime-loop exit when only_market_hours is true.
-- Added DAILY, WEEKLY, and ALWAYS_OPEN calendar schedules with timezone, holidays, and optional weekly daily breaks.
-- Kept realtime strategy tick processing active at zero account balance while RiskManager blocks orders.
-- Completed Phase 19-20 runtime wiring for stop-loss, target, trailing-stop, and exit orders.
-- Added simulated fill accounting for funds, positions, trades, realized P&L, and clear execution logs.
-- Added automatic 500 ms Paper UI account refresh from shared simulated state.
-- Enforced one market and one exchange per run and moved the realtime closed-market gate before provider and strategy setup.
-- Removed tests until the planned Testing milestone.
-- Added SQLite snapshots with isolated mode/broker/exchange/strategy/symbol profiles.
-- Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
-- Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
-- Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
-- Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
-- Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
-- Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
-- Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
-- Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
-- Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
-- Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
-- Added offline unit tests for signal validation, risk rules, and the entry-to-exit trade lifecycle.
-- Added provider-contract tests for mode mapping, HistoricalProvider, simulated providers, and mocked AngelOne adapters.
-- Added one offline trade-flow integration test for Paper, Backtest, and Replay parity plus mocked Live provider wiring.
-- Added offline Paper restart recovery and fake Live reconciliation tests with temporary SQLite and report files.
+- Broker rejection of an expiry exit can be valid, but `TradeManager` disallows `OPEN -> REJECTED`. A later order-book reconciliation raises `ValueError` outside broker recovery, stops the runner before its normal state save, and leaves position closure unconfirmed. Accept the terminal transition, restore the open position when the exit failed, and test the full rejection/reconciliation path. Do not assume the broker position closed; verify it separately. No automatic broker-write retry is requested now.
+- Expiry processing skips a symbol when `get_tick()` returns no valid LTP. An open derivative can miss its configured cutoff without an exit attempt; handle the missing-price case safely and test it.
+- Reconciliation skips increased cumulative fills when broker status remains `PARTIAL`; handle `PARTIAL -> PARTIAL`, cumulative average price, and completed reporting after cancellation.
+- Broker-margin fixed quantity bypasses the `risk_per_trade_pct` sizing cap; enforce both limits before wider production use.
+- Packaged default remains `mode: live`; the empty watchlist prevents entries until configured. Consider a safer non-live default before wider distribution.
+- Add focused tests for repeated partial fills and partial-fill cancellation followed by exit.
 
-## Current Runtime Wiring
+## Deferred Observation
 
-- Paper with UI disabled: broker market data plus simulated account and execution.
-- Paper with UI enabled: shared UI simulated data plus simulated account and execution.
-- Backtest and Replay: HistoricalProvider plus simulated account and execution.
-- Live: broker market data, account, and execution.
-- Simple strategy buys when LTP exceeds previous close by 0.5%.
-- Swing strategy buys when LTP moves above its daily CSV trigger and leaves profit open under target-activated ATR trailing protection.
-- RiskManager uses per-trade allocated capital when `max_position_value` is configured; fixed-quantity configurations retain account-capital risk sizing.
-- One filled ENTRY increments the daily trade count.
-- Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.
-- MCX intraday uses 15m ATR at 2.0x; positional swing uses daily ATR at 2.5x. The activation ATR and tick-based trailing state survive restart.
-- Completed ENTRY + EXIT pairs append once to strategy-specific and combined CSV reports.
-- Summary files recalculate from accumulated trade CSV history.
-- POSITIONAL is the default position type.
-- One configured CalendarSessionManager schedule applies to the run's single exchange.
-- Live and Paper recover SQLite state before strategy setup; Backtest and Replay start fresh and save final state.
+- 2026-09-17: AngelOne startup recovery reported unknown broker orders/position and blocked GoldPetal, while the broker terminal showed GoldPetal and NIFTYBEES closed. Keep the current safety block; revisit broker-history filtering after more live observation.
 
-Not yet wired in the CLI runner:
+## References
 
-- Daily P&L feed into max-loss enforcement.
-- Automatic square-off call.
-
-## Current Work
-
-- Completed milestone: Milestone 9 - Testing
-- Completed phases: 1 through 31
-- Current milestone: Milestone 10 - Production
-- Next phase: Phase 32 - documentation, metrics, and audit trail
-- Phase 31 status: completed
-
-## Development Rules
-
-- Implement and commit one approved phase at a time.
-- Keep the code short and simple.
-- Update README.md, PLAN.md, and ARCHITECTURE_IMPLEMENTATION_GUIDE.txt together.
-- Keep strategies focused on market conditions and signal generation.
-- Keep broker SDK calls inside broker adapters.
-- Keep normalized models and interfaces broker-independent.
-- Do not add optional components before their planned phase.
+- [Architecture and implementation guide](ARCHITECTURE_IMPLEMENTATION_GUIDE.txt)
+- [Paper soak runbook](PAPER_SOAK_RUNBOOK.md)

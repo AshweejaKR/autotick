@@ -21,8 +21,9 @@ from autotick.providers.brokers.simulated.session import SimulatedSession
 class SimulatedExecutionProvider(ExecutionProvider):
     """Simple in-memory execution provider for simulated trading."""
 
-    def __init__(self, session: SimulatedSession) -> None:
+    def __init__(self, session: SimulatedSession, margin_pct: float = 100.0) -> None:
         self.session = session
+        self.margin_pct = float(margin_pct) / 100
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._holdings: list[Position] = []
@@ -35,7 +36,12 @@ class SimulatedExecutionProvider(ExecutionProvider):
             tick = market_data.get_tick(order.symbol)
             if tick is None or tick.ltp is None or tick.ltp <= 0:
                 raise RuntimeError(f"No market price for {order.symbol}")
-            submitted = replace(order, price=float(tick.ltp), status=OrderStatus.FILLED)
+            submitted = replace(
+                order,
+                price=float(tick.ltp),
+                status=OrderStatus.FILLED,
+                status_updated_at=tick.timestamp,
+            )
             if not self._fill(submitted, tick.timestamp):
                 submitted = replace(submitted, status=OrderStatus.REJECTED)
         else:
@@ -109,15 +115,19 @@ class SimulatedExecutionProvider(ExecutionProvider):
 
     def square_off(self) -> None:
         for position in list(self._positions.values()):
-            if position.quantity <= 0:
+            if position.quantity == 0:
                 continue
             self.place_order(
                 Order(
                     order_id=str(uuid4()),
                     symbol=position.symbol,
                     exchange=position.exchange,
-                    side=OrderSide.SELL,
-                    quantity=position.quantity,
+                    side=(
+                        OrderSide.SELL
+                        if position.quantity > 0
+                        else OrderSide.BUY
+                    ),
+                    quantity=abs(position.quantity),
                     intent=OrderIntent.EXIT,
                     position_type=position.position_type,
                 )
@@ -127,31 +137,44 @@ class SimulatedExecutionProvider(ExecutionProvider):
         """Update simulated cash, position, trade, and realized P&L."""
         price = float(order.price or 0.0)
         value = price * order.quantity
+        margin = value * self.margin_pct
         key = (order.symbol, order.exchange)
         position = self._positions.get(key)
 
-        if order.side == OrderSide.BUY:
-            if self.session.state.update_funds(-value) is None:
+        if order.intent == OrderIntent.ENTRY:
+            if position is not None and position.quantity != 0:
                 return False
-            quantity = order.quantity + (position.quantity if position else 0)
-            total = value + (
-                position.average_price * position.quantity if position else 0.0
-            )
+            if self.session.state.update_funds(-margin) is None:
+                return False
             self._positions[key] = Position(
                 symbol=order.symbol,
                 exchange=order.exchange,
-                quantity=quantity,
-                average_price=total / quantity,
+                quantity=(order.quantity if order.side == OrderSide.BUY else -order.quantity),
+                average_price=price,
                 realized_pnl=position.realized_pnl if position else 0.0,
                 position_type=order.position_type,
             )
         else:
-            if position is None or position.quantity < order.quantity:
+            if position is None or position.quantity == 0:
                 return False
-            self.session.state.update_funds(value)
-            pnl = (price - position.average_price) * order.quantity
+            is_long_exit = position.quantity > 0 and order.side == OrderSide.SELL
+            is_short_exit = position.quantity < 0 and order.side == OrderSide.BUY
+            if not (is_long_exit or is_short_exit) or abs(position.quantity) < order.quantity:
+                return False
+
+            pnl = (
+                (price - position.average_price) * order.quantity
+                if is_long_exit
+                else (position.average_price - price) * order.quantity
+            )
+            release = position.average_price * order.quantity * self.margin_pct + pnl
+            self.session.state.update_funds(release, allow_negative=True)
             self._pnl += pnl
-            remaining = position.quantity - order.quantity
+            remaining = (
+                position.quantity - order.quantity
+                if is_long_exit
+                else position.quantity + order.quantity
+            )
             self._positions[key] = replace(
                 position,
                 quantity=remaining,

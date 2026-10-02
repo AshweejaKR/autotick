@@ -53,6 +53,20 @@ class AutoTickLogger(logging.Logger):
         if self.isEnabledFor(DONE_LEVEL):
             self._log(DONE_LEVEL, message, args, **kwargs)
 
+    def console_only(self, message: object, *args: Any, **kwargs: Any) -> None:
+        """Write an INFO message to the console but not the log file."""
+        if self.isEnabledFor(logging.INFO):
+            extra = dict(kwargs.pop("extra", {}) or {})
+            extra["console_only"] = True
+            self._log(logging.INFO, message, args, extra=extra, **kwargs)
+
+
+class ExcludeConsoleOnlyFilter(logging.Filter):
+    """Drop records explicitly marked for console-only output."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not getattr(record, "console_only", False)
+
 
 class ColorFormatter(logging.Formatter):
     """Color user-facing console levels while keeping file logs plain."""
@@ -159,6 +173,7 @@ def configure_logging(
         )
         file_handler.setLevel(resolved_level)
         file_handler.setFormatter(formatter)
+        file_handler.addFilter(ExcludeConsoleOnlyFilter())
         root_logger.addHandler(file_handler)
 
     # Keep AutoTick DEBUG logs while suppressing third-party HTTP debug output.
