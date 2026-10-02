@@ -11,7 +11,7 @@ from datetime import datetime
 
 from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderSide, OrderStatus, OrderType
-from autotick.models.position import Position
+from autotick.models.position import Position, PositionType
 from autotick.models.trade import Trade
 from autotick.providers.brokers.angelone.session import AngelOneSession
 
@@ -128,6 +128,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
 
     @staticmethod
     def _to_position(item: dict) -> Position:
+        product = str(item.get("producttype", "")).upper()
         return Position(
             symbol=str(item.get("tradingsymbol", "")),
             exchange=str(item.get("exchange", "")),
@@ -135,6 +136,7 @@ class AngelOneExecutionProvider(ExecutionProvider):
             average_price=float(item.get("averageprice", item.get("buyavgprice", 0)) or 0),
             realized_pnl=float(item.get("realised", item.get("realized", 0)) or 0),
             unrealized_pnl=float(item.get("unrealised", item.get("pnl", 0)) or 0),
+            position_type=PositionType.INTRADAY if product == "INTRADAY" else PositionType.POSITIONAL,
         )
 
     @staticmethod
