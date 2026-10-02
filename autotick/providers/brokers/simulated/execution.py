@@ -82,6 +82,31 @@ class SimulatedExecutionProvider(ExecutionProvider):
     def get_pnl(self) -> float:
         return self._pnl
 
+    def export_state(self) -> dict:
+        """Return simulated execution state for persistence."""
+        return {
+            "orders": list(self._orders.values()),
+            "positions": list(self._positions.values()),
+            "trades": list(self._trades),
+            "pnl": self._pnl,
+        }
+
+    def restore_state(
+        self,
+        orders: list[Order],
+        positions: list[Position],
+        trades: list[Trade],
+        pnl: float,
+    ) -> None:
+        """Replace empty simulated execution state after restart."""
+        self._orders = {order.order_id: order for order in orders}
+        self._positions = {
+            (position.symbol, position.exchange): position
+            for position in positions
+        }
+        self._trades = list(trades)
+        self._pnl = float(pnl)
+
     def square_off(self) -> None:
         for position in list(self._positions.values()):
             if position.quantity <= 0:

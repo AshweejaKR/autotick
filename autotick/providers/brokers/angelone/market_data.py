@@ -34,6 +34,7 @@ class AngelOneMarketDataProvider(MarketDataProvider):
         self.exchange = exchange.upper()
         self._timezone = ZoneInfo("Asia/Kolkata")
         self._subscriptions: set[str] = set()
+        self._desired_subscriptions: set[str] = set()
 
     def connect(self) -> None:
         if not self.session.is_connected():
@@ -44,11 +45,20 @@ class AngelOneMarketDataProvider(MarketDataProvider):
 
     def subscribe(self, symbols: list[str]) -> None:
         for symbol in symbols:
-            self.session.get_instrument(symbol, self.exchange)
-            self._subscriptions.add(symbol.upper())
+            normalized = symbol.upper()
+            self._desired_subscriptions.add(normalized)
+            self.session.get_instrument(normalized, self.exchange)
+            self._subscriptions.add(normalized)
 
     def unsubscribe(self, symbols: list[str]) -> None:
-        self._subscriptions.difference_update(symbol.upper() for symbol in symbols)
+        normalized = {symbol.upper() for symbol in symbols}
+        self._subscriptions.difference_update(normalized)
+        self._desired_subscriptions.difference_update(normalized)
+
+    def restore_subscriptions(self) -> None:
+        """Restore every desired polling subscription after reconnect."""
+        self._subscriptions.clear()
+        self.subscribe(sorted(self._desired_subscriptions))
 
     def get_tick(self, symbol: str) -> MarketTick | None:
         trading_symbol, token = self.session.get_instrument(symbol, self.exchange)

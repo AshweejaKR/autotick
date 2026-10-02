@@ -28,7 +28,7 @@ from autotick.providers.brokers.simulated import (
     SimulatedSession,
 )
 from autotick.providers.historical import HistoricalProvider
-from autotick.providers.session_pool import SessionPool
+from autotick.providers.session_pool import BrokerSession, SessionPool
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +49,7 @@ class ProviderBundle:
     account: AccountProvider
     execution: ExecutionProvider
     calendar_session: Any | None = None
+    broker_session: BrokerSession | None = None
 
 
 class ProviderFactory:
@@ -114,13 +115,13 @@ class ProviderFactory:
         execution = AngelOneExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode("live")
-        return ProviderBundle(market_data, account, execution, calendar)
+        return ProviderBundle(market_data, account, execution, calendar, session)
 
     @classmethod
     def _create_paper(cls, config: dict[str, Any]) -> ProviderBundle:
         _, session = cls._broker_session(config)
         market_data = AngelOneMarketDataProvider(session, config["market"]["exchange"])
-        return cls._simulated_bundle("paper", config, market_data)
+        return cls._simulated_bundle("paper", config, market_data, session)
 
     @classmethod
     def _create_historical(cls, mode: str, config: dict[str, Any]) -> ProviderBundle:
@@ -137,6 +138,7 @@ class ProviderFactory:
         mode: str,
         config: dict[str, Any],
         market_data: MarketDataProvider,
+        broker_session: BrokerSession | None = None,
     ) -> ProviderBundle:
         session = SimulatedSession()
         session.set_market_data(market_data)
@@ -144,4 +146,10 @@ class ProviderFactory:
         execution = SimulatedExecutionProvider(session)
         calendar = CalendarSessionManager(config["session"])
         calendar.configure_mode(mode)
-        return ProviderBundle(market_data, account, execution, calendar)
+        return ProviderBundle(
+            market_data,
+            account,
+            execution,
+            calendar,
+            broker_session,
+        )

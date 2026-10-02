@@ -49,3 +49,7 @@ class SimulatedAccountProvider(AccountProvider):
 
     def get_profile(self) -> Account:
         return self._account
+
+    def restore_state(self, account: Account) -> None:
+        """Restore simulated funds from persisted state."""
+        self._account = account

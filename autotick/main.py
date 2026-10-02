@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import suppress
+from datetime import date, datetime
 from pathlib import Path
 from threading import Event
 from time import sleep
@@ -19,6 +20,8 @@ from uuid import uuid4
 from autotick.config.loader import load_config
 from autotick.engine import (
     CalendarSessionManager,
+    ReconnectManager,
+    ReconnectStopped,
     RiskManager,
     SignalValidator,
     TradeManager,
@@ -31,11 +34,16 @@ from autotick.models import (
     PositionType,
     SignalType,
 )
+from autotick.persistence import PersistenceError, RecoveryManager, RecoveryResult
 from autotick.providers.factory import ProviderFactory
+from autotick.providers.session_pool import (
+    BrokerAuthenticationError,
+    BrokerError,
+    BrokerWriteUncertainError,
+)
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
 from autotick.utils.logger import configure_logging, get_logger, log_call
-
 
 logger = get_logger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
@@ -109,6 +117,22 @@ def _reconcile_orders(trades: TradeManager, entered: set[str]) -> None:
     for order in trades.reconcile_orders():
         if order.intent == OrderIntent.ENTRY and order.status in failed:
             entered.discard(order.symbol)
+
+
+def _save_state(
+    persistence: RecoveryManager | None,
+    risk: RiskManager,
+    trading_date: date,
+    last_processed_at: datetime | None = None,
+) -> None:
+    """Save changed state and block new entries after a write failure."""
+    if persistence is None:
+        return
+    try:
+        persistence.save(trading_date, last_processed_at)
+    except PersistenceError:
+        risk.activate_kill_switch()
+        logger.exception("State persistence failed; new entries blocked")
 
 
 def _process_symbols(
@@ -221,6 +245,7 @@ def _process_symbols(
                 providers.account.get_balance(),
             )
 
+
 def _run_realtime(
     providers,
     config: dict,
@@ -228,11 +253,20 @@ def _run_realtime(
     trades: TradeManager,
     risk: RiskManager,
     position_type: PositionType,
+    recovery: RecoveryResult | None = None,
+    persistence: RecoveryManager | None = None,
+    state_manager: RecoveryManager | None = None,
+    reconnect: ReconnectManager | None = None,
     stop_event: Event | None = None,
-) -> None:
+) -> date:
     strategies: dict[str, SimpleStrategy] | None = None
-    entered: set[str] = set()
-    trading_date = providers.calendar_session.now().date()
+    blocked = set(recovery.blocked_symbols) if recovery else set()
+    entered = set(recovery.entered_symbols) | blocked if recovery else set()
+    trading_date = (
+        recovery.trading_date
+        if recovery is not None
+        else providers.calendar_session.now().date()
+    )
     loop_sleep = float(config["engine"]["loop_sleep_s"])
 
     while stop_event is None or not stop_event.is_set():
@@ -250,33 +284,69 @@ def _run_realtime(
             for strategy in (strategies or {}).values():
                 strategy.on_market_close()
             risk.reset_daily_state()
-            entered.clear()
+            entered = set(blocked)
             strategies = None
             trading_date = now.date()
 
-        if strategies is None:
-            strategies = _setup_strategies(providers, symbols)
+        try:
+            if strategies is None:
+                strategies = _setup_strategies(providers, symbols)
 
-        if not config["session"]["only_market_hours"] or market_open:
-            balance = providers.account.get_balance()
-            risk.update(balance)
-            _reconcile_orders(trades, entered)
-            _process_symbols(
-                providers,
-                symbols,
-                strategies,
-                trades,
-                risk,
-                entered,
-                config["trade"]["quantity"],
-                position_type,
-                config["mode"],
-            )
+            if not config["session"]["only_market_hours"] or market_open:
+                balance = providers.account.get_balance()
+                risk.update(balance)
+                _reconcile_orders(trades, entered)
+                _process_symbols(
+                    providers,
+                    symbols,
+                    strategies,
+                    trades,
+                    risk,
+                    entered,
+                    config["trade"]["quantity"],
+                    position_type,
+                    config["mode"],
+                )
+                _save_state(persistence, risk, trading_date)
+        except BrokerError as exc:
+            if reconnect is None or state_manager is None:
+                raise
+            uncertain_write = isinstance(exc, BrokerWriteUncertainError)
+            try:
+                reconciled = reconnect.recover(
+                    exc,
+                    lambda: state_manager.reconcile(trading_date),
+                )
+            except ReconnectStopped:
+                logger.done("Broker recovery stopped by shutdown request")
+                break
+            except BrokerAuthenticationError:
+                risk.activate_kill_switch()
+                _save_state(persistence, risk, trading_date)
+                logger.error(
+                    "Broker authentication recovery exhausted; safe shutdown started"
+                )
+                break
+
+            blocked.update(reconciled.blocked_symbols)
+            entered = set(reconciled.entered_symbols) | blocked
+            strategies = None
+            _save_state(persistence, risk, trading_date)
+            if uncertain_write:
+                risk.activate_kill_switch()
+                _save_state(persistence, risk, trading_date)
+                logger.error(
+                    "Broker write result remains uncertain; state reconciled and "
+                    "safe shutdown started"
+                )
+                break
+            continue
 
         if stop_event is None:
             sleep(loop_sleep)
         else:
             stop_event.wait(loop_sleep)
+    return trading_date
 
 
 def _run_historical(
@@ -286,13 +356,16 @@ def _run_historical(
     trades: TradeManager,
     risk: RiskManager,
     position_type: PositionType,
-) -> None:
+    persistence: RecoveryManager | None = None,
+) -> date | None:
     timestamps = providers.market_data.timestamps()
     strategies: dict[str, SimpleStrategy] = {}
     entered: set[str] = set()
     trading_date = None
+    last_processed_at = None
 
     for value in timestamps:
+        last_processed_at = value
         providers.calendar_session.wait_until(value)
         providers.calendar_session.update_time(value)
         providers.market_data.update_time(value)
@@ -321,6 +394,9 @@ def _run_historical(
             position_type,
             config["mode"],
         )
+    if trading_date is not None:
+        _save_state(persistence, risk, trading_date, last_processed_at)
+    return trading_date
 
 
 def _run_providers(
@@ -332,10 +408,37 @@ def _run_providers(
     symbols = _symbols(config["market"]["symbols"])
     risk = RiskManager(config)
     trades = TradeManager(providers.execution, risk)
+    state_manager = RecoveryManager(
+        config,
+        trades,
+        risk,
+        providers.account,
+        providers.execution,
+    )
+    persistence = state_manager if config["persistence"]["enabled"] else None
+    reconnect = (
+        ReconnectManager(
+            providers.broker_session,
+            providers.market_data,
+            symbols,
+            config["reconnect"],
+            stop_event,
+        )
+        if mode in {"live", "paper"}
+        and config["reconnect"]["enabled"]
+        and providers.broker_session is not None
+        else None
+    )
     position_type = PositionType(
         config["trade"].get("position_type", "POSITIONAL").upper()
     )
 
+    runtime_date = (
+        date.min
+        if mode in {"backtest", "replay"}
+        else providers.calendar_session.now().date()
+    )
+    persistence_ready = False
     try:
         if mode in {"live", "paper"} and config["session"]["only_market_hours"]:
             now = providers.calendar_session.now()
@@ -347,35 +450,78 @@ def _run_providers(
                 )
                 return
 
-        providers.market_data.connect()
-        providers.account.connect()
-        providers.market_data.subscribe(symbols)
+        try:
+            providers.market_data.connect()
+            providers.account.connect()
+            recovery = (
+                persistence.recover(runtime_date)
+                if persistence is not None
+                else RecoveryResult(runtime_date)
+            )
+            providers.market_data.subscribe(symbols)
+        except BrokerError as exc:
+            if reconnect is None:
+                raise
+            try:
+                recovery = reconnect.recover(
+                    exc,
+                    lambda: (
+                        persistence.recover(runtime_date)
+                        if persistence is not None
+                        else state_manager.reconcile(runtime_date)
+                    ),
+                )
+            except ReconnectStopped:
+                logger.done("Broker startup recovery stopped by shutdown request")
+                return
+            except BrokerAuthenticationError:
+                risk.activate_kill_switch()
+                _save_state(persistence, risk, runtime_date)
+                logger.error(
+                    "Broker authentication recovery exhausted; startup stopped safely"
+                )
+                return
+        persistence_ready = persistence is not None
         if mode in {"backtest", "replay"}:
-            _run_historical(
+            runtime_date = _run_historical(
                 providers,
                 config,
                 symbols,
                 trades,
                 risk,
                 position_type,
+                persistence,
             )
         else:
-            _run_realtime(
+            runtime_date = _run_realtime(
                 providers,
                 config,
                 symbols,
                 trades,
                 risk,
                 position_type,
+                recovery,
+                persistence,
+                state_manager,
+                reconnect,
                 stop_event,
             )
     finally:
+        if (
+            persistence_ready
+            and runtime_date is not None
+            and mode not in {"backtest", "replay"}
+        ):
+            _save_state(persistence, risk, runtime_date)
         with suppress(Exception):
             providers.market_data.unsubscribe(symbols)
         with suppress(Exception):
             providers.account.disconnect()
         with suppress(Exception):
             providers.market_data.disconnect()
+        if providers.broker_session is not None:
+            with suppress(Exception):
+                providers.broker_session.logout()
         logger.done("AutoTick provider shutdown completed")
 
 
