@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autotick"
+version = "0.1.0"
+description = "Modular, broker-independent algorithmic trading framework"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pendulum>=3.0",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+autotick = "autotick.main:main"
+
+[tool.setuptools.packages.find]
+include = ["autotick*"]
