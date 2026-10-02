@@ -9,6 +9,13 @@ Mode-neutral engine components for AutoTick.
 
 from autotick.engine.dispatcher import EventDispatcher
 from autotick.engine.market_session import CalendarSessionManager
+from autotick.engine.signal_validator import SignalValidationError, SignalValidator
 from autotick.engine.trading_engine import TradingEngine
 
-__all__ = ["CalendarSessionManager", "EventDispatcher", "TradingEngine"]
+__all__ = [
+    "CalendarSessionManager",
+    "EventDispatcher",
+    "SignalValidationError",
+    "SignalValidator",
+    "TradingEngine",
+]
