@@ -13,7 +13,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Milestone 5 - Execution and Risk: order states, positions, P&L, sizing, limits, and square-off methods.
 - [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
 - [x] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
-- [ ] Milestone 8 - Reports: performance metrics and trade export.
+- [x] Milestone 8 - Reports: performance metrics and trade export.
 - [ ] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
 - [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
 
@@ -46,6 +46,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 25 - SQLite persistence, recovery, and startup reconciliation.
 - [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
 - [x] Phase 27 - Production configuration and secrets validation.
+- [x] Phase 28 - Performance metrics, strategy/combined reports, and completed-trade CSV export.
 
 ## Post-Phase Cleanup Completed
 
@@ -70,6 +71,13 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Added Live/Paper recovery, simulated-funds restore, broker reconciliation, and duplicate-entry blocking.
 - Added capped hybrid reconnect, refresh-first authentication recovery, subscription restoration, and safe handling of uncertain writes.
 - Added shared AngelOne secrets validation before broker access and LIVE production safety checks.
+- Added append-only completed-trade CSVs plus recalculated strategy and combined performance summaries.
+- Added cross-process report locking, atomic summaries, and corrupt-file failure isolation.
+- Replaced percentage trailing stops with completed-candle ATR(14) trailing stops while keeping tick-based highest-price tracking, recovery, and DEBUG logs for entry levels and TSL changes.
+- Added a Live CSV swing strategy with ₹5,000 maximum position value, daily watchlist reload, 5% ATR activation, stable recovery, and immediate subscription removal after position close.
+- Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
+- Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
+- Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
 
 ## Current Runtime Wiring
 
@@ -78,9 +86,13 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Backtest and Replay: HistoricalProvider plus simulated account and execution.
 - Live: broker market data, account, and execution.
 - Simple strategy buys when LTP exceeds previous close by 0.5%.
-- RiskManager caps configured quantity.
+- Swing strategy buys when LTP moves above its daily CSV trigger and leaves profit open under target-activated ATR trailing protection.
+- RiskManager uses per-trade allocated capital when `max_position_value` is configured; fixed-quantity configurations retain account-capital risk sizing.
 - One filled ENTRY increments the daily trade count.
-- Filled positions use fixed stop-loss and target levels; target activates trailing protection when configured.
+- Filled positions use fixed stop-loss and target levels; target activates configured ATR trailing protection.
+- MCX intraday uses 15m ATR at 2.0x; positional swing uses daily ATR at 2.5x. The activation ATR and tick-based trailing state survive restart.
+- Completed ENTRY + EXIT pairs append once to strategy-specific and combined CSV reports.
+- Summary files recalculate from accumulated trade CSV history.
 - POSITIONAL is the default position type.
 - One configured CalendarSessionManager schedule applies to the run's single exchange.
 - Live and Paper recover SQLite state before strategy setup; Backtest and Replay start fresh and save final state.
@@ -89,16 +101,15 @@ Not yet wired in the CLI runner:
 
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
-- Reports and exports.
 - Automated tests.
 
 ## Current Work
 
-- Completed milestone: Milestone 7 - Recovery and Persistence
-- Completed phases: 1 through 27
-- Current milestone: Milestone 8 - Reports
-- Next phase: Phase 28 - performance metrics, reports, and trade export
-- Phase 27 status: completed
+- Completed milestone: Milestone 8 - Reports
+- Completed phases: 1 through 28
+- Current milestone: Milestone 9 - Testing
+- Next phase: Phase 29 - unit and provider-contract tests
+- Phase 28 status: completed
 - Test implementation starts at Phase 29
 
 ## Development Rules

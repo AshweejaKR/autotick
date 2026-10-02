@@ -34,9 +34,6 @@ def load_secrets(path: str, required_keys: tuple[str, ...] = ANGELONE_REQUIRED_K
             raise ValueError(f"Duplicate secret key: {key}")
         values[key] = value
 
-    unexpected = sorted(values.keys() - set(required_keys))
-    if unexpected:
-        raise ValueError(f"Unexpected secret key: {unexpected[0]}")
     for key in required_keys:
         if key not in values:
             raise ValueError(f"Missing secret key: {key}")

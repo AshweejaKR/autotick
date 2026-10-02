@@ -22,4 +22,4 @@ autotick = "autotick.main:main"
 include = ["autotick*"]
 
 [tool.setuptools.package-data]
-autotick = ["config/*.yaml"]
+autotick = ["config/*.yaml", "config/*.csv"]

@@ -10,5 +10,12 @@ Strategy framework exports for AutoTick.
 from autotick.strategy.base import Strategy
 from autotick.strategy.context import StrategyContext
 from autotick.strategy.simple_strategy import SimpleStrategy
+from autotick.strategy.swing_strategy import SwingStrategy, load_swing_watchlist
 
-__all__ = ["SimpleStrategy", "Strategy", "StrategyContext"]
+__all__ = [
+    "SimpleStrategy",
+    "Strategy",
+    "StrategyContext",
+    "SwingStrategy",
+    "load_swing_watchlist",
+]

@@ -161,6 +161,10 @@ def configure_logging(
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 
+    # Keep AutoTick DEBUG logs while suppressing third-party HTTP debug output.
+    for logger_name in ("urllib3", "requests", "SmartApi"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> AutoTickLogger:
     """Return a named AutoTick logger."""

@@ -49,12 +49,20 @@ class ReconnectManager:
 
     def recover(self, error: BrokerError, reconcile: Callable[[], _T]) -> _T:
         """Reconnect, restore subscriptions, reconcile, then resume."""
+        logger.debug("ReconnectManager.recover entry error=%s", type(error).__name__)
         delay = self.initial_delay
         attempt = 0
         auth_attempts = 0
         current: BrokerError = error
 
         while True:
+            logger.debug(
+                "Reconnect loop attempt=%s auth_attempts=%s delay=%.1f stopped=%s",
+                attempt + 1,
+                auth_attempts,
+                delay,
+                self._stopped(),
+            )
             if self._stopped():
                 raise ReconnectStopped("Broker recovery stopped")
             if isinstance(current, BrokerAuthenticationError):
@@ -88,6 +96,7 @@ class ReconnectManager:
                     "Broker reconnected; subscriptions restored=%s; reconciliation completed",
                     len(self.symbols),
                 )
+                logger.debug("ReconnectManager.recover exit success attempt=%s", attempt)
                 return result
             delay = min(delay * 2, self.max_delay)
 

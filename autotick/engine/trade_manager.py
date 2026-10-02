@@ -16,6 +16,10 @@ from autotick.interfaces.execution import ExecutionProvider
 from autotick.models.order import Order, OrderIntent, OrderSide, OrderStatus
 from autotick.models.position import Position, PositionStatus, PositionType
 from autotick.models.trade import Trade
+from autotick.reports import ReportManager
+from autotick.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -24,6 +28,7 @@ class _ExitLevels:
     target: float
     highest_price: float
     trailing_stop: float | None = None
+    trailing_atr: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +77,11 @@ class TradeManager:
     ) -> None:
         self.execution = execution
         self.risk_manager = risk_manager
+        self._reporter = (
+            ReportManager(risk_manager.config, execution)
+            if risk_manager is not None
+            else None
+        )
         self._orders: dict[str, Order] = {}
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, Trade] = {}
@@ -160,6 +170,7 @@ class TradeManager:
                     "target": levels.target,
                     "highest_price": levels.highest_price,
                     "trailing_stop": levels.trailing_stop,
+                    "trailing_atr": levels.trailing_atr,
                 }
                 for (symbol, exchange), levels in self._exit_levels.items()
             ],
@@ -186,6 +197,11 @@ class TradeManager:
                 trailing_stop=(
                     float(item["trailing_stop"])
                     if item.get("trailing_stop") is not None
+                    else None
+                ),
+                trailing_atr=(
+                    float(item["trailing_atr"])
+                    if item.get("trailing_atr") is not None
                     else None
                 ),
             )
@@ -286,6 +302,7 @@ class TradeManager:
         symbol: str,
         exchange: str,
         price: float,
+        trailing_atr: float | None = None,
     ) -> tuple[Order, str] | None:
         """Submit an exit when fixed or trailing protection is hit."""
         key = (symbol, exchange)
@@ -300,21 +317,65 @@ class TradeManager:
         ):
             return None
 
+        is_long = position.quantity > 0
+        entry_side = OrderSide.BUY if is_long else OrderSide.SELL
         reason = None
-        if price <= levels.stop_loss:
+        if (is_long and price <= levels.stop_loss) or (
+            not is_long and price >= levels.stop_loss
+        ):
             reason = "STOP_LOSS"
         elif levels.trailing_stop is not None:
-            if price > levels.highest_price:
+            improved = (
+                price > levels.highest_price
+                if is_long
+                else price < levels.highest_price
+            )
+            if improved:
                 levels.highest_price = price
-                levels.trailing_stop = self.risk_manager.trailing_stop(price)
-            if price <= levels.trailing_stop:
+                if levels.trailing_atr is not None:
+                    candidate = self.risk_manager.trailing_stop(
+                        price,
+                        levels.trailing_atr,
+                        entry_side,
+                    )
+                    updated_stop = (
+                        max(levels.trailing_stop, candidate)
+                        if is_long
+                        else min(levels.trailing_stop, candidate)
+                    )
+                    if updated_stop != levels.trailing_stop:
+                        logger.debug(
+                            "Updated TSL %.2f to %.2f",
+                            levels.trailing_stop,
+                            updated_stop,
+                        )
+                        levels.trailing_stop = updated_stop
+            if (is_long and price <= levels.trailing_stop) or (
+                not is_long and price >= levels.trailing_stop
+            ):
                 reason = "TRAILING_STOP"
-        elif price >= levels.target:
-            if self.risk_manager.trailing_pct > 0:
-                levels.highest_price = max(levels.highest_price, price)
-                levels.trailing_stop = self.risk_manager.trailing_stop(
-                    levels.highest_price
+        elif (is_long and price >= levels.target) or (
+            not is_long and price <= levels.target
+        ):
+            if self.risk_manager.trailing_enabled and trailing_atr is not None:
+                levels.highest_price = (
+                    max(levels.highest_price, price)
+                    if is_long
+                    else min(levels.highest_price, price)
                 )
+                levels.trailing_atr = trailing_atr
+                candidate = self.risk_manager.trailing_stop(
+                    levels.highest_price,
+                    trailing_atr,
+                    entry_side,
+                )
+                levels.trailing_stop = (
+                    max(levels.stop_loss, candidate)
+                    if is_long
+                    else min(levels.stop_loss, candidate)
+                )
+                return None
+            if self.risk_manager.trailing_enabled and self.risk_manager.target_pct == 0:
                 return None
             reason = "TARGET"
 
@@ -330,16 +391,28 @@ class TradeManager:
             Position(
                 symbol=order.symbol,
                 exchange=order.exchange,
-                quantity=order.quantity,
+                quantity=(
+                    order.quantity
+                    if order.side == OrderSide.BUY
+                    else -order.quantity
+                ),
                 average_price=price,
                 position_type=order.position_type,
             )
         )
         if self.risk_manager is not None:
-            self._exit_levels[self._position_key(position)] = _ExitLevels(
-                stop_loss=self.risk_manager.stop_loss(price),
-                target=self.risk_manager.target(price),
+            levels = _ExitLevels(
+                stop_loss=self.risk_manager.stop_loss(price, order.side),
+                target=self.risk_manager.target(price, order.side),
                 highest_price=price,
+            )
+            self._exit_levels[self._position_key(position)] = levels
+            logger.debug(
+                "Entry levels %s: entry_price=%.2f stop_loss=%.2f target=%.2f",
+                order.symbol,
+                price,
+                levels.stop_loss,
+                levels.target,
             )
 
     def _close_filled_exit(self, order: Order) -> None:
@@ -359,7 +432,36 @@ class TradeManager:
                 unrealized_pnl=0.0,
                 status=PositionStatus.CLOSED,
             )
+            self._report_completed_trade(order, pnl)
         self._exit_levels.pop(key, None)
+
+    def _report_completed_trade(self, exit_order: Order, pnl: float) -> None:
+        if self._reporter is None:
+            return
+        exit_trade = next(
+            (trade for trade in self._trades.values() if trade.order_id == exit_order.order_id),
+            None,
+        )
+        entry_orders = [
+            order
+            for order in self._orders.values()
+            if order.symbol == exit_order.symbol
+            and order.exchange == exit_order.exchange
+            and order.intent == OrderIntent.ENTRY
+            and order.status == OrderStatus.FILLED
+            and order.status_updated_at is not None
+            and exit_order.status_updated_at is not None
+            and order.status_updated_at <= exit_order.status_updated_at
+        ]
+        if exit_trade is None or not entry_orders:
+            return
+        entry_order = max(entry_orders, key=lambda item: item.status_updated_at)
+        entry_trade = next(
+            (trade for trade in self._trades.values() if trade.order_id == entry_order.order_id),
+            None,
+        )
+        if entry_trade is not None:
+            self._reporter.record(entry_trade, exit_trade, pnl)
 
     def _record_trade(self, order: Order) -> None:
         trade = Trade(
@@ -545,6 +647,18 @@ class TradeManager:
             if trade.order_id not in broker_order_ids
         }
         self._trades.update({trade.trade_id: trade for trade in broker_trades})
+
+        blocking_order_statuses = {
+            OrderStatus.SUBMITTED,
+            OrderStatus.OPEN,
+            OrderStatus.PARTIAL,
+            OrderStatus.FILLED,
+        }
+        blocked_order_symbols = {
+            provider_orders[order_id].symbol
+            for order_id in unknown_order_ids
+            if provider_orders[order_id].status in blocking_order_statuses
+        }
         return ReconciliationResult(
             changed_orders=changed_orders,
             closed_positions=closed_positions,
@@ -552,8 +666,8 @@ class TradeManager:
             unknown_positions=unknown_positions,
             unresolved_orders=unresolved_orders,
             blocked_symbols=frozenset(
-                [provider_orders[order_id].symbol for order_id in unknown_order_ids]
-                + [symbol for symbol, _ in unknown_position_keys]
+                blocked_order_symbols
+                | {symbol for symbol, _ in unknown_position_keys}
             ),
         )
 
