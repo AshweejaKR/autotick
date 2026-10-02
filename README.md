@@ -40,6 +40,21 @@ Foundation is complete through Phase 4:
 - quantity=None is valid; RiskManager/TradeManager decides quantity from configuration.
 - Target, stop loss, duplicate-entry, re-entry, and other risk rules stay outside Strategy/SignalValidator.
 
+## Provider Layer
+
+- Phase 13: Shared HistoricalProvider — completed.
+- Backtest and Replay share the same normalized historical market-data provider.
+- Historical bars remain `list[MarketBar]`; pandas is kept outside the provider contract.
+- Phase 14: Simulated account and execution providers — completed.
+- Simulated providers keep simple in-memory account/order state.
+- Position/trade verification and reconciliation remain TradeManager responsibilities.
+- Phase 15: AngelOne SmartAPI session and account adapters — completed.
+- AngelOne session owns login, token refresh, logout, symbol resolution, and shared SmartConnect client.
+- AngelOne account adapter exposes profile, balance, margin, and buying power through the normalized account interface.
+- Phase 16: AngelOne SmartAPI market-data and execution adapters — completed.
+- Market-data adapter provides normalized LTP/ticks and historical OHLCV candles.
+- Execution adapter provides normalized orders, positions, holdings, trades, P&L, and order actions.
+
 ## Running
 
 Use the packaged default configuration:
@@ -55,10 +70,10 @@ The repository-level `config/config.yaml` remains available for project-local co
 ## Status
 
 - Version: 0.1.0
-- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework
-- Completed: Phases 1-12
-- Current milestone: Provider Layer
-- Current: Phase 13 - Shared HistoricalProvider
+- Completed milestones: Foundation, Mode-Neutral Core, Strategy Framework, Provider Layer
+- Completed: Phases 1-16
+- Current milestone: Execution and Risk
+- Current: Phase 17 - TradeManager and order state machine
 
 ## Plan
 
