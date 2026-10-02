@@ -9,6 +9,7 @@ import pytest
 import autotick.main as main
 from autotick.engine.market_session import CalendarSessionManager
 from autotick.models import PositionType
+from autotick.models.market import MarketTick
 from autotick.persistence import RecoveryResult
 from autotick.providers.brokers.simulated import (
     SimulatedAccountProvider, SimulatedExecutionProvider,
@@ -107,3 +108,61 @@ def test_provider_shutdown_saves_and_disconnects_at_close(tmp_path, make_config,
     disconnect_data.assert_called_once()
     disconnect_account.assert_called_once()
     providers.broker_session.logout.assert_called_once()
+
+
+def test_swing_heartbeat_is_throttled_and_reuses_ticks(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(main, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(main, "_swing_heartbeat_last_logged", None)
+    info = Mock()
+    monkeypatch.setattr(main.logger, "info", info)
+
+    prices = {"FIRSTCRY-EQ": 181.25, "SOUTHBANK-EQ": 47.80}
+    market = Mock()
+    market.get_tick.side_effect = lambda symbol: MarketTick(
+        symbol, "NSE", prices[symbol], None,
+        datetime(2026, 10, 2, 9, 20, tzinfo=ZoneInfo("Asia/Kolkata")),
+    )
+    providers = SimpleNamespace(market_data=market, execution=SimpleNamespace())
+    strategies = {
+        "FIRSTCRY-EQ": SimpleNamespace(
+            trigger_price=188.0,
+            context=SimpleNamespace(tick=None),
+            on_tick=Mock(return_value=None),
+        ),
+        "SOUTHBANK-EQ": SimpleNamespace(
+            trigger_price=50.0,
+            context=SimpleNamespace(tick=None),
+            on_tick=Mock(return_value=None),
+        ),
+    }
+    trades = Mock()
+    trades.get_exit_prices.return_value = None
+    trades.get_position.return_value = None
+    trades.has_active_trade.return_value = False
+    risk = SimpleNamespace(trailing_enabled=False)
+    config = {
+        "mode": "live",
+        "strategy": "swing",
+        "trade": {"expiry_exit": {"enabled": False}},
+    }
+
+    main._process_symbols(
+        providers, list(prices), strategies, trades, risk, set(),
+        PositionType.POSITIONAL, config,
+    )
+    info.assert_not_called()
+
+    clock[0] += main.SWING_HEARTBEAT_INTERVAL_S
+    main._process_symbols(
+        providers, list(prices), strategies, trades, risk, set(),
+        PositionType.POSITIONAL, config,
+    )
+
+    info.assert_called_once_with(
+        "SWING heartbeat active=%s %s",
+        2,
+        "FIRSTCRY-EQ ltp=181.25 trigger=188.00 | "
+        "SOUTHBANK-EQ ltp=47.80 trigger=50.00",
+    )
+    assert market.get_tick.call_count == 4

@@ -57,7 +57,9 @@ from autotick.utils.logger import configure_logging, get_logger, log_call
 logger = get_logger(__name__)
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 EXIT_STATUS_INTERVAL_S = 60.0
+SWING_HEARTBEAT_INTERVAL_S = 300.0
 _exit_status_last_logged: dict[tuple[str, str], float] = {}
+_swing_heartbeat_last_logged: float | None = None
 _expiry_warnings_logged: set[tuple[str, str, str]] = set()
 
 
@@ -99,6 +101,19 @@ def _log_exit_status(
         target,
     )
     _exit_status_last_logged[key] = now
+
+
+def _swing_heartbeat_due() -> bool:
+    """Return True once per heartbeat interval after the initial Swing setup."""
+    global _swing_heartbeat_last_logged
+    now = monotonic()
+    if _swing_heartbeat_last_logged is None:
+        _swing_heartbeat_last_logged = now
+        return False
+    if now - _swing_heartbeat_last_logged < SWING_HEARTBEAT_INTERVAL_S:
+        return False
+    _swing_heartbeat_last_logged = now
+    return True
 
 
 def _startup_wait_seconds(calendar, config: dict, now: datetime) -> float | None:
@@ -335,6 +350,8 @@ def _process_symbols(
     allow_entries: bool = True,
 ) -> None:
     mode = config["mode"]
+    heartbeat_due = _is_swing(config) and _swing_heartbeat_due()
+    heartbeat_parts: list[str] = []
     logger.debug(
         "_process_symbols entry mode=%s symbols=%s strategies=%s entered=%s",
         mode,
@@ -345,6 +362,18 @@ def _process_symbols(
     for symbol in list(symbols):
         logger.debug("_process_symbols symbol entry symbol=%s", symbol)
         tick = providers.market_data.get_tick(symbol)
+        if heartbeat_due:
+            strategy = strategies.get(symbol)
+            trigger = getattr(strategy, "trigger_price", None)
+            ltp_text = (
+                f"{tick.ltp:.2f}"
+                if tick is not None and tick.ltp is not None and tick.ltp > 0
+                else "N/A"
+            )
+            trigger_text = f"{trigger:.2f}" if trigger is not None else "N/A"
+            heartbeat_parts.append(
+                f"{symbol} ltp={ltp_text} trigger={trigger_text}"
+            )
         if tick is None or tick.ltp is None or tick.ltp <= 0:
             logger.warning(
                 "Skipping invalid tick symbol=%s ltp=%s",
@@ -680,6 +709,12 @@ def _process_symbols(
                 providers.account.get_balance(),
             )
         logger.debug("_process_symbols symbol exit symbol=%s order_status=%s", symbol, order.status.value)
+    if heartbeat_due:
+        logger.info(
+            "SWING heartbeat active=%s %s",
+            len(symbols),
+            " | ".join(heartbeat_parts) if heartbeat_parts else "no symbols",
+        )
     logger.debug("_process_symbols exit")
 
 
