@@ -15,6 +15,9 @@ dependencies = [
     "smartapi-python",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
 [project.scripts]
 autotick = "autotick.main:main"
 
@@ -23,3 +26,6 @@ include = ["autotick*"]
 
 [tool.setuptools.package-data]
 autotick = ["config/*.yaml", "config/*.csv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

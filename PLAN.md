@@ -14,7 +14,7 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Milestone 6 - Trading Modes: Paper, Backtest, Replay, and Live provider wiring.
 - [x] Milestone 7 - Recovery and Persistence: persistence, recovery, reconciliation, reconnect, and production configuration.
 - [x] Milestone 8 - Reports: performance metrics and trade export.
-- [ ] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
+- [x] Milestone 9 - Testing: unit, provider-contract, integration, parity, recovery, and end-to-end tests.
 - [ ] Milestone 10 - Production: documentation, audit trail, soak testing, and controlled Live rollout.
 
 ## Completed Phases
@@ -47,6 +47,9 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - [x] Phase 26 - Hybrid reconnect, token refresh, subscription recovery, and post-reconnect reconciliation.
 - [x] Phase 27 - Production configuration and secrets validation.
 - [x] Phase 28 - Performance metrics, strategy/combined reports, and completed-trade CSV export.
+- [x] Phase 29 - Minimal unit and provider-contract tests.
+- [x] Phase 30 - Minimal integration and cross-mode parity tests.
+- [x] Phase 31 - Minimal end-to-end, recovery, and reconciliation tests.
 
 ## Post-Phase Cleanup Completed
 
@@ -78,6 +81,10 @@ Build one modular trading framework for Live, Paper, Backtest, and Replay modes.
 - Updated Live verification to take the first previous-day high/low breakout, with symmetric long and short exits.
 - Added per-loop Live verification DEBUG ranges before entry and while monitoring long or short positions.
 - Updated RiskManager so configurations with `trade.max_position_value` calculate per-trade risk from `min(available capital, max_position_value)` and cap quantity by both trade capital and stop-loss risk.
+- Added offline unit tests for signal validation, risk rules, and the entry-to-exit trade lifecycle.
+- Added provider-contract tests for mode mapping, HistoricalProvider, simulated providers, and mocked AngelOne adapters.
+- Added one offline trade-flow integration test for Paper, Backtest, and Replay parity plus mocked Live provider wiring.
+- Added offline Paper restart recovery and fake Live reconciliation tests with temporary SQLite and report files.
 
 ## Current Runtime Wiring
 
@@ -101,16 +108,14 @@ Not yet wired in the CLI runner:
 
 - Daily P&L feed into max-loss enforcement.
 - Automatic square-off call.
-- Automated tests.
 
 ## Current Work
 
-- Completed milestone: Milestone 8 - Reports
-- Completed phases: 1 through 28
-- Current milestone: Milestone 9 - Testing
-- Next phase: Phase 29 - unit and provider-contract tests
-- Phase 28 status: completed
-- Test implementation starts at Phase 29
+- Completed milestone: Milestone 9 - Testing
+- Completed phases: 1 through 31
+- Current milestone: Milestone 10 - Production
+- Next phase: Phase 32 - documentation, metrics, and audit trail
+- Phase 31 status: completed
 
 ## Development Rules
 
