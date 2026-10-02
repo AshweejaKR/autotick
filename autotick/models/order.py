@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from autotick.models.position import PositionType
+
 
 class OrderSide(str, Enum):
     BUY = "BUY"
@@ -52,4 +54,5 @@ class Order:
     price: float | None = None
     status: OrderStatus = OrderStatus.NEW
     intent: OrderIntent = OrderIntent.ENTRY
+    position_type: PositionType = PositionType.POSITIONAL
     status_updated_at: datetime | None = None

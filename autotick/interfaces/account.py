@@ -8,7 +8,6 @@ Created on Sun Aug 23 18:23:38 2026
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from autotick.models.account import Account
 
@@ -37,5 +36,5 @@ class AccountProvider(ABC):
         """Return current buying power."""
 
     @abstractmethod
-    def get_profile(self) -> Account | dict[str, Any]:
+    def get_profile(self) -> Account:
         """Return normalized account profile information."""

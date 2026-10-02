@@ -18,3 +18,7 @@ class Account:
     balance: float | None = None
     available_margin: float | None = None
     buying_power: float | None = None
+    account_id: str | None = None
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
